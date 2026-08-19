@@ -166,18 +166,7 @@ export default function App() {
   }, []);
 
   // Stage 1 Original Unstructured Documents Data Setup
-  const rawFilesData = Array.from({ length: 15 }, (_, i) => {
-    const id = i + 10;
-    let type = 'SYSTEM';
-    if (id % 3 === 0) type = 'LEDGER';
-    else if (id % 3 === 1) type = 'TRANSCRIPT';
-    return {
-      name: `UNSTRUCTURED_DUMP_${id}.csv`,
-      size: `${(id * 3.4).toFixed(1)} KB`,
-      type: type,
-      isFlagged: id % 5 === 0
-    };
-  });
+  const rawFilesData = [];
 
   const filteredRawFiles = rawFilesData.filter(file => {
     const matchesSearch = file.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -629,36 +618,46 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 15 Original Unindexed Files list */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 animate-fadeIn">
-                {filteredRawFiles.map((file, idx) => (
-                  <div
-                    key={idx}
-                    className={`border rounded-xl p-3 flex items-center justify-between gap-3 transition-all ${
-                      isDarkMode ? 'bg-[#111218] border-white/[0.04] hover:border-white/[0.08]' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-8.5 h-8.5 rounded-lg flex items-center justify-center shrink-0 border ${
-                        file.isFlagged ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+              {/* Unindexed Files list */}
+              {filteredRawFiles.length === 0 ? (
+                <div className={`flex flex-col items-center justify-center py-14 rounded-xl border border-dashed ${
+                  isDarkMode ? 'border-white/[0.08] text-slate-500' : 'border-slate-200 text-slate-400'
+                }`}>
+                  <FileSpreadsheet size={28} className="mb-3 opacity-40" />
+                  <p className="text-xs font-mono font-semibold">NO FILES INGESTED</p>
+                  <p className="text-[10px] font-mono mt-1 opacity-60">Awaiting discovery ingest trigger</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 animate-fadeIn">
+                  {filteredRawFiles.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className={`border rounded-xl p-3 flex items-center justify-between gap-3 transition-all ${
+                        isDarkMode ? 'bg-[#111218] border-white/[0.04] hover:border-white/[0.08]' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-8.5 h-8.5 rounded-lg flex items-center justify-center shrink-0 border ${
+                          file.isFlagged ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+                        }`}>
+                          <FileSpreadsheet size={14} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-semibold truncate font-mono ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                            {file.name}
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">{file.size} // {file.type}</p>
+                        </div>
+                      </div>
+                      <span className={`text-[8px] font-mono border px-1.5 py-0.5 rounded font-bold ${
+                        file.isFlagged ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-slate-500/10 border-slate-500/20 text-slate-400'
                       }`}>
-                        <FileSpreadsheet size={14} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className={`text-xs font-semibold truncate font-mono ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                          {file.name}
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">{file.size} // {file.type}</p>
-                      </div>
+                        {file.isFlagged ? 'ANOMALY' : 'UNINDEXED'}
+                      </span>
                     </div>
-                    <span className={`text-[8px] font-mono border px-1.5 py-0.5 rounded font-bold ${
-                      file.isFlagged ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-slate-500/10 border-slate-500/20 text-slate-400'
-                    }`}>
-                      {file.isFlagged ? 'ANOMALY' : 'UNINDEXED'}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               <div className="pt-8 border-t border-white/[0.04] text-center">
                 <MicroStatusVisualizer active={false} isDarkMode={isDarkMode} />
