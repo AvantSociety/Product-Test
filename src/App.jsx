@@ -133,6 +133,9 @@ export default function App() {
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisPhase, setAnalysisPhase] = useState('Initializing pipeline...');
 
+  // Per-file citation findings generated from uploaded content
+  const [uploadedFileCitations, setUploadedFileCitations] = useState({});
+
   // Interactive Citations
   const [selectedFinding, setSelectedFinding] = useState(0);
   const [selectedDocSource, setSelectedDocSource] = useState('DEFAULT_VLM');
@@ -216,6 +219,37 @@ export default function App() {
   }, [activeStep]);
 
   // Interactive Upload Parsing Engine
+  // Extract the top 2–3 citation-worthy sentences from raw text
+  const parseCitationsFromText = (content, fileName) => {
+    const sentences = content
+      .replace(/\r\n/g, '\n')
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 40);
+
+    const scored = sentences.map((s, i) => {
+      let score = 0;
+      if (/\d{4}/.test(s)) score += 2;
+      if (/\$[\d,]+/.test(s)) score += 3;
+      if (/\b[A-Z][a-z]+\s[A-Z][a-z]+\b/.test(s)) score += 2;
+      if (/\b(wire|transfer|account|unauthorized|denied|confirmed|executed|breach|alleged|pursuant|agreement|contract|deposition|payment|receipt|authorization|liability)\b/i.test(s)) score += 2;
+      score += Math.min(s.length / 80, 2);
+      return { sentence: s, score, index: i };
+    });
+
+    const top = [...scored].sort((a, b) => b.score - a.score).slice(0, 3);
+    top.sort((a, b) => a.index - b.index);
+
+    const prefix = fileName.replace(/\.[^.]+$/, '').toUpperCase().slice(0, 8);
+    return top.map((item, i) => ({
+      id: i,
+      bates: `${prefix}-${String(i + 1).padStart(3, '0')}`,
+      finding: item.sentence.length > 130 ? item.sentence.slice(0, 130) + '…' : item.sentence,
+      excerpt: item.sentence,
+      confidence: `${Math.min(97, 74 + Math.round(item.score) * 3)}%`,
+    }));
+  };
+
   const handleFileUpload = (e) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -229,14 +263,17 @@ export default function App() {
           Array.from(files).forEach(file => {
             const reader = new FileReader();
             reader.onload = (event) => {
+              const text = event.target.result;
               const fileObj = {
                 name: file.name,
                 size: `${(file.size / 1024).toFixed(1)} KB`,
                 type: file.name.endsWith('.csv') ? 'LEDGER' : file.name.endsWith('.json') ? 'SYSTEM' : 'TRANSCRIPT',
-                content: event.target.result,
+                content: text,
                 isFlagged: false
               };
               setCustomUploadedFiles(prevFiles => [...prevFiles, fileObj]);
+              const citations = parseCitationsFromText(text, file.name);
+              setUploadedFileCitations(prev => ({ ...prev, [file.name]: citations }));
             };
             reader.readAsText(file);
           });
@@ -858,14 +895,27 @@ export default function App() {
                 )}
               </div>
 
+              {(() => {
+                const defaultFindings = [
+                  { id: 0, bates: 'VLM-002, Line 14', finding: 'Defendant explicitly confirmed physical presence in Seattle hub on Oct 12.', confidence: '100%' },
+                  { id: 1, bates: 'VLM-005, Line 88', finding: 'Corporate financial account records unscheduled wire allocation outward.', confidence: '100%' },
+                  { id: 2, bates: 'VLM-011, Line 4', finding: 'Internal message vectors contradict executive deposition metadata.', confidence: '100%' }
+                ];
+                const activeFindings = selectedDocSource === 'DEFAULT_VLM'
+                  ? defaultFindings
+                  : (uploadedFileCitations[selectedDocSource] || []);
+                return (
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 lg:h-[480px]">
                 {/* Findings Index Column */}
                 <div className="lg:col-span-2 space-y-2.5 overflow-y-auto max-h-[250px] lg:max-h-full pr-1.5">
-                  {[
-                    { id: 0, bates: 'VLM-002, Line 14', finding: 'Defendant explicitly confirmed physical presence in Seattle hub on Oct 12.' },
-                    { id: 1, bates: 'VLM-005, Line 88', finding: 'Corporate financial account records unscheduled wire allocation outward.' },
-                    { id: 2, bates: 'VLM-011, Line 4', finding: 'Internal message vectors contradict executive deposition metadata.' }
-                  ].map((item) => (
+                  {activeFindings.length === 0 ? (
+                    <div className={`flex flex-col items-center justify-center py-10 rounded-xl border border-dashed text-center ${isDarkMode ? 'border-white/[0.08] text-slate-500' : 'border-slate-200 text-slate-400'}`}>
+                      <ShieldCheck size={22} className="mb-2 opacity-30" />
+                      <p className="text-[10px] font-mono font-bold">NO CITATIONS EXTRACTED</p>
+                      <p className="text-[9px] font-mono mt-1 opacity-60">Document content may be too short to parse</p>
+                    </div>
+                  ) : (
+                    activeFindings.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => {
@@ -882,11 +932,12 @@ export default function App() {
                         <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                           {item.bates}
                         </span>
-                        <span className="text-[9px] text-slate-500 font-mono font-bold">Match: 100%</span>
+                        <span className="text-[9px] text-slate-500 font-mono font-bold">Match: {item.confidence}</span>
                       </div>
                       <p className={`text-[11px] leading-relaxed font-sans font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{item.finding}</p>
                     </div>
-                  ))}
+                  ))
+                  )}
 
                   {/* Stateful Custom Annotation Board */}
                   <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-[#111218] border-white/[0.05]' : 'bg-white border-slate-200 shadow-sm'}`}>
@@ -963,10 +1014,32 @@ export default function App() {
                         </>
                       ) : (
                         <>
-                          <p className="text-[9px] text-slate-400 font-mono mb-4 pb-1.5 border-b border-slate-100 uppercase tracking-widest font-bold">CLIENT ATOMIZED USER FILE CONTENT</p>
-                          <p className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
-                            {customUploadedFiles.find(f => f.name === selectedDocSource)?.content || "Error reading file contents."}
-                          </p>
+                          <p className="text-[9px] text-slate-400 font-mono mb-4 pb-1.5 border-b border-slate-100 uppercase tracking-widest font-bold">CLIENT DOCUMENT — CITATION ANALYSIS</p>
+                          {(() => {
+                            const fileContent = customUploadedFiles.find(f => f.name === selectedDocSource)?.content || '';
+                            const fileCitations = uploadedFileCitations[selectedDocSource] || [];
+                            const activeCitation = fileCitations[selectedFinding];
+                            if (!fileContent) return <p className="text-slate-400 font-mono text-[11px]">Error reading file contents.</p>;
+                            if (!activeCitation) {
+                              return <p className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{fileContent}</p>;
+                            }
+                            const excerpt = activeCitation.excerpt;
+                            const splitIdx = fileContent.indexOf(excerpt);
+                            if (splitIdx === -1) {
+                              return <p className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{fileContent}</p>;
+                            }
+                            const before = fileContent.slice(0, splitIdx);
+                            const after = fileContent.slice(splitIdx + excerpt.length);
+                            return (
+                              <p className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
+                                {before}
+                                <mark className="bg-amber-100 font-bold px-0.5 rounded border-b-2 border-amber-500 text-slate-950 transition-all duration-300 shadow-sm">
+                                  {excerpt}
+                                </mark>
+                                {after}
+                              </p>
+                            );
+                          })()}
                         </>
                       )}
 
@@ -983,6 +1056,8 @@ export default function App() {
                   </div>
                 </div>
               </div>
+                );
+              })()}
             </div>
           )}
 
