@@ -193,6 +193,11 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isTyping]);
 
+  // Seed annotation input whenever the active finding or doc source changes
+  useEffect(() => {
+    setActiveNoteInput(customNotes[selectedFinding] || '');
+  }, [selectedFinding, selectedDocSource]);
+
   // AI Pipeline Progress simulation
   useEffect(() => {
     let interval;
@@ -946,7 +951,7 @@ export default function App() {
                     </label>
                     <textarea
                       placeholder="Add custom annotations or notes..."
-                      value={activeNoteInput || (customNotes[selectedFinding] || '')}
+                      value={activeNoteInput}
                       onChange={(e) => {
                         setActiveNoteInput(e.target.value);
                         setIsTyping(true);
