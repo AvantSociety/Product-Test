@@ -129,9 +129,17 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // Stage 2: files selected from Discovery Ingest to send to Integrity Check
+  const [selectedTransferFiles, setSelectedTransferFiles] = useState([]);
+
+  // Stage 3: Integrity Check run state
+  const [isRunningIntegrityCheck, setIsRunningIntegrityCheck] = useState(false);
+  const [integrityScore, setIntegrityScore] = useState(null);
+
   // Analysis Pipeline States
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisPhase, setAnalysisPhase] = useState('Initializing pipeline...');
+  const [analysisComplete, setAnalysisComplete] = useState(false);
 
   // Per-file citation findings generated from uploaded content
   const [uploadedFileCitations, setUploadedFileCitations] = useState({});
@@ -168,10 +176,8 @@ export default function App() {
     }
   }, []);
 
-  // Stage 1 Original Unstructured Documents Data Setup
-  const rawFilesData = [];
-
-  const filteredRawFiles = rawFilesData.filter(file => {
+  // Stage 1 Discovery Ingest: files uploaded by the user, filtered by search/type
+  const filteredRawFiles = customUploadedFiles.filter(file => {
     const matchesSearch = file.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = fileFilter === 'ALL' || file.type === fileFilter;
     return matchesSearch && matchesType;
@@ -198,11 +204,18 @@ export default function App() {
     setActiveNoteInput(customNotes[selectedFinding] || '');
   }, [selectedFinding, selectedDocSource]);
 
+  // Reset integrity check results whenever the transferred file selection changes
+  useEffect(() => {
+    setIntegrityScore(null);
+    setIsRunningIntegrityCheck(false);
+  }, [selectedTransferFiles]);
+
   // AI Pipeline Progress simulation
   useEffect(() => {
     let interval;
     if (activeStep === 4) {
       setAnalysisProgress(0);
+      setAnalysisComplete(false);
       interval = setInterval(() => {
         setAnalysisProgress((prev) => {
           if (prev >= 100) {
@@ -214,6 +227,10 @@ export default function App() {
           else if (next < 65) setAnalysisPhase('Extracting timeline chronology anchors...');
           else if (next < 90) setAnalysisPhase('Compiling confidence interval matching algorithms...');
           else setAnalysisPhase('Completing secure bundle locks...');
+          if (next >= 100) {
+            setAnalysisPhase('Analysis complete.');
+            setAnalysisComplete(true);
+          }
           return next;
         });
       }, 60);
@@ -255,6 +272,26 @@ export default function App() {
     }));
   };
 
+  const ingestFiles = (files) => {
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target.result;
+        const fileObj = {
+          name: file.name,
+          size: `${(file.size / 1024).toFixed(1)} KB`,
+          type: file.name.endsWith('.csv') ? 'LEDGER' : file.name.endsWith('.json') ? 'SYSTEM' : 'TRANSCRIPT',
+          content: text,
+          isFlagged: false
+        };
+        setCustomUploadedFiles(prevFiles => [...prevFiles, fileObj]);
+        const citations = parseCitationsFromText(text, file.name);
+        setUploadedFileCitations(prev => ({ ...prev, [file.name]: citations }));
+      };
+      reader.readAsText(file);
+    });
+  };
+
   const handleFileUpload = (e) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -263,34 +300,19 @@ export default function App() {
 
     const interval = setInterval(() => {
       setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              const text = event.target.result;
-              const fileObj = {
-                name: file.name,
-                size: `${(file.size / 1024).toFixed(1)} KB`,
-                type: file.name.endsWith('.csv') ? 'LEDGER' : file.name.endsWith('.json') ? 'SYSTEM' : 'TRANSCRIPT',
-                content: text,
-                isFlagged: false
-              };
-              setCustomUploadedFiles(prevFiles => [...prevFiles, fileObj]);
-              const citations = parseCitationsFromText(text, file.name);
-              setUploadedFileCitations(prev => ({ ...prev, [file.name]: citations }));
-            };
-            reader.readAsText(file);
-          });
-          setTimeout(() => {
-            setIsUploading(false);
-            handleStepChange(3);
-          }, 600);
-          return 100;
-        }
+        if (prev >= 100) return prev;
         return prev + 10;
       });
     }, 50);
+
+    setTimeout(() => {
+      clearInterval(interval);
+      setUploadProgress(100);
+      ingestFiles(files);
+      setTimeout(() => {
+        setIsUploading(false);
+      }, 600);
+    }, 550);
   };
 
   const handleClaudeQuerySubmit = (e) => {
@@ -316,6 +338,28 @@ export default function App() {
       [selectedFinding]: activeNoteInput
     }));
     setActiveNoteInput('');
+  };
+
+  const toggleTransferFileSelection = (fileName) => {
+    setSelectedTransferFiles(prev =>
+      prev.includes(fileName) ? prev.filter(n => n !== fileName) : [...prev, fileName]
+    );
+  };
+
+  const handleRunIntegrityCheck = () => {
+    if (selectedTransferFiles.length === 0 || isRunningIntegrityCheck) return;
+    setIsRunningIntegrityCheck(true);
+    setIntegrityScore(null);
+    setTimeout(() => {
+      const base = 72 + Math.round(Math.random() * 26);
+      const flaggedCount = selectedTransferFiles.filter(name => {
+        const file = customUploadedFiles.find(f => f.name === name);
+        return file?.isFlagged;
+      }).length;
+      const score = Math.max(0, Math.min(100, base - flaggedCount * 8));
+      setIntegrityScore(score);
+      setIsRunningIntegrityCheck(false);
+    }, 1800);
   };
 
 
@@ -480,7 +524,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-mono text-slate-500">MEMORY INDEX:</span>
-              <span className="text-[10px] font-mono text-indigo-400 font-bold">{15 + customUploadedFiles.length} FILES</span>
+              <span className="text-[10px] font-mono text-indigo-400 font-bold">{customUploadedFiles.length} FILES</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-mono text-slate-500">ACTIVE REGION:</span>
@@ -622,9 +666,64 @@ export default function App() {
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-amber-500 font-mono">Unstructured Raw Dump Checked</h4>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    These 15 original, unstructured files have zero systemic indexation. Bates bounds are unassigned. Use the real-time search engine to locate target CSV structures.
+                    Ingested files have zero systemic indexation until Bates bounds are assigned downstream. Upload client documentation below, or use the real-time search engine to locate target CSV structures.
                   </p>
                 </div>
+              </div>
+
+              {/* Local file upload */}
+              <div className={`rounded-2xl border p-5 sm:p-6 transition-all duration-300 ${
+                isUploading
+                  ? 'border-indigo-500/50 bg-indigo-500/[0.02] shadow-[0_0_35px_rgba(99,102,241,0.12)]'
+                  : isDarkMode ? 'border-white/[0.06] bg-white/[0.01] hover:border-white/[0.12]' : 'border-slate-200 bg-white hover:border-slate-300 shadow-sm'
+              }`}>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 text-center sm:text-left">
+                    <div className={`w-11 h-11 rounded-xl border flex items-center justify-center text-indigo-500 shrink-0 ${
+                      isDarkMode ? 'bg-[#151620] border-white/[0.08]' : 'bg-white border-slate-200 shadow-sm'
+                    }`}>
+                      <UploadCloud size={20} className={isUploading ? 'animate-bounce' : ''} />
+                    </div>
+                    <div>
+                      <h3 className={`text-xs sm:text-sm font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                        Upload Local Documents
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Select .txt, .csv, .json, .log or .conf files from your computer to ingest.
+                      </p>
+                    </div>
+                  </div>
+
+                  {!isUploading && (
+                    <label className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 cursor-pointer shrink-0 ${
+                      isDarkMode ? 'bg-white text-slate-950 hover:bg-slate-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}>
+                      <Plus size={14} />
+                      Choose Files
+                      <input
+                        type="file"
+                        multiple
+                        accept=".txt,.csv,.json,.log,.conf"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {isUploading && (
+                  <div className="mt-5 space-y-2.5 max-w-xs mx-auto">
+                    <div className={`w-full h-1.5 rounded-full overflow-hidden border ${
+                      isDarkMode ? 'bg-[#121319] border-white/[0.05]' : 'bg-slate-200 border-slate-300'
+                    }`}>
+                      <div className="bg-indigo-600 h-full transition-all duration-75" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono text-slate-400">
+                      <span className="font-semibold">Ingesting into database...</span>
+                      <span className="font-bold text-indigo-500">{uploadProgress}%</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Real-time search tools */}
@@ -702,9 +801,11 @@ export default function App() {
               )}
 
               <div className="pt-8 border-t border-white/[0.04] text-center">
-                <MicroStatusVisualizer active={false} isDarkMode={isDarkMode} />
+                <MicroStatusVisualizer active={customUploadedFiles.length > 0} isDarkMode={isDarkMode} />
                 <p className="text-xs font-mono text-slate-500 mt-2">
-                  Framework Ingestion Queue: <span className="font-bold text-slate-300">AWAITING SYSTEM TRIGGER</span>
+                  Framework Ingestion Queue: <span className="font-bold text-slate-300">
+                    {customUploadedFiles.length > 0 ? `${customUploadedFiles.length} FILE${customUploadedFiles.length === 1 ? '' : 'S'} READY` : 'AWAITING SYSTEM TRIGGER'}
+                  </span>
                 </p>
               </div>
             </div>
@@ -714,78 +815,88 @@ export default function App() {
               STAGE 2: SECURE TRANSFER (UPLOAD DIRECTORIES)
              ================================================== */}
           {activeStep === 2 && (
-            <div className="space-y-6 max-w-xl mx-auto py-4 animate-fadeIn">
-              <div className={`rounded-3xl p-8 sm:p-14 text-center border transition-all duration-300 ${
-                isUploading
-                  ? 'border-indigo-500/50 bg-indigo-500/[0.02] shadow-[0_0_35px_rgba(99,102,241,0.15)]'
-                  : isDarkMode ? 'border-white/[0.06] bg-white/[0.01] hover:border-white/[0.12]' : 'border-slate-200 bg-white hover:border-slate-300 shadow-sm'
+            <div className="space-y-6 max-w-2xl mx-auto py-4 animate-fadeIn">
+              <div className={`border rounded-2xl p-4 flex gap-4 items-start ${
+                isDarkMode ? 'bg-indigo-500/[0.02] border-indigo-500/20' : 'bg-indigo-500/[0.04] border-indigo-500/30'
               }`}>
-                <div className="relative w-16 h-16 mx-auto mb-5">
-                  <div className="absolute inset-0 rounded-2xl bg-indigo-500/10 animate-ping opacity-25" />
-                  <div className={`relative w-16 h-16 rounded-2xl border flex items-center justify-center text-indigo-500 ${
-                    isDarkMode ? 'bg-[#151620] border-white/[0.08]' : 'bg-white border-slate-200 shadow-sm'
-                  }`}>
-                    <UploadCloud size={24} className={isUploading ? 'animate-bounce' : ''} />
-                  </div>
+                <ShieldCheck className="text-indigo-400 shrink-0 mt-0.5" size={18} />
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400 font-mono">Secure Transfer Selection</h4>
+                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    Choose which documents ingested in Discovery to send to the Integrity Check stage. Unselected files remain in the ingestion queue.
+                  </p>
                 </div>
-
-                <h3 className={`text-sm sm:text-md font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                  Custom Secure Document Upload
-                </h3>
-                <p className="text-xs text-slate-400 mt-2 max-w-sm mx-auto leading-relaxed">
-                  Drop your actual client documentation (.txt, .csv, .json) directly. We will parse and highlight matches in downstream citation matrices.
-                </p>
-
-                {isUploading ? (
-                  <div className="mt-8 space-y-2.5 max-w-xs mx-auto">
-                    <div className={`w-full h-1.5 rounded-full overflow-hidden border ${
-                      isDarkMode ? 'bg-[#121319] border-white/[0.05]' : 'bg-slate-200 border-slate-300'
-                    }`}>
-                      <div className="bg-indigo-600 h-full transition-all duration-75" style={{ width: `${uploadProgress}%` }} />
-                    </div>
-                    <div className="flex justify-between text-[10px] font-mono text-slate-400">
-                      <span className="font-semibold">Decrypting Ingestion Tunnel...</span>
-                      <span className="font-bold text-indigo-500">{uploadProgress}%</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-6 flex flex-col items-center">
-                    <label className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 cursor-pointer ${
-                      isDarkMode ? 'bg-white text-slate-950 hover:bg-slate-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                    }`}>
-                      <Plus size={14} />
-                      Choose Legal Document
-                      <input
-                        type="file"
-                        multiple
-                        accept=".txt,.csv,.json,.log,.conf"
-                        className="hidden"
-                        onChange={handleFileUpload}
-                      />
-                    </label>
-                  </div>
-                )}
               </div>
 
-              {/* Display custom uploaded items */}
-              {customUploadedFiles.length > 0 && (
-                <div className="space-y-2 mt-4 animate-fadeIn">
-                  <h4 className="text-[10px] font-mono tracking-widest text-slate-500 font-bold uppercase">Custom Uploaded Custody Manifest</h4>
-                  <div className="space-y-1.5">
-                    {customUploadedFiles.map((file, idx) => (
-                      <div key={idx} className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
-                        isDarkMode ? 'bg-white/[0.01] border-white/[0.04]' : 'bg-white border-slate-200 shadow-sm'
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          <FileText size={14} className="text-indigo-500" />
-                          <span className="font-mono font-bold text-slate-200">{file.name}</span>
-                          <span className="text-slate-500">({file.size})</span>
-                        </div>
-                        <span className="text-[9px] font-mono bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-500/20">Ingested</span>
-                      </div>
-                    ))}
-                  </div>
+              {customUploadedFiles.length === 0 ? (
+                <div className={`flex flex-col items-center justify-center py-14 rounded-xl border border-dashed ${
+                  isDarkMode ? 'border-white/[0.08] text-slate-500' : 'border-slate-200 text-slate-400'
+                }`}>
+                  <UploadCloud size={28} className="mb-3 opacity-40" />
+                  <p className="text-xs font-mono font-semibold">NO INGESTED DOCUMENTS</p>
+                  <p className="text-[10px] font-mono mt-1 opacity-60">Return to Discovery Ingest (Stage 1) to upload files</p>
                 </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-mono tracking-widest text-slate-500 font-bold uppercase">Ingested Custody Manifest</h4>
+                    <button
+                      onClick={() => setSelectedTransferFiles(
+                        selectedTransferFiles.length === customUploadedFiles.length ? [] : customUploadedFiles.map(f => f.name)
+                      )}
+                      className="text-[10px] font-mono font-bold text-indigo-400 hover:text-indigo-300"
+                    >
+                      {selectedTransferFiles.length === customUploadedFiles.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {customUploadedFiles.map((file, idx) => {
+                      const isSelected = selectedTransferFiles.includes(file.name);
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => toggleTransferFileSelection(file.name)}
+                          className={`p-3 rounded-xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
+                            isSelected
+                              ? isDarkMode ? 'bg-indigo-500/10 border-indigo-500/40' : 'bg-indigo-50 border-indigo-300'
+                              : isDarkMode ? 'bg-white/[0.01] border-white/[0.04] hover:border-white/[0.08]' : 'bg-white border-slate-200 shadow-sm hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                              isSelected ? 'bg-indigo-600 border-indigo-600' : isDarkMode ? 'border-white/[0.15]' : 'border-slate-300'
+                            }`}>
+                              {isSelected && <CheckCircle2 size={12} className="text-white" />}
+                            </div>
+                            <FileText size={14} className="text-indigo-500" />
+                            <span className="font-mono font-bold text-slate-200">{file.name}</span>
+                            <span className="text-slate-500">({file.size})</span>
+                          </div>
+                          <span className="text-[9px] font-mono bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-500/20">Ingested</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                    <p className="text-[11px] font-mono text-slate-500">
+                      {selectedTransferFiles.length} of {customUploadedFiles.length} selected for transfer
+                    </p>
+                    <button
+                      onClick={() => handleStepChange(3)}
+                      disabled={selectedTransferFiles.length === 0}
+                      className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 ${
+                        selectedTransferFiles.length === 0
+                          ? 'bg-slate-500/10 text-slate-500 cursor-not-allowed'
+                          : isDarkMode ? 'bg-white text-slate-950 hover:bg-slate-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      }`}
+                    >
+                      Send to Integrity Check
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -803,11 +914,23 @@ export default function App() {
                 }`}>
                   <div className="flex items-center gap-2">
                     <Layers size={14} className="text-indigo-500" />
-                    <h3 className={`text-xs font-bold tracking-widest uppercase ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Manifest Certified</h3>
+                    <h3 className={`text-xs font-bold tracking-widest uppercase ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Manifest Pending Verification</h3>
                   </div>
-                  <span className="text-[9px] font-mono bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 px-2.5 py-0.5 rounded font-bold">
-                    PASSED INTEGRITY
-                  </span>
+                  {integrityScore !== null ? (
+                    <span className={`text-[9px] font-mono border px-2.5 py-0.5 rounded font-bold ${
+                      integrityScore >= 80
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                        : integrityScore >= 60
+                          ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                          : 'bg-red-500/10 border-red-500/20 text-red-400'
+                    }`}>
+                      {integrityScore >= 80 ? 'PASSED INTEGRITY' : integrityScore >= 60 ? 'REVIEW RECOMMENDED' : 'FAILED INTEGRITY'}
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-mono bg-slate-500/10 border border-slate-500/20 text-slate-400 px-2.5 py-0.5 rounded font-bold">
+                      NOT YET RUN
+                    </span>
+                  )}
                 </div>
 
                 <div className="p-6 space-y-4">
@@ -818,7 +941,7 @@ export default function App() {
                     </div>
                     <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/[0.02] border-white/[0.04]' : 'bg-slate-50 border-slate-200'}`}>
                       <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Volume Scale</span>
-                      <p className={`text-xs font-bold mt-1 font-mono ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{15 + customUploadedFiles.length} Documents Indexed</p>
+                      <p className={`text-xs font-bold mt-1 font-mono ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{selectedTransferFiles.length} Documents Selected</p>
                     </div>
                     <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/[0.02] border-white/[0.04]' : 'bg-slate-50 border-slate-200'}`}>
                       <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Bates Base Index</span>
@@ -829,14 +952,68 @@ export default function App() {
                       <p className="text-[10px] font-mono text-emerald-400 mt-1 truncate">SHA-256 // 42e88b0b1cc9...</p>
                     </div>
                   </div>
+
+                  {selectedTransferFiles.length === 0 ? (
+                    <p className="text-xs text-slate-500 font-mono text-center py-2">
+                      No documents were sent from Secure Transfer. Return to Stage 2 to select files.
+                    </p>
+                  ) : (
+                    <div className="pt-2 space-y-4">
+                      {isRunningIntegrityCheck ? (
+                        <div className="flex flex-col items-center gap-2.5 py-3">
+                          <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-[11px] font-mono text-indigo-400">Validating manifest checksum & Bates sequencing...</span>
+                        </div>
+                      ) : integrityScore !== null ? (
+                        <div className="flex flex-col items-center gap-3 py-2">
+                          <div className={`text-4xl font-black font-mono ${
+                            integrityScore >= 80 ? 'text-emerald-500' : integrityScore >= 60 ? 'text-amber-500' : 'text-red-400'
+                          }`}>
+                            {integrityScore}<span className="text-lg text-slate-500">/100</span>
+                          </div>
+                          <button
+                            onClick={handleRunIntegrityCheck}
+                            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 ${
+                              isDarkMode ? 'bg-white/[0.06] text-white hover:bg-white/[0.1] border border-white/[0.08]' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-200'
+                            }`}
+                          >
+                            Re-run Integrity Check
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-center py-2">
+                          <button
+                            onClick={handleRunIntegrityCheck}
+                            className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 ${
+                              isDarkMode ? 'bg-white text-slate-950 hover:bg-slate-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                            }`}
+                          >
+                            <CheckCircle2 size={14} />
+                            Run Integrity Check
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="text-center pt-2">
-                <MicroStatusVisualizer active={false} isDarkMode={isDarkMode} />
+                <MicroStatusVisualizer active={integrityScore !== null} isDarkMode={isDarkMode} />
                 <p className="text-xs font-mono text-slate-500 mt-2">
-                  Secure Enclave state: <span className="text-emerald-500 font-bold">INDEX COMPLETE</span>
+                  Secure Enclave state: <span className={`font-bold ${integrityScore !== null ? 'text-emerald-500' : 'text-slate-400'}`}>
+                    {integrityScore !== null ? 'INDEX COMPLETE' : 'AWAITING VERIFICATION'}
+                  </span>
                 </p>
+                {integrityScore !== null && integrityScore >= 60 && (
+                  <button
+                    onClick={() => handleStepChange(4)}
+                    className="mt-4 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-500"
+                  >
+                    Proceed to Deep Analysis
+                    <ChevronRight size={14} />
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -847,26 +1024,45 @@ export default function App() {
           {activeStep === 4 && (
             <div className="space-y-6 max-w-xl mx-auto py-8 animate-fadeIn">
               <div className="text-center space-y-2">
-                <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-2 animate-pulse">
-                  <Activity className="text-indigo-500" size={24} />
+                <div className={`w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-2 ${analysisComplete ? '' : 'animate-pulse'}`}>
+                  {analysisComplete ? <CheckCircle2 className="text-emerald-500" size={24} /> : <Activity className="text-indigo-500" size={24} />}
                 </div>
-                <h3 className={`text-md font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Reconstructing Chronology Timelines</h3>
-                <p className="text-xs text-slate-400">Extracting chronological matching nodes inside secure enclave space...</p>
+                <h3 className={`text-md font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                  {analysisComplete ? 'Analysis Complete' : 'Reconstructing Chronology Timelines'}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {analysisComplete
+                    ? 'Cross-document chronological matching finished. Findings are ready for review in the Citation Matrix.'
+                    : 'Extracting chronological matching nodes inside secure enclave space...'}
+                </p>
               </div>
 
               <div className="space-y-3">
                 <div className={`w-full h-3 rounded-full p-0.5 overflow-hidden border ${
                   isDarkMode ? 'bg-[#13141C] border-white/[0.05]' : 'bg-slate-200 border-slate-300'
                 }`}>
-                  <div className="bg-indigo-600 h-full rounded-full transition-all duration-75" style={{ width: `${analysisProgress}%` }} />
+                  <div className={`h-full rounded-full transition-all duration-75 ${analysisComplete ? 'bg-emerald-500' : 'bg-indigo-600'}`} style={{ width: `${analysisProgress}%` }} />
                 </div>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 text-[11px] font-mono text-slate-400">
-                  <span className="text-indigo-500 animate-pulse truncate">{analysisPhase}</span>
+                  <span className={`truncate ${analysisComplete ? 'text-emerald-500' : 'text-indigo-500 animate-pulse'}`}>{analysisPhase}</span>
                   <span className="font-bold text-white self-end sm:self-auto">{analysisProgress}%</span>
                 </div>
               </div>
 
               <PremiumCircuitMap />
+
+              {analysisComplete && (
+                <div className="flex justify-center pt-2 animate-fadeIn">
+                  <button
+                    onClick={() => handleStepChange(5)}
+                    className="px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                  >
+                    <CheckCircle2 size={14} />
+                    Continue to Citation Matrix
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
