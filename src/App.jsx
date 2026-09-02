@@ -123,7 +123,7 @@ const STEPS = [
   { id: 4, title: 'Deep Analysis', actor: 'Processor', icon: Cpu, description: 'Cross-document chronological matching' },
   { id: 5, title: 'Citation Matrix', actor: 'Trust Layer', icon: ShieldCheck, description: 'Record citations traced to source' },
   { id: 6, title: 'Interactive Review', actor: 'Attorney', icon: FileText, description: 'Strategic brief drafted from findings' },
-  { id: 7, title: 'Override & Refine', actor: 'Attorney', icon: Edit3, description: 'Matter parameters & Bates numbering' },
+  { id: 7, title: 'Approval & Sign-off', actor: 'Attorney', icon: Edit3, description: 'Final review flag and package approval' },
   { id: 8, title: 'Package Ready', actor: 'Deliverables', icon: Archive, description: 'Production deliverables and exports' },
   { id: 9, title: 'Pipeline Complete', actor: 'Archived', icon: Trophy, description: 'Matter summary and reset' },
 ];
@@ -141,12 +141,12 @@ const ACTOR_STYLES = {
 const ADVISOR_TIPS = {
   0: 'Start at Discovery Ingest to upload the documents for this matter. Everything downstream is built from what you load there.',
   1: 'Upload client documents from your computer. PDF, DOCX, email and plain-text formats are read directly; scanned PDFs are flagged as needing OCR.',
-  2: 'Designate each document before it moves downstream. Anything withheld as privileged is excluded from analysis and recorded on the privilege log.',
+  2: 'Set the matter name and Bates numbering here — the integrity check stamps documents in Stage 03, so this is your last chance to change them. Then designate each document; anything withheld as privileged is excluded downstream and recorded on the privilege log.',
   3: 'Run the integrity check to grade the selected set. The score breaks down into five named checks so you can explain it to a client.',
   4: 'Dates are extracted from each document and assembled into a case chronology. Progress reflects documents actually processed.',
   5: 'Select a finding to highlight the exact passage it was drawn from. Notes you add are attached to that passage in that document.',
   6: 'The brief is drafted from the findings you extracted. Edit it directly — your changes are kept and exported.',
-  7: 'Set the Bates prefix and starting number before the integrity check assigns numbers. Flagging for senior counsel marks the package.',
+  7: 'Rename the matter if needed, flag the package for supervising review, and approve it for production. Bates numbering is set back in Stage 02.',
   8: 'Download the production deliverables: the brief, the privilege log, the production index, and the audit log.',
   9: 'Matter summary. Resetting clears every document and annotation from this browser.',
 };
@@ -694,6 +694,72 @@ export default function App() {
     ? 'bg-[#111218] border-white/[0.04]'
     : 'bg-white border-slate-200 shadow-sm';
 
+  // Plain render function, not a nested component: a component defined inside
+  // App gets a fresh identity every render, which would remount these inputs
+  // and drop focus on each keystroke.
+  const renderMatterFields = (showBates) => {
+    const stamped = Object.keys(batesAssignments).length;
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Matter Name</label>
+          <input
+            type="text"
+            value={caseTitle}
+            onChange={(e) => setCaseTitle(e.target.value)}
+            onFocus={() => setIsTyping(true)}
+            onBlur={() => setIsTyping(false)}
+            className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all ${
+              isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+            }`}
+          />
+        </div>
+
+        {showBates && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Bates Prefix</label>
+                <input
+                  type="text"
+                  value={batesPrefix}
+                  onChange={(e) => setBatesPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+                  onFocus={() => setIsTyping(true)}
+                  onBlur={() => setIsTyping(false)}
+                  disabled={stamped > 0}
+                  className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 ${
+                    isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Start Number</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={batesStart}
+                  onChange={(e) => setBatesStart(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  onFocus={() => setIsTyping(true)}
+                  onBlur={() => setIsTyping(false)}
+                  disabled={stamped > 0}
+                  className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 ${
+                    isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  }`}
+                />
+              </div>
+            </div>
+
+            <p className={`text-[10px] leading-relaxed ${stamped > 0 ? 'text-amber-500' : 'text-slate-500'}`}>
+              {stamped > 0
+                ? `${stamped} document${stamped === 1 ? ' has' : 's have'} already been stamped ${batesPrefix}-… Bates numbers are immutable once assigned — clear the matter in Stage 09 to renumber.`
+                : `Documents will be stamped ${batesPrefix}-${String(batesStart).padStart(6, '0')} onward when the integrity check runs in Stage 03. Set this before then.`}
+            </p>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const EmptyState = ({ icon: Icon, title, hint }) => (
     <div className={`flex flex-col items-center justify-center py-14 rounded-xl border border-dashed ${
       isDarkMode ? 'border-white/[0.08] text-slate-500' : 'border-slate-200 text-slate-400'
@@ -1156,6 +1222,14 @@ export default function App() {
           {/* ============ STAGE 2: REVIEW & DESIGNATE ============ */}
           {activeStep === 2 && (
             <div className="space-y-6 max-w-3xl mx-auto py-4 animate-fadeIn">
+              {/* Matter details belong here, ahead of the Stage 03 stamping run. */}
+              <div className={`border rounded-2xl p-5 ${panelClass}`}>
+                <h4 className="text-[10px] font-mono uppercase tracking-widest text-indigo-500 font-bold mb-4 pb-3 border-b border-white/[0.04]">
+                  Matter Details
+                </h4>
+                {renderMatterFields(true)}
+              </div>
+
               <div className={`border rounded-2xl p-4 flex gap-4 items-start ${
                 isDarkMode ? 'bg-indigo-500/[0.02] border-indigo-500/20' : 'bg-indigo-500/[0.04] border-indigo-500/30'
               }`}>
@@ -1817,62 +1891,15 @@ export default function App() {
                 isDarkMode ? 'bg-[#111218] border-white/[0.04]' : 'bg-white border-slate-200'
               }`}>
                 <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-500 font-mono border-b border-white/[0.04] pb-3">
-                  Matter Parameters
+                  Sign-off
                 </h3>
 
                 <div className="space-y-4">
-                  <div>
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Matter Name</label>
-                    <input
-                      type="text"
-                      value={caseTitle}
-                      onChange={(e) => setCaseTitle(e.target.value)}
-                      onFocus={() => setIsTyping(true)}
-                      onBlur={() => setIsTyping(false)}
-                      className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all ${
-                        isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                      }`}
-                    />
-                  </div>
+                  {renderMatterFields(false)}
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Bates Prefix</label>
-                      <input
-                        type="text"
-                        value={batesPrefix}
-                        onChange={(e) => setBatesPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
-                        onFocus={() => setIsTyping(true)}
-                        onBlur={() => setIsTyping(false)}
-                        disabled={Object.keys(batesAssignments).length > 0}
-                        className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 ${
-                          isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Start Number</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={batesStart}
-                        onChange={(e) => setBatesStart(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                        onFocus={() => setIsTyping(true)}
-                        onBlur={() => setIsTyping(false)}
-                        disabled={Object.keys(batesAssignments).length > 0}
-                        className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 ${
-                          isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  {Object.keys(batesAssignments).length > 0 && (
-                    <p className="text-[10px] text-amber-500 leading-relaxed">
-                      {Object.keys(batesAssignments).length} document{Object.keys(batesAssignments).length === 1 ? ' has' : 's have'} already
-                      been stamped. Bates numbers are immutable once assigned &mdash; clear the matter in Stage&nbsp;09 to renumber.
-                    </p>
-                  )}
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    Bates numbering is set in Stage&nbsp;02, before the integrity check stamps the documents.
+                  </p>
 
                   <div className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border gap-3 mt-4 ${
                     isDarkMode ? 'bg-[#16171F] border-white/[0.04]' : 'bg-slate-50 border-slate-200'
