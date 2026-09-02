@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import {
   FolderDown,
   UploadCloud,
@@ -123,7 +123,7 @@ const STEPS = [
   { id: 4, title: 'Deep Analysis', actor: 'Processor', icon: Cpu, description: 'Cross-document chronological matching' },
   { id: 5, title: 'Citation Matrix', actor: 'Trust Layer', icon: ShieldCheck, description: 'Record citations traced to source' },
   { id: 6, title: 'Interactive Review', actor: 'Attorney', icon: FileText, description: 'Strategic brief drafted from findings' },
-  { id: 7, title: 'Approval & Sign-off', actor: 'Attorney', icon: Edit3, description: 'Final review flag and package approval' },
+  { id: 7, title: 'Override & Refine', actor: 'Attorney', icon: Edit3, description: 'Matter parameters & Bates numbering' },
   { id: 8, title: 'Package Ready', actor: 'Deliverables', icon: Archive, description: 'Production deliverables and exports' },
   { id: 9, title: 'Pipeline Complete', actor: 'Archived', icon: Trophy, description: 'Matter summary and reset' },
 ];
@@ -146,7 +146,7 @@ const ADVISOR_TIPS = {
   4: 'Dates are extracted from each document and assembled into a case chronology. Progress reflects documents actually processed.',
   5: 'Select a finding to highlight the exact passage it was drawn from. Notes you add are attached to that passage in that document.',
   6: 'The brief is drafted from the findings you extracted. Edit it directly — your changes are kept and exported.',
-  7: 'Rename the matter if needed, flag the package for supervising review, and approve it for production. Bates numbering is set back in Stage 02.',
+  7: 'Set the Bates prefix and starting number before the integrity check assigns numbers. Flagging for senior counsel marks the package.',
   8: 'Download the production deliverables: the brief, the privilege log, the production index, and the audit log.',
   9: 'Matter summary. Resetting clears every document and annotation from this browser.',
 };
@@ -204,6 +204,10 @@ export default function App() {
   const [analysisPhase, setAnalysisPhase] = useState('Waiting to start...');
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [timeline, setTimeline] = useState([]);
+  const [docAnalysis, setDocAnalysis] = useState({});
+
+  // Document opened in the full-screen reader (by name), or null.
+  const [openDocument, setOpenDocument] = useState(null);
 
   // --- Citation matrix ---
   const [selectedDocSource, setSelectedDocSource] = useState(null);
@@ -216,6 +220,10 @@ export default function App() {
   const [userQueryText, setUserQueryText] = useState('');
 
   const rightPanelRef = useRef(null);
+  // Stage 05 viewer: scrolls the highlighted passage to the top when a finding
+  // is selected, so it is never left off-screen in a long document.
+  const viewerRef = useRef(null);
+  const markRef = useRef(null);
   const hydrated = useRef(false);
   // Mirrors `documents` so ingest can check for duplicates synchronously,
   // without reading a flag set inside a state updater.
@@ -343,6 +351,26 @@ export default function App() {
     setActiveNoteInput(noteKey ? (notes[noteKey] || '') : '');
   }, [noteKey, notes]);
 
+  // Escape closes the document reader.
+  useEffect(() => {
+    if (!openDocument) return;
+    const onKey = (e) => { if (e.key === 'Escape') setOpenDocument(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [openDocument]);
+
+  // Bring the highlighted passage to the top of the viewer whenever the
+  // selected finding or document changes. Runs before paint so the reader
+  // never sees the document jump.
+  useLayoutEffect(() => {
+    if (activeStep !== 5) return;
+    const container = viewerRef.current;
+    const mark = markRef.current;
+    if (!container || !mark) return;
+    const delta = mark.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    container.scrollTop += delta - 16;
+  }, [activeStep, selectedFinding, selectedDocSource]);
+
   // Default the matrix to the first producible document that yielded findings.
   useEffect(() => {
     if (selectedDocSource && producibleNames.includes(selectedDocSource)) return;
@@ -372,6 +400,7 @@ export default function App() {
     setAnalysisProgress(0);
     setAnalysisComplete(false);
     setTimeline([]);
+    setDocAnalysis({});
     setAnalysisPhase('Extracting dates...');
 
     const events = [];
@@ -383,10 +412,12 @@ export default function App() {
       if (doc) {
         const re = new RegExp(DATE_PATTERN.source, 'gi');
         let match;
+        let found = 0;
         while ((match = re.exec(doc.content || '')) !== null) {
           const time = Date.parse(match[0]);
-          if (!Number.isNaN(time)) events.push({ time, label: match[0], source: doc.name });
+          if (!Number.isNaN(time)) { events.push({ time, label: match[0], source: doc.name }); found += 1; }
         }
+        setDocAnalysis(prev => ({ ...prev, [doc.name]: { events: found, done: true } }));
       }
       index += 1;
       const pct = Math.round((index / producibleDocs.length) * 100);
@@ -677,6 +708,27 @@ export default function App() {
   };
 
   // ---------- Shared bits ----------
+
+  // Marks the dates the analysis pass extracts, so opening a document shows
+  // what Stage 04 actually found in it.
+  const renderWithDates = (text) => {
+    const re = new RegExp(DATE_PATTERN.source, 'gi');
+    const parts = [];
+    let last = 0;
+    let match;
+    let key = 0;
+    while ((match = re.exec(text)) !== null) {
+      if (match.index > last) parts.push(text.slice(last, match.index));
+      parts.push(
+        <mark key={key++} className="bg-indigo-100 text-indigo-950 rounded px-0.5 font-semibold">
+          {match[0]}
+        </mark>
+      );
+      last = match.index + match[0].length;
+    }
+    if (last < text.length) parts.push(text.slice(last));
+    return parts;
+  };
 
   const toneClasses = {
     emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500',
@@ -1600,7 +1652,7 @@ export default function App() {
 
           {/* ============ STAGE 4: DEEP ANALYSIS ============ */}
           {activeStep === 4 && (
-            <div className="space-y-6 max-w-xl mx-auto py-8 animate-fadeIn">
+            <div className="space-y-6 max-w-2xl mx-auto py-8 animate-fadeIn">
               <div className="text-center space-y-2">
                 <div className={`w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-2 ${analysisComplete ? '' : 'animate-pulse'}`}>
                   {analysisComplete ? <CheckCircle2 className="text-emerald-500" size={24} /> : <Activity className="text-indigo-500" size={24} />}
@@ -1629,6 +1681,58 @@ export default function App() {
                   <span className={`font-bold self-end sm:self-auto ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{analysisProgress}%</span>
                 </div>
               </div>
+
+              {/* Documents in this analysis pass */}
+              {producibleDocs.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold">
+                      Documents in this pass
+                    </p>
+                    <p className="text-[9px] font-mono text-slate-500">
+                      {Object.keys(docAnalysis).length} of {producibleDocs.length} processed
+                    </p>
+                  </div>
+
+                  {producibleDocs.map((doc) => {
+                    const result = docAnalysis[doc.name];
+                    return (
+                      <div
+                        key={doc.name}
+                        className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                          result
+                            ? isDarkMode ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-slate-200 shadow-sm'
+                            : isDarkMode ? 'bg-white/[0.01] border-white/[0.03] opacity-60' : 'bg-slate-50 border-slate-200 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {result
+                            ? <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                            : <div className="w-3.5 h-3.5 border-2 border-slate-500/40 border-t-indigo-500 rounded-full animate-spin shrink-0" />}
+                          <div className="min-w-0">
+                            <p className={`text-xs font-mono font-bold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                              {doc.name}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-mono">
+                              {batesAssignments[doc.name] || 'Bates pending'} &middot; {doc.pages}p &middot; {doc.type}
+                              {result && ` · ${result.events} dated event${result.events === 1 ? '' : 's'}`}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setOpenDocument(doc.name)}
+                          className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg border transition-all shrink-0 inline-flex items-center gap-1.5 ${
+                            isDarkMode ? 'border-white/[0.08] text-slate-300 hover:bg-white/[0.05]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          <FileText size={11} /> Open
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <TimelineStrip timeline={timeline} isDarkMode={isDarkMode} />
 
@@ -1774,7 +1878,7 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div className="flex-1 p-6 font-serif text-[12.5px] leading-relaxed overflow-y-auto bg-[#F9FAFB] select-text">
+                    <div ref={viewerRef} className="flex-1 p-6 font-serif text-[12.5px] leading-relaxed overflow-y-auto bg-[#F9FAFB] select-text">
                       <div className="border border-slate-200/60 p-6 bg-white min-h-full shadow-sm rounded-xl">
                         <p className="text-[9px] text-slate-400 font-mono mb-4 pb-1.5 border-b border-slate-100 uppercase tracking-widest font-bold">
                           {dispositionOf(selectedDocSource) === 'redact' ? 'Client document — produced in redacted form' : 'Client document'}
@@ -1794,7 +1898,7 @@ export default function App() {
                           return (
                             <p className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
                               {content.slice(0, start)}
-                              <mark className="bg-amber-100 font-bold px-0.5 rounded border-b-2 border-amber-500 text-slate-950 shadow-sm">
+                              <mark ref={markRef} className="bg-amber-100 font-bold px-0.5 rounded border-b-2 border-amber-500 text-slate-950 shadow-sm">
                                 {content.slice(start, end)}
                               </mark>
                               {content.slice(end)}
@@ -1891,15 +1995,11 @@ export default function App() {
                 isDarkMode ? 'bg-[#111218] border-white/[0.04]' : 'bg-white border-slate-200'
               }`}>
                 <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-500 font-mono border-b border-white/[0.04] pb-3">
-                  Sign-off
+                  Matter Parameters
                 </h3>
 
                 <div className="space-y-4">
-                  {renderMatterFields(false)}
-
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    Bates numbering is set in Stage&nbsp;02, before the integrity check stamps the documents.
-                  </p>
+                  {renderMatterFields(true)}
 
                   <div className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border gap-3 mt-4 ${
                     isDarkMode ? 'bg-[#16171F] border-white/[0.04]' : 'bg-slate-50 border-slate-200'
@@ -2174,6 +2274,60 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* DOCUMENT READER */}
+      {openDocument && (() => {
+        const doc = documents.find(d => d.name === openDocument);
+        if (!doc) return null;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/70 backdrop-blur-sm animate-fadeIn"
+            onClick={() => setOpenDocument(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-3xl max-h-full bg-white rounded-2xl border border-[#D1D5DB] flex flex-col overflow-hidden text-slate-900 shadow-2xl"
+            >
+              <div className="bg-[#E5E7EB] px-4 py-2.5 border-b border-[#D1D5DB] flex justify-between items-center gap-3 shrink-0">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-mono font-bold text-slate-700 truncate flex items-center gap-1.5">
+                    <FileText size={13} className="shrink-0" /> {doc.name}
+                  </p>
+                  <p className="text-[10px] font-mono text-slate-500 mt-0.5 truncate">
+                    {batesAssignments[doc.name] || 'Bates pending'} &middot; {doc.pages} page{doc.pages === 1 ? '' : 's'}
+                    {doc.pagesExact ? '' : ' (est.)'} &middot; {doc.type}
+                    {docAnalysis[doc.name] && ` · ${docAnalysis[doc.name].events} dated event${docAnalysis[doc.name].events === 1 ? '' : 's'}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setOpenDocument(null)}
+                  className="p-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-200 transition-all shrink-0"
+                  aria-label="Close document"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto bg-[#F9FAFB] p-6 select-text min-h-0">
+                <div className="border border-slate-200/60 p-6 bg-white shadow-sm rounded-xl">
+                  {doc.needsOcr && (
+                    <p className="mb-4 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
+                      This document is a scanned image with no text layer. It needs OCR before it can be searched or cited.
+                    </p>
+                  )}
+                  <p className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
+                    {renderWithDates(doc.content || '')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-4 py-2 border-t border-[#D1D5DB] bg-[#E5E7EB] text-[10px] font-mono text-slate-500 shrink-0">
+                Dates found by the analysis pass are highlighted. Press Esc to close.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
