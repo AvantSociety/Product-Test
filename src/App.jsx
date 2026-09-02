@@ -34,7 +34,14 @@ import {
 } from 'lucide-react';
 
 import { readDocument, manifestHash, ACCEPTED_EXTENSIONS } from './lib/documents.js';
-import { extractCitations, formatCitation, SIGNAL_LABELS, DATE_PATTERN } from './lib/citations.js';
+import {
+  extractCitations,
+  formatCitation,
+  parseEventDate,
+  formatEventDate,
+  SIGNAL_LABELS,
+  DATE_PATTERN,
+} from './lib/citations.js';
 import { computeIntegrityReport, PROCEED_THRESHOLD } from './lib/integrity.js';
 import { saveMatter, loadMatter, clearMatter } from './lib/persistence.js';
 import {
@@ -149,7 +156,7 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {} }) => {
             >
               <button
                 type="button"
-                aria-label={`${new Date(point.time).toLocaleDateString()} — ${point.source}`}
+                aria-label={`${formatEventDate(point.time)} — ${point.source}`}
                 onMouseEnter={() => setHovered(point.key)}
                 onMouseLeave={() => setHovered(null)}
                 onFocus={() => setHovered(point.key)}
@@ -171,7 +178,7 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {} }) => {
                   isDarkMode ? 'bg-[#1B1D27] border-white/[0.1]' : 'bg-white border-slate-200'
                 }`}>
                   <p className="text-[10px] font-mono font-bold text-indigo-400">
-                    {new Date(point.time).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    {formatEventDate(point.time)}
                   </p>
                   <p className={`text-[11px] font-semibold mt-0.5 truncate ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
                     {point.source}
@@ -186,10 +193,12 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {} }) => {
         })}
       </div>
 
-      <div className="flex justify-between text-[9px] font-mono text-slate-500 mt-1.5">
-        <span>{new Date(min).toLocaleDateString()}</span>
-        <span className="text-slate-600">hover a point for its source document</span>
-        <span>{new Date(max).toLocaleDateString()}</span>
+      <div className="flex justify-between text-[9px] font-mono text-slate-500 mt-1.5 gap-2">
+        <span className="shrink-0">{formatEventDate(min)}</span>
+        <span className="text-slate-600 text-center truncate">
+          numeric dates read as month/day/year &middot; hover a point for its source
+        </span>
+        <span className="shrink-0">{formatEventDate(max)}</span>
       </div>
     </div>
   );
@@ -498,8 +507,8 @@ export default function App() {
         let match;
         let found = 0;
         while ((match = re.exec(doc.content || '')) !== null) {
-          const time = Date.parse(match[0]);
-          if (!Number.isNaN(time)) { events.push({ time, label: match[0], source: doc.name }); found += 1; }
+          const time = parseEventDate(match[0]);
+          if (time !== null) { events.push({ time, label: match[0], source: doc.name }); found += 1; }
         }
         setDocAnalysis(prev => ({ ...prev, [doc.name]: { events: found, done: true } }));
       }
