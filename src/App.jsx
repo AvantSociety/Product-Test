@@ -59,8 +59,26 @@ const MicroStatusVisualizer = ({ active, isDarkMode }) => (
   </div>
 );
 
-/** Renders the chronology actually assembled in Stage 04 — not a decorative waveform. */
-const TimelineStrip = ({ timeline, isDarkMode }) => {
+/**
+ * Renders the chronology assembled in Stage 04. Every dated event gets its own
+ * point: events close together in time would otherwise draw on top of one
+ * another, so colliding points are stacked into lanes above the axis. Hovering
+ * a point shows the document it came from.
+ */
+const TimelineStrip = ({ timeline, isDarkMode, bates = {} }) => {
+  const plotRef = useRef(null);
+  const [plotWidth, setPlotWidth] = useState(0);
+  const [hovered, setHovered] = useState(null);
+
+  useEffect(() => {
+    const el = plotRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => setPlotWidth(entry.contentRect.width));
+    observer.observe(el);
+    setPlotWidth(el.getBoundingClientRect().width);
+    return () => observer.disconnect();
+  }, [timeline]);
+
   if (!timeline || timeline.length === 0) {
     return (
       <div className={`w-full rounded-xl border border-dashed p-6 text-center ${isDarkMode ? 'border-white/[0.08] text-slate-500' : 'border-slate-200 text-slate-400'}`}>
@@ -74,37 +92,103 @@ const TimelineStrip = ({ timeline, isDarkMode }) => {
   const min = Math.min(...times);
   const max = Math.max(...times);
   const span = Math.max(max - min, 1);
+  const sourceCount = new Set(timeline.map(e => e.source)).size;
+
+  const DOT = 9;        // rendered point diameter including ring, in px
+  const LANE_H = 12;    // vertical step between stacked lanes, in px
+  // Two points collide when they are closer than one dot width. Measured from
+  // the real plot width so the packing holds at any viewport size.
+  const minGapPct = plotWidth ? ((DOT + 2) / plotWidth) * 100 : 2.4;
+
+  const laneLastX = [];
+  const points = [...timeline]
+    .sort((a, b) => a.time - b.time)
+    .map((event, i) => {
+      const x = max === min ? 50 : ((event.time - min) / span) * 92 + 4;
+      let lane = 0;
+      while (laneLastX[lane] !== undefined && x - laneLastX[lane] < minGapPct) lane += 1;
+      laneLastX[lane] = x;
+      return { ...event, x, lane, key: `${event.source}::${event.time}::${i}` };
+    });
+
+  const laneCount = Math.max(laneLastX.length, 1);
+  const plotHeight = 14 + laneCount * LANE_H;
 
   return (
-    <div className={`relative w-full rounded-xl border p-4 overflow-hidden ${isDarkMode ? 'bg-[#111218] border-white/[0.04]' : 'bg-white border-slate-200'}`}>
-      <div className="flex justify-between items-start mb-4">
+    <div className={`relative w-full rounded-xl border p-4 ${isDarkMode ? 'bg-[#111218] border-white/[0.04]' : 'bg-white border-slate-200'}`}>
+      <div className="flex justify-between items-start mb-3 gap-3">
         <div>
           <span className="text-[9px] font-mono tracking-widest text-indigo-400 uppercase font-bold">Case Chronology</span>
           <h4 className={`text-[11px] font-bold mt-0.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-            {timeline.length} dated event{timeline.length === 1 ? '' : 's'} across {new Set(timeline.map(e => e.source)).size} document{new Set(timeline.map(e => e.source)).size === 1 ? '' : 's'}
+            {timeline.length} dated event{timeline.length === 1 ? '' : 's'} across {sourceCount} document{sourceCount === 1 ? '' : 's'}
           </h4>
         </div>
-        <span className="px-1.5 py-0.5 rounded bg-white/[0.05] text-[8px] font-mono text-slate-400 border border-white/[0.06] shrink-0">
+        <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono border shrink-0 ${
+          isDarkMode ? 'bg-white/[0.05] text-slate-400 border-white/[0.06]' : 'bg-slate-100 text-slate-500 border-slate-200'
+        }`}>
           {new Date(min).getFullYear()}&ndash;{new Date(max).getFullYear()}
         </span>
       </div>
 
-      <div className="relative h-14">
-        <div className={`absolute left-0 right-0 top-6 h-px ${isDarkMode ? 'bg-white/[0.08]' : 'bg-slate-200'}`} />
-        {timeline.map((event, i) => (
-          <div
-            key={i}
-            className="absolute top-3 -translate-x-1/2 group"
-            style={{ left: `${((event.time - min) / span) * 96 + 2}%` }}
-            title={`${event.label} — ${event.source}`}
-          >
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 ring-2 ring-indigo-500/20 transition-transform group-hover:scale-150" />
-          </div>
-        ))}
+      <div ref={plotRef} className="relative" style={{ height: plotHeight }}>
+        <div className={`absolute left-0 right-0 bottom-0 h-px ${isDarkMode ? 'bg-white/[0.08]' : 'bg-slate-200'}`} />
+
+        {points.map((point) => {
+          const isHovered = hovered === point.key;
+          // Keep the hover card inside the panel at either end of the axis.
+          const align = point.x < 20
+            ? 'left-0'
+            : point.x > 80
+              ? 'right-0'
+              : 'left-1/2 -translate-x-1/2';
+          return (
+            <div
+              key={point.key}
+              className="absolute"
+              style={{ left: `${point.x}%`, bottom: `${point.lane * LANE_H + 4}px`, transform: 'translateX(-50%)' }}
+            >
+              <button
+                type="button"
+                aria-label={`${new Date(point.time).toLocaleDateString()} — ${point.source}`}
+                onMouseEnter={() => setHovered(point.key)}
+                onMouseLeave={() => setHovered(null)}
+                onFocus={() => setHovered(point.key)}
+                onBlur={() => setHovered(null)}
+                className="block p-0 border-0 bg-transparent cursor-pointer"
+              >
+                <span
+                  className={`block rounded-full transition-transform duration-150 ${
+                    isHovered
+                      ? 'bg-indigo-300 ring-2 ring-indigo-400/50 scale-150'
+                      : 'bg-indigo-500 ring-2 ring-indigo-500/20'
+                  }`}
+                  style={{ width: DOT - 2, height: DOT - 2 }}
+                />
+              </button>
+
+              {isHovered && (
+                <div className={`absolute z-30 bottom-full mb-2 w-max max-w-[240px] pointer-events-none rounded-lg border px-2.5 py-1.5 shadow-xl ${align} ${
+                  isDarkMode ? 'bg-[#1B1D27] border-white/[0.1]' : 'bg-white border-slate-200'
+                }`}>
+                  <p className="text-[10px] font-mono font-bold text-indigo-400">
+                    {new Date(point.time).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </p>
+                  <p className={`text-[11px] font-semibold mt-0.5 truncate ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                    {point.source}
+                  </p>
+                  <p className="text-[9px] font-mono text-slate-500 mt-0.5">
+                    {bates[point.source] ? `${bates[point.source]} · ` : ''}matched &ldquo;{point.label}&rdquo;
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      <div className="flex justify-between text-[9px] font-mono text-slate-500">
+      <div className="flex justify-between text-[9px] font-mono text-slate-500 mt-1.5">
         <span>{new Date(min).toLocaleDateString()}</span>
+        <span className="text-slate-600">hover a point for its source document</span>
         <span>{new Date(max).toLocaleDateString()}</span>
       </div>
     </div>
@@ -1734,7 +1818,7 @@ export default function App() {
                 </div>
               )}
 
-              <TimelineStrip timeline={timeline} isDarkMode={isDarkMode} />
+              <TimelineStrip timeline={timeline} isDarkMode={isDarkMode} bates={batesAssignments} />
 
               {analysisComplete && (
                 <div className="flex justify-center pt-2 animate-fadeIn">
