@@ -14,6 +14,7 @@
 // because none of it makes a document unsafe to produce.
 
 import { DATE_PATTERN } from './citations.js';
+import { analyzeCohesion } from './cohesion.js';
 
 /** Share of unreadable documents above which the collection itself looks wrong. */
 export const RECOLLECT_RATIO = 0.25;
@@ -39,6 +40,11 @@ export const READINESS_STATES = {
     tone: 'red',
     verdict: 'More than a quarter of this set is unreadable. That usually points at a bad collection or a failed export rather than individual documents — re-collect rather than repairing these one by one.',
   },
+  incoherent: {
+    label: 'SET DOES NOT COHERE',
+    tone: 'red',
+    verdict: 'These documents share almost no parties, identifiers or vocabulary with one another. They do not look like one matter — the most common cause is the wrong folder being uploaded. Confirm this is the right collection before producing any of it.',
+  },
 };
 
 const DEFECTS = {
@@ -62,6 +68,14 @@ const DEFECTS = {
     label: 'Bates number assigned to more than one document',
     cure: 'Clear the matter in Stage 09 and re-stamp so every document has a unique number.',
   },
+  unrelated: {
+    label: 'Does not appear to belong to this matter',
+    cure: 'Check this is the right document. If it belongs here, confirm it and it will be released for production.',
+    // A statistical signal, not a certain defect, so counsel can clear it.
+    // Held back by default because producing another client's document is a
+    // confidentiality breach, not merely a quality problem.
+    dismissible: true,
+  },
 };
 
 /**
@@ -72,9 +86,25 @@ const DEFECTS = {
  * @param privilege  designations keyed by document name
  * @param bates      assigned Bates numbers keyed by document name
  */
-export function computeIntegrityReport(files, citations, privilege = {}, bates = {}) {
+export function computeIntegrityReport(
+  files,
+  citations,
+  privilege = {},
+  bates = {},
+  confirmedRelated = new Set(),
+  collectionConfirmed = false
+) {
   if (!files || files.length === 0) return null;
   const total = files.length;
+
+  // Does this set look like one matter?
+  const cohesion = analyzeCohesion(files);
+  const unrelatedNames = new Set(
+    (cohesion?.outliers || []).filter(name => {
+      const file = files.find(f => f.name === name);
+      return !(file && confirmedRelated.has(file.hash));
+    })
+  );
 
   // --- Bates collisions, computed across the set before per-document checks ---
   const batesOwners = {};
@@ -124,10 +154,15 @@ export function computeIntegrityReport(files, citations, privilege = {}, bates =
 
     if (collided.has(file.name)) defects.push('bates_collision');
 
+    if (unrelatedNames.has(file.name)) defects.push('unrelated');
+
     if (defects.length > 0) {
       exceptions.push({
         name: file.name,
+        hash: file.hash,
         bates: bates[file.name] || null,
+        affinity: cohesion?.affinity?.[file.name] ?? null,
+        nearest: cohesion?.nearest?.[file.name] ?? null,
         defects: defects.map(code => ({ code, ...DEFECTS[code] })),
       });
     } else {
@@ -187,10 +222,23 @@ export function computeIntegrityReport(files, citations, privilege = {}, bates =
     });
   }
 
+  if (cohesion?.incoherent && collectionConfirmed) {
+    advisories.unshift({
+      key: 'cohesion_override',
+      label: 'Collection confirmed over a cohesion warning',
+      detail: `These documents share little with one another (cohesion ${cohesion.setCohesion.toFixed(3)}), and counsel confirmed the collection is correct.`,
+      why: 'Recorded here and in the audit log so the decision is traceable if the production is later questioned.',
+      names: [],
+      elevated: true,
+    });
+  }
+
   const unreadableRatio = unreadableCount / total;
-  const state = unreadableRatio > RECOLLECT_RATIO
-    ? 'not-reviewable'
-    : exceptions.length === 0 ? 'ready' : 'cure';
+  const state = (cohesion?.incoherent && !collectionConfirmed)
+    ? 'incoherent'
+    : unreadableRatio > RECOLLECT_RATIO
+      ? 'not-reviewable'
+      : exceptions.length === 0 ? 'ready' : 'cure';
 
   return {
     total,
@@ -204,5 +252,10 @@ export function computeIntegrityReport(files, citations, privilege = {}, bates =
     coverage: Math.round((ready.length / total) * 100),
     state,
     stateMeta: READINESS_STATES[state],
+    cohesion,
+    // An incoherent set is a question about the whole collection, not about any
+    // one document, so it holds everything with a single confirmation to clear
+    // rather than flagging every file separately.
+    setHold: Boolean(cohesion?.incoherent) && !collectionConfirmed,
   };
 }
