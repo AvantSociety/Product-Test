@@ -43,6 +43,7 @@ import {
   DATE_PATTERN,
 } from './lib/citations.js';
 import { computeIntegrityReport, RECOLLECT_RATIO } from './lib/integrity.js';
+import { MIN_SET_COHESION } from './lib/cohesion.js';
 import { saveMatter, loadMatter, clearMatter } from './lib/persistence.js';
 import {
   buildPrivilegeLog,
@@ -274,6 +275,13 @@ export default function App() {
   const [batesPrefix, setBatesPrefix] = useState('VLM');
   const [batesStart, setBatesStart] = useState(1);
   const [batesAssignments, setBatesAssignments] = useState({});
+  // Content hashes of documents counsel has confirmed belong to this matter,
+  // clearing the "does not appear to belong" hold. Keyed by hash so editing or
+  // replacing a document re-raises the question.
+  const [confirmedRelated, setConfirmedRelated] = useState([]);
+  // Content-set keys for collections counsel has confirmed are the right
+  // documents. Changing the selection changes the key, so the question returns.
+  const [confirmedCollections, setConfirmedCollections] = useState([]);
   const [isFlaggedForReview, setIsFlaggedForReview] = useState(false);
   const [memoText, setMemoText] = useState(DEFAULT_MEMO);
 
@@ -355,6 +363,8 @@ export default function App() {
       setBatesAssignments(saved.batesAssignments || {});
       setIsFlaggedForReview(!!saved.isFlaggedForReview);
       setMemoText(saved.memoText ?? DEFAULT_MEMO);
+      setConfirmedRelated(saved.confirmedRelated || []);
+      setConfirmedCollections(saved.confirmedCollections || []);
       hydrated.current = true;
     });
     return () => { cancelled = true; };
@@ -366,11 +376,13 @@ export default function App() {
       saveMatter({
         documents, citations, privilege, selectedForReview, notes, auditLog,
         caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
+        confirmedRelated, confirmedCollections,
       });
     }, 400);
     return () => clearTimeout(handle);
   }, [documents, citations, privilege, selectedForReview, notes, auditLog,
-      caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText]);
+      caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
+      confirmedRelated, confirmedCollections]);
 
   // ---------- Derived ----------
 
@@ -395,7 +407,11 @@ export default function App() {
   // Withheld documents never reach analysis, citations, or the brief.
   // Documents the readiness check held back. They stay in the matter and on the
   // exceptions report, but never reach analysis, citations or the brief.
-  const quarantinedNames = integrityReport ? integrityReport.exceptions.map(e => e.name) : [];
+  const quarantinedNames = integrityReport
+    ? (integrityReport.setHold
+        ? selectedForReview.slice()
+        : integrityReport.exceptions.map(e => e.name))
+    : [];
   const producibleNames = selectedForReview.filter(
     name => dispositionOf(name) !== 'withhold' && !quarantinedNames.includes(name)
   );
@@ -482,7 +498,8 @@ export default function App() {
     setIntegrityReport(null);
     setManifestSha(null);
     setIsRunningIntegrityCheck(false);
-  }, [selectedForReview.join('|'), JSON.stringify(privilege)]);
+  }, [selectedForReview.join('|'), JSON.stringify(privilege), confirmedRelated.join('|'),
+      confirmedCollections.join('|')]);
 
   // Deep Analysis: real per-document date extraction driving real progress.
   useEffect(() => {
@@ -666,7 +683,10 @@ export default function App() {
       }
     });
 
-    const report = computeIntegrityReport(selectedDocs, citations, privilege, assignments);
+    const report = computeIntegrityReport(
+      selectedDocs, citations, privilege, assignments,
+      new Set(confirmedRelated), confirmedCollections.includes(collectionKey)
+    );
     const sha = await manifestHash(selectedDocs.map(d => d.hash));
 
     setBatesAssignments(assignments);
@@ -678,6 +698,20 @@ export default function App() {
         + (report.exceptions.length ? `, ${report.exceptions.length} held back` : ''),
       `${selectedDocs.length} documents`
     );
+  };
+
+  // Identifies this exact set of documents; changing the selection changes it.
+  const collectionKey = selectedDocs.map(d => d.hash).sort().join('|');
+
+  const confirmCollection = () => {
+    setConfirmedCollections(prev => (prev.includes(collectionKey) ? prev : [...prev, collectionKey]));
+    appendAudit('Confirmed collection is the correct document set', `${selectedDocs.length} documents`);
+  };
+
+  const confirmDocumentRelated = (name, hash) => {
+    if (!hash) return;
+    setConfirmedRelated(prev => (prev.includes(hash) ? prev : [...prev, hash]));
+    appendAudit('Confirmed document belongs to this matter', name);
   };
 
   const handleUpdateNote = () => {
@@ -815,6 +849,7 @@ export default function App() {
     await clearMatter();
     setDocuments([]); setCitations({}); setPrivilege({}); setSelectedForReview([]);
     setNotes({}); setAuditLog([]); setBatesAssignments({}); setIntegrityReport(null);
+    setConfirmedRelated([]); setConfirmedCollections([]);
     setManifestSha(null); setTimeline([]); setAnalysisComplete(false); setAnalysisProgress(0);
     setSelectedDocSource(null); setSelectedFinding(0); setMemoText(DEFAULT_MEMO);
     setIsFlaggedForReview(false); setCaseTitle('In Re Jones Litigation');
@@ -1648,7 +1683,8 @@ export default function App() {
                                 integrityReport.stateMeta.tone === 'emerald' ? 'text-emerald-500'
                                   : integrityReport.stateMeta.tone === 'amber' ? 'text-amber-500' : 'text-red-400'
                               }`}>
-                                {integrityReport.ready.length}<span className="text-lg text-slate-500">/{integrityReport.total}</span>
+                                {integrityReport.setHold ? 0 : integrityReport.ready.length}
+                                <span className="text-lg text-slate-500">/{integrityReport.total}</span>
                               </div>
                               <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold mt-1.5">
                                 ready to produce
@@ -1656,18 +1692,54 @@ export default function App() {
                             </div>
                             <div className="text-center sm:text-left">
                               <p className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                                {integrityReport.exceptions.length === 0
-                                  ? `All ${integrityReport.total} document${integrityReport.total === 1 ? '' : 's'} ready to produce`
-                                  : `${integrityReport.exceptions.length} document${integrityReport.exceptions.length === 1 ? '' : 's'} need${integrityReport.exceptions.length === 1 ? 's' : ''} attention`}
+                                {integrityReport.setHold
+                                  ? 'Nothing can be produced from this set yet'
+                                  : integrityReport.exceptions.length === 0
+                                    ? `All ${integrityReport.total} document${integrityReport.total === 1 ? '' : 's'} ready to produce`
+                                    : `${integrityReport.exceptions.length} document${integrityReport.exceptions.length === 1 ? '' : 's'} need${integrityReport.exceptions.length === 1 ? 's' : ''} attention`}
                               </p>
                               <p className={`text-xs leading-relaxed mt-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
                                 {integrityReport.stateMeta.verdict}
                               </p>
                               <p className="text-[10px] font-mono text-slate-500 mt-1.5">
-                                {integrityReport.coverage}% of the set is production-ready
+                                {integrityReport.setHold
+                                  ? 'Held pending confirmation that this is the right collection'
+                                  : `${integrityReport.coverage}% of the set is production-ready`}
                               </p>
                             </div>
                           </div>
+
+                          {/* The set as a whole does not look like one matter */}
+                          {integrityReport.state === 'incoherent' && (
+                            <div className="p-4 rounded-xl border bg-red-500/[0.07] border-red-500/25">
+                              <div className="flex items-start gap-2.5">
+                                <AlertTriangle size={15} className="text-red-400 shrink-0 mt-0.5" />
+                                <div>
+                                  <p className="text-[11px] font-bold uppercase tracking-wider text-red-400 font-mono">
+                                    These documents do not look like one matter
+                                  </p>
+                                  <p className={`text-[11px] leading-relaxed mt-1.5 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                    Across {integrityReport.cohesion.compared} readable documents, the typical pair shares
+                                    almost no parties, identifiers or distinctive vocabulary
+                                    (cohesion {integrityReport.cohesion.setCohesion.toFixed(3)}, below the{' '}
+                                    {MIN_SET_COHESION} floor). In a real matter these documents would name the same
+                                    people, entities and account or docket numbers.
+                                  </p>
+                                  <p className="text-[10px] leading-relaxed mt-2 text-slate-500">
+                                    The usual cause is the wrong folder being uploaded. Producing documents from another
+                                    client's matter is a confidentiality breach, so nothing here goes out until you
+                                    confirm this is the right collection.
+                                  </p>
+                                  <button
+                                    onClick={confirmCollection}
+                                    className="mt-3 px-3 py-1.5 text-[10px] font-bold rounded-lg border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-all inline-flex items-center gap-1.5"
+                                  >
+                                    <Check size={11} /> I have checked &mdash; this is the correct collection
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           {/* Blocking defects: what is held back and how to cure it */}
                           {integrityReport.exceptions.length > 0 && (
@@ -1691,6 +1763,21 @@ export default function App() {
                                       <p className={`text-[10px] leading-relaxed mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                         {defect.cure}
                                       </p>
+                                      {defect.code === 'unrelated' && (
+                                        <>
+                                          <p className="text-[10px] font-mono text-slate-500 mt-1">
+                                            Shares {(item.affinity * 100).toFixed(1)}% of its vocabulary with its closest
+                                            neighbour{item.nearest ? ` (${item.nearest})` : ''} — the rest of this set
+                                            averages {(integrityReport.cohesion.setCohesion * 100).toFixed(1)}%.
+                                          </p>
+                                          <button
+                                            onClick={() => confirmDocumentRelated(item.name, item.hash)}
+                                            className="mt-2 px-2.5 py-1.5 text-[10px] font-bold rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-all inline-flex items-center gap-1.5"
+                                          >
+                                            <Check size={11} /> This document belongs to the matter
+                                          </button>
+                                        </>
+                                      )}
                                     </div>
                                   ))}
                                 </div>
@@ -1761,7 +1848,7 @@ export default function App() {
                             className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 ${primaryButton}`}
                           >
                             <CheckCircle2 size={14} />
-                            Run Integrity Check
+                            Run Readiness Check
                           </button>
                         </div>
                       )}
@@ -1792,20 +1879,26 @@ export default function App() {
                         with blocking defects are held back rather than stopping the matter. */}
                     <button
                       onClick={() => handleStepChange(4)}
-                      disabled={integrityReport.ready.length === 0}
+                      disabled={integrityReport.setHold || integrityReport.ready.length === 0}
                       className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 ${
-                        integrityReport.ready.length === 0
+                        integrityReport.setHold || integrityReport.ready.length === 0
                           ? 'bg-slate-500/10 text-slate-500 cursor-not-allowed'
                           : 'bg-indigo-600 text-white hover:bg-indigo-500'
                       }`}
                     >
-                      {integrityReport.exceptions.length > 0
-                        ? `Proceed with ${integrityReport.ready.length} ready document${integrityReport.ready.length === 1 ? '' : 's'}`
-                        : 'Proceed to Deep Analysis'}
+                      {integrityReport.setHold
+                        ? 'Proceed to Deep Analysis'
+                        : integrityReport.exceptions.length > 0
+                          ? `Proceed with ${integrityReport.ready.length} ready document${integrityReport.ready.length === 1 ? '' : 's'}`
+                          : 'Proceed to Deep Analysis'}
                       <ChevronRight size={14} />
                     </button>
 
-                    {integrityReport.ready.length === 0 ? (
+                    {integrityReport.setHold ? (
+                      <p className="text-[11px] text-red-400 max-w-md mx-auto leading-relaxed">
+                        Nothing proceeds until you confirm this is the right collection, using the button above.
+                      </p>
+                    ) : integrityReport.ready.length === 0 ? (
                       <p className="text-[11px] text-amber-500 max-w-md mx-auto leading-relaxed">
                         No document in this set can be produced as it stands. Cure the defects listed above, or return
                         to Stage&nbsp;02 and select different documents.
