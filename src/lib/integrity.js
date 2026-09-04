@@ -1,122 +1,208 @@
 // ==========================================
-// INTEGRITY CHECK SCORING ENGINE
+// PRODUCTION READINESS CHECK
 // ==========================================
 //
-// Grades a document set 0-100 across five weighted checks. Every point is
-// traceable to a named check with a plain-English explanation, so the grade can
-// be justified to a client rather than asserted.
+// This is deliberately not a weighted average. Averaging lets a good score on
+// one criterion offset a document that cannot be produced at all, which is the
+// wrong operation for discovery: an unreadable document is a defect to cure,
+// not a deduction to absorb.
+//
+// Instead every document is either production-ready or it carries a blocking
+// defect. Blocking defects quarantine that document onto an exceptions list;
+// the remaining set proceeds clean. Everything else — duplicates, missing
+// dates, documents that yield no citation — is advisory and never blocks,
+// because none of it makes a document unsafe to produce.
 
 import { DATE_PATTERN } from './citations.js';
 
-export const PROCEED_THRESHOLD = 60;
+/** Share of unreadable documents above which the collection itself looks wrong. */
+export const RECOLLECT_RATIO = 0.25;
+/** Share of duplicates worth deduplicating before review time is spent. */
+export const DEDUPE_RATIO = 0.10;
+/** Documents shorter than this may be truncated exports. Advisory only — a
+ *  one-line receipt is legitimately short. */
+const SHORT_DOCUMENT_CHARS = 200;
 
-export const INTEGRITY_BANDS = [
-  {
-    min: 85,
+export const READINESS_STATES = {
+  ready: {
     label: 'READY TO PRODUCE',
     tone: 'emerald',
-    verdict: 'This set is clean. Every document is readable, dated, and citable — it can move to analysis and be produced without further remediation.',
+    verdict: 'Every document in this set is intact, accounted for, and safe to produce.',
   },
-  {
-    min: PROCEED_THRESHOLD,
-    label: 'PROCEED WITH REVIEW',
+  cure: {
+    label: 'CURE REQUIRED',
     tone: 'amber',
-    verdict: 'This set is usable, but some documents have gaps that will weaken them as exhibits. Review the flagged checks below before relying on this material at deposition.',
+    verdict: 'Some documents cannot be produced as they stand. Cure them, or produce the ready set now and resolve the exceptions separately.',
   },
-  {
-    min: 0,
-    label: 'NOT PRODUCTION READY',
+  'not-reviewable': {
+    label: 'RE-COLLECTION ADVISED',
     tone: 'red',
-    verdict: 'This set has defects serious enough that analysis results would be unreliable. Re-collect or re-export the flagged documents before proceeding.',
+    verdict: 'More than a quarter of this set is unreadable. That usually points at a bad collection or a failed export rather than individual documents — re-collect rather than repairing these one by one.',
   },
-];
+};
 
-export const getIntegrityBand = (score) =>
-  INTEGRITY_BANDS.find(b => score >= b.min) || INTEGRITY_BANDS[INTEGRITY_BANDS.length - 1];
+const DEFECTS = {
+  empty: {
+    label: 'No readable text',
+    cure: 'Re-export this document from its original source.',
+  },
+  needs_ocr: {
+    label: 'Scanned image with no text layer',
+    cure: 'Run OCR on this document, then re-ingest it.',
+  },
+  corrupt: {
+    label: 'Corrupted character encoding',
+    cure: 'Re-export this document — the text came through damaged.',
+  },
+  privilege_incomplete: {
+    label: 'Withheld without a complete log entry',
+    cure: 'Add a privilege basis and description in Stage 02. FRCP 26(b)(5) requires both.',
+  },
+  bates_collision: {
+    label: 'Bates number assigned to more than one document',
+    cure: 'Clear the matter in Stage 09 and re-stamp so every document has a unique number.',
+  },
+};
 
-export function computeIntegrityReport(files, citationsByFile) {
+/**
+ * Grades a document set by production readiness.
+ *
+ * @param files      documents in scope
+ * @param citations  extracted citations keyed by document name (advisory only)
+ * @param privilege  designations keyed by document name
+ * @param bates      assigned Bates numbers keyed by document name
+ */
+export function computeIntegrityReport(files, citations, privilege = {}, bates = {}) {
   if (!files || files.length === 0) return null;
   const total = files.length;
-  const checks = [];
 
-  // 1. Readability & Encoding — 25 pts
-  const unreadable = files.filter(
-    f => !f.content || !f.content.trim() || f.content.includes('�') || f.needsOcr
+  // --- Bates collisions, computed across the set before per-document checks ---
+  const batesOwners = {};
+  files.forEach(f => {
+    const number = bates[f.name];
+    if (!number) return;
+    (batesOwners[number] = batesOwners[number] || []).push(f.name);
+  });
+  const collided = new Set(
+    Object.values(batesOwners).filter(names => names.length > 1).flat()
   );
-  checks.push({
-    key: 'readability',
-    label: 'Readability & Encoding',
-    max: 25,
-    points: Math.round(25 * (1 - unreadable.length / total)),
-    detail: unreadable.length === 0
-      ? `All ${total} document${total === 1 ? '' : 's'} opened cleanly as readable text.`
-      : `${unreadable.length} of ${total} could not be read as text (empty, corrupted, or a scanned image needing OCR).`,
-    why: 'A document the system cannot read cannot be searched, cited, or produced. These normally need to be re-exported from the original source or put through OCR.',
-    offenders: unreadable.map(f => f.name),
-  });
 
-  // 2. Content Completeness — 20 pts
-  const thin = files.filter(f => (f.content || '').trim().length < 200);
-  checks.push({
-    key: 'completeness',
-    label: 'Content Completeness',
-    max: 20,
-    points: Math.round(20 * (1 - thin.length / total)),
-    detail: thin.length === 0
-      ? 'No document appears truncated or near-empty.'
-      : `${thin.length} of ${total} contain very little text and may be truncated or partial exports.`,
-    why: 'Short or truncated files are a common sign of a failed export. Producing a partial document invites a completeness challenge under FRCP 34 and may require a re-production.',
-    offenders: thin.map(f => f.name),
-  });
-
-  // 3. Chronology Anchors — 20 pts
-  const undated = files.filter(f => !DATE_PATTERN.test(f.content || ''));
-  checks.push({
-    key: 'chronology',
-    label: 'Chronology Anchors',
-    max: 20,
-    points: Math.round(20 * (1 - undated.length / total)),
-    detail: undated.length === 0
-      ? 'Every document contains at least one recognizable date.'
-      : `${undated.length} of ${total} contain no recognizable date.`,
-    why: 'Dates are what let the analysis stage place a document on the case timeline. An undated document can still be cited, but it cannot be sequenced against other evidence.',
-    offenders: undated.map(f => f.name),
-  });
-
-  // 4. Citation Extractability — 20 pts
-  const uncitable = files.filter(f => !(citationsByFile?.[f.name]?.length));
-  checks.push({
-    key: 'citations',
-    label: 'Citation Extractability',
-    max: 20,
-    points: Math.round(20 * (1 - uncitable.length / total)),
-    detail: uncitable.length === 0
-      ? 'Quotable passages were extracted from every document.'
-      : `${uncitable.length} of ${total} yielded no quotable passage.`,
-    why: 'These are the passages that become record citations in the brief. A document with none will still be produced, but it will not generate findings in the Citation Matrix.',
-    offenders: uncitable.map(f => f.name),
-  });
-
-  // 5. Duplicate Detection — 15 pts
-  const seen = new Set();
-  const duplicates = [];
+  // --- Duplicates, by content hash ---
+  const seenHashes = new Set();
+  const duplicateNames = [];
   files.forEach(f => {
     if (!f.hash) return;
-    if (seen.has(f.hash)) duplicates.push(f.name);
-    else seen.add(f.hash);
-  });
-  checks.push({
-    key: 'duplicates',
-    label: 'Duplicate Detection',
-    max: 15,
-    points: Math.round(15 * (1 - Math.min(duplicates.length / total, 1))),
-    detail: duplicates.length === 0
-      ? 'No duplicate documents in this set.'
-      : `${duplicates.length} exact duplicate${duplicates.length === 1 ? '' : 's'} found.`,
-    why: 'Duplicates inflate the production volume, cost review time, and can produce two different Bates numbers for the same document — which opposing counsel will notice.',
-    offenders: duplicates,
+    if (seenHashes.has(f.hash)) duplicateNames.push(f.name);
+    else seenHashes.add(f.hash);
   });
 
-  const score = Math.max(0, Math.min(100, checks.reduce((sum, c) => sum + c.points, 0)));
-  return { score, checks, fileCount: total, band: getIntegrityBand(score) };
+  // --- Per-document blocking defects ---
+  const exceptions = [];
+  const ready = [];
+  let unreadableCount = 0;
+
+  files.forEach(file => {
+    const defects = [];
+    const content = file.content || '';
+
+    if (!content.trim()) {
+      defects.push(file.needsOcr ? 'needs_ocr' : 'empty');
+      unreadableCount += 1;
+    } else if (file.needsOcr) {
+      defects.push('needs_ocr');
+      unreadableCount += 1;
+    } else if (content.includes('�')) {
+      defects.push('corrupt');
+      unreadableCount += 1;
+    }
+
+    const designation = privilege[file.name]?.status || 'produce';
+    if (designation !== 'produce') {
+      const record = privilege[file.name] || {};
+      if (!record.basis || !record.description?.trim()) defects.push('privilege_incomplete');
+    }
+
+    if (collided.has(file.name)) defects.push('bates_collision');
+
+    if (defects.length > 0) {
+      exceptions.push({
+        name: file.name,
+        bates: bates[file.name] || null,
+        defects: defects.map(code => ({ code, ...DEFECTS[code] })),
+      });
+    } else {
+      ready.push(file.name);
+    }
+  });
+
+  // --- Advisory signals. None of these block production. ---
+  const advisories = [];
+  const readySet = new Set(ready);
+  const readyFiles = files.filter(f => readySet.has(f.name));
+
+  if (duplicateNames.length > 0) {
+    advisories.push({
+      key: 'duplicates',
+      label: 'Duplicate documents',
+      detail: `${duplicateNames.length} of ${total} are exact duplicates of another document in this set.`,
+      why: 'Duplicates inflate production volume and review cost, and can put two Bates numbers on the same document.',
+      names: duplicateNames,
+      elevated: duplicateNames.length / total > DEDUPE_RATIO,
+    });
+  }
+
+  const short = readyFiles.filter(f => f.content.trim().length < SHORT_DOCUMENT_CHARS);
+  if (short.length > 0) {
+    advisories.push({
+      key: 'short',
+      label: 'Very short documents',
+      detail: `${short.length} contain little text and may be partial exports.`,
+      why: 'Often a sign of a failed export, though a short document can be perfectly legitimate. Worth eyeballing before production.',
+      names: short.map(f => f.name),
+      elevated: false,
+    });
+  }
+
+  const undated = readyFiles.filter(f => !DATE_PATTERN.test(f.content));
+  if (undated.length > 0) {
+    advisories.push({
+      key: 'undated',
+      label: 'No date found',
+      detail: `${undated.length} contain no recognizable date.`,
+      why: 'These are produced normally but cannot be placed on the case chronology in Stage 04.',
+      names: undated.map(f => f.name),
+      elevated: false,
+    });
+  }
+
+  const uncitable = readyFiles.filter(f => !(citations?.[f.name]?.length));
+  if (uncitable.length > 0) {
+    advisories.push({
+      key: 'uncitable',
+      label: 'No quotable passage extracted',
+      detail: `${uncitable.length} yielded no citation.`,
+      why: 'These are produced normally. It reflects what the extractor found, not a defect in the document.',
+      names: uncitable.map(f => f.name),
+      elevated: false,
+    });
+  }
+
+  const unreadableRatio = unreadableCount / total;
+  const state = unreadableRatio > RECOLLECT_RATIO
+    ? 'not-reviewable'
+    : exceptions.length === 0 ? 'ready' : 'cure';
+
+  return {
+    total,
+    ready,
+    exceptions,
+    advisories,
+    unreadableCount,
+    // Coverage, not a quality average: the share of the set that is
+    // production-ready. "94 of 100 documents are ready" is actionable in a way
+    // that "78 out of 100 points" is not.
+    coverage: Math.round((ready.length / total) * 100),
+    state,
+    stateMeta: READINESS_STATES[state],
+  };
 }
