@@ -118,6 +118,32 @@ export function buildBrief({ caseTitle, memoText, citations, bates, notes }) {
   };
 }
 
+/**
+ * Documents held back from production, why, and what will cure each one.
+ * This is the artifact that lets a firm show its production was complete as to
+ * what was producible, and account for what was not.
+ */
+export function buildExceptionsReport({ caseTitle, exceptions }) {
+  const rows = [
+    ['Bates', 'Document', 'Defect', 'Required Action'],
+    ...exceptions.flatMap(item =>
+      item.defects.map(defect => [
+        item.bates || '(not assigned)',
+        item.name,
+        defect.label,
+        defect.cure,
+      ])
+    ),
+  ];
+  return {
+    filename: `${slug(caseTitle)}-exceptions-report.csv`,
+    mime: 'text/csv',
+    content: `Exceptions Report — ${caseTitle}\r\nGenerated ${new Date().toISOString()}\r\n`
+      + `Documents held back from production pending the actions below.\r\n\r\n${toCsv(rows)}`,
+    count: exceptions.length,
+  };
+}
+
 /** Append-only custody and activity log. */
 export function buildAuditLog({ caseTitle, auditLog }) {
   const rows = [

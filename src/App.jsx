@@ -42,13 +42,14 @@ import {
   SIGNAL_LABELS,
   DATE_PATTERN,
 } from './lib/citations.js';
-import { computeIntegrityReport, PROCEED_THRESHOLD } from './lib/integrity.js';
+import { computeIntegrityReport, RECOLLECT_RATIO } from './lib/integrity.js';
 import { saveMatter, loadMatter, clearMatter } from './lib/persistence.js';
 import {
   buildPrivilegeLog,
   buildProductionIndex,
   buildBrief,
   buildAuditLog,
+  buildExceptionsReport,
   triggerDownload,
   byteLabel,
 } from './lib/exports.js';
@@ -235,7 +236,7 @@ const ADVISOR_TIPS = {
   0: 'Start at Discovery Ingest to upload the documents for this matter. Everything downstream is built from what you load there.',
   1: 'Upload client documents from your computer. PDF, DOCX, email and plain-text formats are read directly; scanned PDFs are flagged as needing OCR.',
   2: 'Set the matter name and Bates numbering here — the integrity check stamps documents in Stage 03, so this is your last chance to change them. Then designate each document; anything withheld as privileged is excluded downstream and recorded on the privilege log.',
-  3: 'Run the integrity check to grade the selected set. The score breaks down into five named checks so you can explain it to a client.',
+  3: 'Run the readiness check. Documents with defects that make them unsafe to produce are held back onto an exceptions list; the rest proceed clean. Duplicates and missing dates are advisory and never block.',
   4: 'Dates are extracted from each document and assembled into a case chronology. Progress reflects documents actually processed.',
   5: 'Select a finding to highlight the exact passage it was drawn from. Notes you add are attached to that passage in that document.',
   6: 'The brief is drafted from the findings you extracted. Edit it directly — your changes are kept and exported.',
@@ -392,7 +393,12 @@ export default function App() {
   const dispositionOf = (name) => privilege[name]?.status || 'produce';
 
   // Withheld documents never reach analysis, citations, or the brief.
-  const producibleNames = selectedForReview.filter(name => dispositionOf(name) !== 'withhold');
+  // Documents the readiness check held back. They stay in the matter and on the
+  // exceptions report, but never reach analysis, citations or the brief.
+  const quarantinedNames = integrityReport ? integrityReport.exceptions.map(e => e.name) : [];
+  const producibleNames = selectedForReview.filter(
+    name => dispositionOf(name) !== 'withhold' && !quarantinedNames.includes(name)
+  );
   const selectedDocs = selectedForReview
     .map(name => documents.find(d => d.name === name))
     .filter(Boolean);
@@ -649,26 +655,29 @@ export default function App() {
     setIsRunningIntegrityCheck(true);
     setIntegrityReport(null);
 
-    const report = computeIntegrityReport(selectedDocs, citations);
-    const sha = await manifestHash(selectedDocs.map(d => d.hash));
-
-    // Assign immutable sequential Bates numbers to anything not already stamped.
-    setBatesAssignments(prev => {
-      const next = { ...prev };
-      let counter = batesStart + Object.keys(prev).length;
-      selectedDocs.forEach(doc => {
-        if (!next[doc.name]) {
-          next[doc.name] = `${batesPrefix}-${String(counter).padStart(6, '0')}`;
-          counter += 1;
-        }
-      });
-      return next;
+    // Stamp first, so the readiness check can see the numbers it is validating
+    // for collisions. Bates numbers are immutable once assigned.
+    const assignments = { ...batesAssignments };
+    let counter = batesStart + Object.keys(assignments).length;
+    selectedDocs.forEach(doc => {
+      if (!assignments[doc.name]) {
+        assignments[doc.name] = `${batesPrefix}-${String(counter).padStart(6, '0')}`;
+        counter += 1;
+      }
     });
 
+    const report = computeIntegrityReport(selectedDocs, citations, privilege, assignments);
+    const sha = await manifestHash(selectedDocs.map(d => d.hash));
+
+    setBatesAssignments(assignments);
     setManifestSha(sha);
     setIntegrityReport(report);
     setIsRunningIntegrityCheck(false);
-    appendAudit(`Ran integrity check — scored ${report.score}/100`, `${selectedDocs.length} documents`);
+    appendAudit(
+      `Ran readiness check — ${report.ready.length} of ${report.total} ready`
+        + (report.exceptions.length ? `, ${report.exceptions.length} held back` : ''),
+      `${selectedDocs.length} documents`
+    );
   };
 
   const handleUpdateNote = () => {
@@ -746,6 +755,11 @@ export default function App() {
 
   const deliverables = () => {
     const args = { caseTitle, documents: selectedDocs, privilege, bates: batesAssignments };
+    // The production index covers only what is actually going out: documents
+    // that passed the readiness check and are designated for production.
+    const readySet = new Set(integrityReport ? integrityReport.ready : selectedDocs.map(d => d.name));
+    const indexArgs = { ...args, documents: selectedDocs.filter(d => readySet.has(d.name)) };
+    const exceptions = integrityReport ? integrityReport.exceptions : [];
     return [
       {
         key: 'brief',
@@ -769,8 +783,16 @@ export default function App() {
         tone: 'indigo',
         title: 'Production Index',
         blurb: 'Bates range, type, page count and SHA-256 for each document being produced.',
-        build: () => buildProductionIndex(args),
+        build: () => buildProductionIndex(indexArgs),
       },
+      ...(exceptions.length > 0 ? [{
+        key: 'exceptions',
+        icon: AlertTriangle,
+        tone: 'red',
+        title: 'Exceptions Report',
+        blurb: 'Documents held back from production, the defect in each, and the action required to cure it.',
+        build: () => buildExceptionsReport({ caseTitle, exceptions }),
+      }] : []),
       {
         key: 'audit',
         icon: ScrollText,
@@ -1565,13 +1587,13 @@ export default function App() {
                   <div className="flex items-center gap-2">
                     <Layers size={14} className="text-indigo-500" />
                     <h3 className={`text-xs font-bold tracking-widest uppercase ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                      {integrityReport ? 'Manifest Verified' : 'Manifest Pending Verification'}
+                      Production Readiness
                     </h3>
                   </div>
                   <span className={`text-[9px] font-mono border px-2.5 py-0.5 rounded font-bold shrink-0 ${
-                    integrityReport ? toneClasses[integrityReport.band.tone] : toneClasses.slate
+                    integrityReport ? toneClasses[integrityReport.stateMeta.tone] : toneClasses.slate
                   }`}>
-                    {integrityReport ? integrityReport.band.label : 'NOT YET RUN'}
+                    {integrityReport ? integrityReport.stateMeta.label : 'NOT YET RUN'}
                   </span>
                 </div>
 
@@ -1619,59 +1641,105 @@ export default function App() {
                         </div>
                       ) : integrityReport ? (
                         <div className="space-y-5 py-2 animate-fadeIn">
+                          {/* Headline: a count of problems, zero being the common path */}
                           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5">
-                            <div className={`text-5xl font-black font-mono leading-none shrink-0 ${
-                              integrityReport.band.tone === 'emerald' ? 'text-emerald-500' : integrityReport.band.tone === 'amber' ? 'text-amber-500' : 'text-red-400'
-                            }`}>
-                              {integrityReport.score}<span className="text-lg text-slate-500">/100</span>
+                            <div className="shrink-0 text-center">
+                              <div className={`text-5xl font-black font-mono leading-none ${
+                                integrityReport.stateMeta.tone === 'emerald' ? 'text-emerald-500'
+                                  : integrityReport.stateMeta.tone === 'amber' ? 'text-amber-500' : 'text-red-400'
+                              }`}>
+                                {integrityReport.ready.length}<span className="text-lg text-slate-500">/{integrityReport.total}</span>
+                              </div>
+                              <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold mt-1.5">
+                                ready to produce
+                              </p>
                             </div>
                             <div className="text-center sm:text-left">
-                              <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold mb-1">What this grade means</p>
-                              <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                                {integrityReport.band.verdict}
+                              <p className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                {integrityReport.exceptions.length === 0
+                                  ? `All ${integrityReport.total} document${integrityReport.total === 1 ? '' : 's'} ready to produce`
+                                  : `${integrityReport.exceptions.length} document${integrityReport.exceptions.length === 1 ? '' : 's'} need${integrityReport.exceptions.length === 1 ? 's' : ''} attention`}
+                              </p>
+                              <p className={`text-xs leading-relaxed mt-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                {integrityReport.stateMeta.verdict}
+                              </p>
+                              <p className="text-[10px] font-mono text-slate-500 mt-1.5">
+                                {integrityReport.coverage}% of the set is production-ready
                               </p>
                             </div>
                           </div>
 
-                          <div className="space-y-2">
-                            <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold">
-                              How the score was calculated
-                            </p>
-                            {integrityReport.checks.map((check) => {
-                              const ratio = check.points / check.max;
-                              const tone = ratio === 1 ? 'emerald' : ratio >= 0.5 ? 'amber' : 'red';
-                              const barColor = tone === 'emerald' ? 'bg-emerald-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-red-400';
-                              const textColor = tone === 'emerald' ? 'text-emerald-500' : tone === 'amber' ? 'text-amber-500' : 'text-red-400';
-                              return (
-                                <div key={check.key} className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/[0.02] border-white/[0.04]' : 'bg-slate-50 border-slate-200'}`}>
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${barColor}`} />
-                                      <span className={`text-[11px] font-bold truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                                        {check.label}
-                                      </span>
-                                    </div>
-                                    <span className={`text-[10px] font-mono font-bold shrink-0 ${textColor}`}>
-                                      {check.points}/{check.max} pts
+                          {/* Blocking defects: what is held back and how to cure it */}
+                          {integrityReport.exceptions.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-[9px] font-mono uppercase tracking-widest text-amber-500 font-bold">
+                                Held back from production &mdash; cure required
+                              </p>
+                              {integrityReport.exceptions.map((item) => (
+                                <div key={item.name} className="p-3 rounded-xl border bg-amber-500/[0.06] border-amber-500/20">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className={`text-[11px] font-mono font-bold truncate ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+                                      {item.name}
+                                    </span>
+                                    <span className="text-[9px] font-mono text-slate-500 shrink-0">
+                                      {item.bates || 'Bates pending'}
                                     </span>
                                   </div>
-                                  <div className={`w-full h-1 rounded-full mt-2 overflow-hidden ${isDarkMode ? 'bg-white/[0.05]' : 'bg-slate-200'}`}>
-                                    <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${ratio * 100}%` }} />
-                                  </div>
-                                  <p className={`text-[11px] mt-2 leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                                    {check.detail}
-                                  </p>
-                                  <p className="text-[10px] mt-1.5 leading-relaxed text-slate-500">
-                                    <span className="font-bold uppercase tracking-wide">Why it matters: </span>{check.why}
-                                  </p>
-                                  {check.offenders.length > 0 && (
-                                    <p className="text-[10px] mt-1.5 font-mono text-amber-500/90 break-words">
-                                      Affected: {check.offenders.join(', ')}
-                                    </p>
-                                  )}
+                                  {item.defects.map((defect) => (
+                                    <div key={defect.code} className="mt-2 pl-2 border-l border-amber-500/30">
+                                      <p className="text-[11px] font-semibold text-amber-500">{defect.label}</p>
+                                      <p className={`text-[10px] leading-relaxed mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                        {defect.cure}
+                                      </p>
+                                    </div>
+                                  ))}
                                 </div>
-                              );
-                            })}
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Advisory: informs review effort, never blocks */}
+                          {integrityReport.advisories.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold">
+                                Advisory &mdash; does not block production
+                              </p>
+                              {integrityReport.advisories.map((advisory) => (
+                                <div
+                                  key={advisory.key}
+                                  className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/[0.02] border-white/[0.04]' : 'bg-slate-50 border-slate-200'}`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                                      {advisory.label}
+                                    </span>
+                                    {advisory.elevated && (
+                                      <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-amber-500/10 border-amber-500/20 text-amber-500 shrink-0">
+                                        WORTH ADDRESSING
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className={`text-[11px] mt-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{advisory.detail}</p>
+                                  <p className="text-[10px] mt-1 leading-relaxed text-slate-500">{advisory.why}</p>
+                                  <p className="text-[10px] mt-1 font-mono text-slate-500 break-words opacity-80">
+                                    {advisory.names.join(', ')}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* What this check cannot tell you */}
+                          <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/[0.01] border-white/[0.05]' : 'bg-slate-50 border-slate-200'}`}>
+                            <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold mb-1">
+                              Scope of this check
+                            </p>
+                            <p className="text-[10px] leading-relaxed text-slate-500">
+                              This confirms the documents you loaded are intact, uniquely numbered and safe to produce.
+                              It cannot tell you whether the collection itself was complete &mdash; whether every
+                              responsive custodian, date range and source was captured. That judgment, and the
+                              FRCP&nbsp;26(g) certification that rests on it, remains counsel's.
+                            </p>
                           </div>
 
                           <div className="flex justify-center">
@@ -1682,7 +1750,7 @@ export default function App() {
                               }`}
                             >
                               <RefreshCw size={13} />
-                              Re-run Integrity Check
+                              Re-run Readiness Check
                             </button>
                           </div>
                         </div>
@@ -1711,33 +1779,45 @@ export default function App() {
                 </p>
 
                 {integrityReport && (
-                  integrityReport.score >= PROCEED_THRESHOLD ? (
+                  <div className="mt-4 space-y-2">
+                    {integrityReport.state === 'not-reviewable' && (
+                      <p className="text-[11px] text-red-400 max-w-md mx-auto leading-relaxed">
+                        {Math.round((integrityReport.unreadableCount / integrityReport.total) * 100)}% of this set is
+                        unreadable, above the {Math.round(RECOLLECT_RATIO * 100)}% mark where the collection itself is
+                        usually the problem. Re-collecting is likely faster than repairing these individually.
+                      </p>
+                    )}
+
+                    {/* The gate is on having a clean set, not on a score. Documents
+                        with blocking defects are held back rather than stopping the matter. */}
                     <button
                       onClick={() => handleStepChange(4)}
-                      className="mt-4 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-500"
+                      disabled={integrityReport.ready.length === 0}
+                      className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 ${
+                        integrityReport.ready.length === 0
+                          ? 'bg-slate-500/10 text-slate-500 cursor-not-allowed'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                      }`}
                     >
-                      Proceed to Deep Analysis
+                      {integrityReport.exceptions.length > 0
+                        ? `Proceed with ${integrityReport.ready.length} ready document${integrityReport.ready.length === 1 ? '' : 's'}`
+                        : 'Proceed to Deep Analysis'}
                       <ChevronRight size={14} />
                     </button>
-                  ) : (
-                    <div className="mt-4 space-y-2">
-                      <button
-                        disabled
-                        className="px-4 py-2 text-xs font-bold rounded-xl inline-flex items-center gap-2 bg-slate-500/10 text-slate-500 cursor-not-allowed"
-                      >
-                        Proceed to Deep Analysis
-                        <ChevronRight size={14} />
-                      </button>
+
+                    {integrityReport.ready.length === 0 ? (
                       <p className="text-[11px] text-amber-500 max-w-md mx-auto leading-relaxed">
-                        A score of {PROCEED_THRESHOLD} or above is required to proceed. This set scored{' '}
-                        {integrityReport.score}. Fix the documents flagged under{' '}
-                        {integrityReport.checks
-                          .filter(c => c.points < c.max)
-                          .map(c => c.label)
-                          .join(', ') || 'the checks above'}, then re-run the check.
+                        No document in this set can be produced as it stands. Cure the defects listed above, or return
+                        to Stage&nbsp;02 and select different documents.
                       </p>
-                    </div>
-                  )
+                    ) : integrityReport.exceptions.length > 0 && (
+                      <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
+                        The {integrityReport.exceptions.length} held-back document{integrityReport.exceptions.length === 1 ? '' : 's'} stay
+                        in the matter and appear on the exceptions report in Stage&nbsp;08. They are excluded from
+                        analysis, citations and the brief until cured.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
