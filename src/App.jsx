@@ -268,7 +268,11 @@ export default function App() {
   const [activeStep, setActiveStep] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [copilotOpen, setCopilotOpen] = useState(true);
+  // The Advisor is a full-screen overlay below lg, so opening it by default on
+  // a phone would bury the stage and its navigation. Desktop keeps it open.
+  const [copilotOpen, setCopilotOpen] = useState(
+    () => (typeof window === 'undefined' ? true : window.innerWidth >= 1024)
+  );
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   // --- Matter state (persisted) ---
@@ -1176,19 +1180,24 @@ export default function App() {
           </div>
         </div>
 
-        {/* HEADER CONSOLE */}
-        <div className={`w-full border-b px-6 sm:px-12 py-5 flex flex-col sm:flex-row gap-4 sm:items-center justify-between shrink-0 transition-colors duration-500 ${
+        {/* HEADER CONSOLE — pinned so stage navigation stays reachable while
+            reading long stages. The telemetry bar above it scrolls away, which
+            keeps the fixed chrome to just the controls. */}
+        <div className={`sticky top-0 z-20 w-full border-b px-6 sm:px-12 py-3 sm:py-5 flex flex-col sm:flex-row gap-2.5 sm:gap-4 sm:items-center justify-between shrink-0 transition-colors duration-500 ${
           isDarkMode ? 'bg-[#0E0F14] border-white/[0.04]' : 'bg-white border-slate-200'
         }`}>
-          <div>
-            <div className={`flex items-center gap-2 text-[10px] font-mono tracking-widest uppercase font-bold ${
+          <div className="min-w-0">
+            {/* Breadcrumb is redundant on mobile — the fixed top bar already
+                names the stage — so it is dropped there to keep the pinned
+                header shallow on a phone. */}
+            <div className={`hidden sm:flex items-center gap-2 text-[10px] font-mono tracking-widest uppercase font-bold ${
               isDarkMode ? 'text-slate-500' : 'text-slate-400'
             }`}>
               <span>DISCOVERY FRAMEWORK</span>
               <span>/</span>
               <span className="text-indigo-500 font-semibold">{STEPS[activeStep].title}</span>
             </div>
-            <h2 className={`text-md sm:text-xl font-bold tracking-tight mt-1 leading-snug transition-colors ${
+            <h2 className={`text-sm sm:text-xl font-bold tracking-tight sm:mt-1 leading-snug truncate sm:whitespace-normal transition-colors ${
               isDarkMode ? 'text-white' : 'text-slate-800'
             }`}>
               {STEPS[activeStep].description}
@@ -2694,7 +2703,7 @@ export default function App() {
 
       {/* ADVISOR DRAWER */}
       {copilotOpen && (
-        <div className={`w-full lg:w-[330px] shrink-0 border-l flex flex-col fixed inset-y-0 right-0 z-40 transition-all duration-300 shadow-2xl lg:static lg:translate-x-0 ${
+        <div className={`w-full lg:w-[330px] shrink-0 border-l flex flex-col fixed top-14 bottom-0 right-0 lg:top-0 z-40 transition-all duration-300 shadow-2xl lg:static lg:translate-x-0 ${
           isDarkMode ? 'bg-[#0E0F14] border-white/[0.04]' : 'bg-white border-slate-200'
         }`}>
           <div className={`p-5 border-b flex justify-between items-center ${isDarkMode ? 'border-white/[0.04]' : 'border-slate-200'}`}>
