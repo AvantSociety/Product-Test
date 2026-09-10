@@ -120,6 +120,35 @@ function sentencesWithOffsets(text) {
   return out;
 }
 
+/**
+ * The signals a passage carries. These are observable facts about the text, so
+ * they are reported the same way whether the extractor surfaced the passage or
+ * the attorney selected it by hand.
+ */
+export function detectSignals(text) {
+  const signals = [];
+  if (DATE_PATTERN.test(text)) signals.push('date');
+  if (MONEY_PATTERN.test(text)) signals.push('money');
+  if (PARTY_PATTERN.test(text)) signals.push('party');
+  if (OPERATIVE_PATTERN.test(text)) signals.push('operative');
+  return signals;
+}
+
+/** Builds a citation from a passage the attorney selected in the viewer. */
+export function buildUserCitation({ id, content, excerpt, offset, fileName, tags = [] }) {
+  return {
+    id,
+    line: lineNumberAt(content, offset),
+    finding: excerpt.length > 150 ? `${excerpt.slice(0, 150)}…` : excerpt,
+    excerpt,
+    offset,
+    signals: detectSignals(excerpt),
+    source: fileName,
+    origin: 'user',
+    tags,
+  };
+}
+
 export function extractCitations(content, fileName) {
   if (!content || !content.trim()) return [];
 
@@ -149,6 +178,8 @@ export function extractCitations(content, fileName) {
     offset: item.offset,
     signals: item.signals,
     source: fileName,
+    origin: 'extracted',
+    tags: [],
   }));
 }
 
