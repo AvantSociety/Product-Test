@@ -30,6 +30,7 @@ import {
   Activity,
   EyeOff,
   ScrollText,
+  UserRound,
   FileSpreadsheet,
   Filter,
 } from 'lucide-react';
@@ -40,6 +41,7 @@ import {
   formatCitation,
   parseEventDate,
   formatEventDate,
+  buildUserCitation,
   SIGNAL_LABELS,
   DATE_PATTERN,
 } from './lib/citations.js';
@@ -336,6 +338,11 @@ export default function App() {
   const [selectedFinding, setSelectedFinding] = useState(0);
   const [activeNoteInput, setActiveNoteInput] = useState('');
   const [copiedCitation, setCopiedCitation] = useState(false);
+  // A passage the attorney has highlighted in the viewer, awaiting confirmation
+  // before it becomes a citation.
+  const [pendingSelection, setPendingSelection] = useState(null);
+  const [pendingTags, setPendingTags] = useState([]);
+  const [tagDraft, setTagDraft] = useState('');
 
   // --- Advisor ---
   const [messages, setMessages] = useState([]);
@@ -346,6 +353,9 @@ export default function App() {
   // is selected, so it is never left off-screen in a long document.
   const viewerRef = useRef(null);
   const markRef = useRef(null);
+  // Wraps only the document body, so selection offsets are measured against the
+  // document text and not the surrounding chrome.
+  const docTextRef = useRef(null);
   const hydrated = useRef(false);
   // Mirrors `documents` so ingest can check for duplicates synchronously,
   // without reading a flag set inside a state updater.
@@ -477,10 +487,16 @@ export default function App() {
   });
 
   const activeCitations = selectedDocSource ? (citations[selectedDocSource] || []) : [];
-  const activeCitation = activeCitations[selectedFinding] || null;
+  const activeCitation = activeCitations.find(c => c.id === selectedFinding) || null;
   const noteKey = selectedDocSource ? `${selectedDocSource}::${selectedFinding}` : null;
 
   const allProducibleCitations = producibleDocs.flatMap(d => citations[d.name] || []);
+
+  // Every tag used anywhere in the matter, so tagging stays consistent across
+  // documents instead of drifting into near-duplicates.
+  const knownTags = Array.from(
+    new Set(Object.values(citations).flat().flatMap(c => c.tags || []))
+  ).sort();
 
   // ---------- Effects ----------
 
@@ -501,7 +517,9 @@ export default function App() {
 
   // Keep the citation selection valid when the source document changes.
   useEffect(() => {
-    setSelectedFinding(0);
+    const first = (citations[selectedDocSource] || [])[0];
+    setSelectedFinding(first ? first.id : 0);
+    setPendingSelection(null);
   }, [selectedDocSource]);
 
   useEffect(() => {
@@ -767,6 +785,105 @@ export default function App() {
     appendAudit('Annotated finding', noteKey);
   };
 
+  /**
+   * Character offset of a range start within a container, by walking its text
+   * nodes. Needed because the viewer splits the body around the highlight mark,
+   * so the range's own offset is relative to a fragment, not the document.
+   */
+  const offsetWithin = (container, node, nodeOffset) => {
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    let total = 0;
+    let current;
+    while ((current = walker.nextNode())) {
+      if (current === node) return total + nodeOffset;
+      total += current.textContent.length;
+    }
+    return -1;
+  };
+
+  const captureSelection = () => {
+    const selection = window.getSelection();
+    const container = docTextRef.current;
+    if (!selection || selection.isCollapsed || !container) { setPendingSelection(null); return; }
+
+    const range = selection.getRangeAt(0);
+    if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) return;
+
+    const excerpt = selection.toString().trim();
+    if (excerpt.length < 8) { setPendingSelection(null); return; }
+
+    const rawOffset = offsetWithin(container, range.startContainer, range.startOffset);
+    if (rawOffset < 0) return;
+
+    // Selection may lead with whitespace the trim removed; realign so the
+    // stored offset points at the first character actually cited.
+    const content = documents.find(d => d.name === selectedDocSource)?.content || '';
+    const leading = selection.toString().length - selection.toString().trimStart().length;
+    const offset = rawOffset + leading;
+    if (content.slice(offset, offset + excerpt.length) !== excerpt) return;
+
+    setPendingSelection({ excerpt, offset });
+    setPendingTags([]);
+    setTagDraft('');
+  };
+
+  const addPendingTag = (tag) => {
+    const clean = tag.trim();
+    if (!clean) return;
+    setPendingTags(prev => (prev.includes(clean) ? prev : [...prev, clean]));
+    setTagDraft('');
+  };
+
+  const commitUserCitation = () => {
+    if (!pendingSelection || !selectedDocSource) return;
+    const content = documents.find(d => d.name === selectedDocSource)?.content || '';
+    const citation = buildUserCitation({
+      id: `u-${Date.now().toString(36)}`,
+      content,
+      excerpt: pendingSelection.excerpt,
+      offset: pendingSelection.offset,
+      fileName: selectedDocSource,
+      tags: pendingTags,
+    });
+    setCitations(prev => {
+      const next = [...(prev[selectedDocSource] || []), citation];
+      next.sort((a, b) => a.offset - b.offset);
+      return { ...prev, [selectedDocSource]: next };
+    });
+    setSelectedFinding(citation.id);
+    setPendingSelection(null);
+    setPendingTags([]);
+    window.getSelection()?.removeAllRanges();
+    appendAudit('Added citation', `${selectedDocSource} line ${citation.line}`);
+  };
+
+  const updateCitationTags = (citationId, updater) => {
+    setCitations(prev => ({
+      ...prev,
+      [selectedDocSource]: (prev[selectedDocSource] || []).map(c =>
+        c.id === citationId ? { ...c, tags: updater(c.tags || []) } : c
+      ),
+    }));
+  };
+
+  const removeUserCitation = (citationId) => {
+    const target = activeCitations.find(c => c.id === citationId);
+    setCitations(prev => ({
+      ...prev,
+      [selectedDocSource]: (prev[selectedDocSource] || []).filter(c => c.id !== citationId),
+    }));
+    setNotes(prev => {
+      const next = { ...prev };
+      delete next[`${selectedDocSource}::${citationId}`];
+      return next;
+    });
+    if (selectedFinding === citationId) {
+      const remaining = activeCitations.filter(c => c.id !== citationId);
+      setSelectedFinding(remaining[0] ? remaining[0].id : 0);
+    }
+    appendAudit('Removed citation', `${selectedDocSource} line ${target?.line ?? '?'}`);
+  };
+
   const handleCopyCitation = () => {
     if (!activeCitation) return;
     const text = `${formatCitation(activeCitation, batesAssignments[activeCitation.source])}: "${activeCitation.excerpt}"`;
@@ -896,6 +1013,7 @@ export default function App() {
     setRelevanceFilter('ALL');
     setManifestSha(null); setTimeline([]); setAnalysisComplete(false); setAnalysisProgress(0);
     setSelectedDocSource(null); setSelectedFinding(0); setMemoText(DEFAULT_MEMO);
+    setPendingSelection(null); setPendingTags([]); setTagDraft('');
     setIsFlaggedForReview(false); setCaseTitle('In Re Jones Litigation');
     setBatesPrefix('VLM'); setBatesStart(1); setUploadNotices([]); setMessages([]);
     handleStepChange(0);
@@ -2288,6 +2406,20 @@ export default function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 lg:h-[480px]">
                   {/* Findings */}
                   <div className="lg:col-span-2 space-y-2.5 overflow-y-auto max-h-[280px] lg:max-h-full pr-1.5">
+                    {activeCitations.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-mono text-slate-500 pb-0.5">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="px-1.5 py-0.5 rounded-sm border bg-indigo-500/10 border-indigo-500/20 text-indigo-400">tag</span>
+                          found by the tool
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="px-1.5 py-0.5 rounded-full border bg-amber-500/10 border-amber-500/30 text-amber-400 inline-flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-amber-400" />tag
+                          </span>
+                          added by you
+                        </span>
+                      </div>
+                    )}
                     {activeCitations.length === 0 ? (
                       <div className={`flex flex-col items-center justify-center py-10 rounded-xl border border-dashed text-center ${
                         isDarkMode ? 'border-white/[0.08] text-slate-500' : 'border-slate-200 text-slate-400'
@@ -2313,19 +2445,129 @@ export default function App() {
                             <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 truncate">
                               {batesAssignments[item.source] || 'Bates pending'} &middot; Line {item.line}
                             </span>
+                            {item.origin === 'user' && (
+                              <span
+                                title="You created this citation by selecting the passage"
+                                className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-amber-500/10 border-amber-500/30 text-amber-400 shrink-0 inline-flex items-center gap-1"
+                              >
+                                <UserRound size={9} /> YOURS
+                              </span>
+                            )}
                           </div>
                           <p className={`text-[11px] leading-relaxed font-sans font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
                             {item.finding}
                           </p>
                           <div className="flex flex-wrap gap-1 mt-2">
+                            {/* Tool tags: observable signals the extractor found in the text.
+                                Square, indigo, not removable. */}
                             {item.signals.map(sig => (
-                              <span key={sig} className="text-[8px] font-mono px-1.5 py-0.5 rounded border bg-indigo-500/10 border-indigo-500/20 text-indigo-400">
+                              <span
+                                key={`sig-${sig}`}
+                                title="Detected by the tool"
+                                className="text-[8px] font-mono px-1.5 py-0.5 rounded-sm border bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                              >
                                 {SIGNAL_LABELS[sig]}
+                              </span>
+                            ))}
+                            {/* Your tags: pill-shaped, amber, dot-prefixed. */}
+                            {(item.tags || []).map(tag => (
+                              <span
+                                key={`tag-${tag}`}
+                                title="Your tag"
+                                className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-full border bg-amber-500/10 border-amber-500/30 text-amber-400 inline-flex items-center gap-1"
+                              >
+                                <span className="w-1 h-1 rounded-full bg-amber-400" />{tag}
                               </span>
                             ))}
                           </div>
                         </div>
                       ))
+                    )}
+
+                    {/* Tags on the selected citation */}
+                    {activeCitation && (
+                      <div className={`p-4 rounded-xl border ${panelClass}`}>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <label className="text-[10px] font-mono font-bold tracking-wider text-slate-500 uppercase">
+                            Your tags
+                          </label>
+                          {activeCitation.origin === 'user' && (
+                            <button
+                              onClick={() => removeUserCitation(activeCitation.id)}
+                              className="text-[9px] font-mono text-slate-500 hover:text-red-400 transition-colors inline-flex items-center gap-1"
+                            >
+                              <Trash2 size={10} /> Delete citation
+                            </button>
+                          )}
+                        </div>
+
+                        {(activeCitation.tags || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2.5">
+                            {activeCitation.tags.map(tag => (
+                              <button
+                                key={tag}
+                                onClick={() => updateCitationTags(activeCitation.id, t => t.filter(x => x !== tag))}
+                                title="Remove this tag"
+                                className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 border-amber-500/30 text-amber-400 inline-flex items-center gap-1 hover:bg-amber-500/20"
+                              >
+                                <span className="w-1 h-1 rounded-full bg-amber-400" />{tag}
+                                <X size={9} />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {knownTags.filter(t => !(activeCitation.tags || []).includes(t)).length > 0 && (
+                          <div className="mb-2.5">
+                            <p className="text-[9px] font-mono text-slate-500 mb-1">Reuse a tag</p>
+                            <div className="flex flex-wrap gap-1">
+                              {knownTags
+                                .filter(t => !(activeCitation.tags || []).includes(t))
+                                .map(tag => (
+                                  <button
+                                    key={tag}
+                                    onClick={() => updateCitationTags(activeCitation.id, t => [...t, tag])}
+                                    className={`text-[9px] font-mono px-2 py-0.5 rounded-full border transition-colors ${
+                                      isDarkMode
+                                        ? 'border-white/[0.08] text-slate-400 hover:border-amber-500/40 hover:text-amber-400'
+                                        : 'border-slate-200 text-slate-500 hover:border-amber-400 hover:text-amber-600'
+                                    }`}
+                                  >
+                                    + {tag}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const clean = tagDraft.trim();
+                            if (!clean) return;
+                            updateCitationTags(activeCitation.id, t => (t.includes(clean) ? t : [...t, clean]));
+                            setTagDraft('');
+                          }}
+                          className="flex gap-1.5"
+                        >
+                          <input
+                            type="text"
+                            placeholder="New tag…"
+                            value={tagDraft}
+                            onChange={(e) => { setTagDraft(e.target.value); setIsTyping(true); }}
+                            onBlur={() => setIsTyping(false)}
+                            className={`flex-1 min-w-0 text-[11px] px-2 py-1.5 rounded-lg border focus:outline-none focus:ring-1 focus:ring-amber-500 ${
+                              isDarkMode ? 'bg-[#151620] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                            }`}
+                          />
+                          <button
+                            type="submit"
+                            className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 transition-all shrink-0"
+                          >
+                            Add
+                          </button>
+                        </form>
+                      </div>
                     )}
 
                     {/* Annotation */}
@@ -2366,18 +2608,21 @@ export default function App() {
                   </div>
 
                   {/* Viewer */}
-                  <div className="lg:col-span-3 bg-white rounded-2xl border border-[#D1D5DB] flex flex-col overflow-hidden text-slate-900 shadow-2xl min-h-[300px]">
+                  <div className="lg:col-span-3 relative bg-white rounded-2xl border border-[#D1D5DB] flex flex-col overflow-hidden text-slate-900 shadow-2xl min-h-[300px]">
                     <div className="bg-[#E5E7EB] px-4 py-2 border-b border-[#D1D5DB] flex justify-between items-center text-[10px] text-slate-500 font-mono font-bold gap-2">
                       <span className="flex items-center gap-1.5 min-w-0">
                         <FileText size={13} className="text-slate-500 shrink-0" />
                         <span className="truncate">{selectedDocSource || 'No document'}</span>
                       </span>
                       <span className="shrink-0">
-                        {batesAssignments[selectedDocSource] || 'Bates pending'}
+                        {pendingSelection ? 'Selection ready' : 'Select text to cite it'}
                       </span>
                     </div>
 
-                    <div ref={viewerRef} className="flex-1 p-6 font-serif text-[12.5px] leading-relaxed overflow-y-auto bg-[#F9FAFB] select-text">
+                    <div
+                      ref={viewerRef}
+                      onMouseUp={captureSelection}
+                      className="flex-1 p-6 font-serif text-[12.5px] leading-relaxed overflow-y-auto bg-[#F9FAFB] select-text">
                       <div className="border border-slate-200/60 p-6 bg-white min-h-full shadow-sm rounded-xl">
                         <p className="text-[9px] text-slate-400 font-mono mb-4 pb-1.5 border-b border-slate-100 uppercase tracking-widest font-bold">
                           {dispositionOf(selectedDocSource) === 'redact' ? 'Client document — produced in redacted form' : 'Client document'}
@@ -2389,13 +2634,13 @@ export default function App() {
                             return <p className="text-slate-400 font-mono text-[11px]">No readable content in this document.</p>;
                           }
                           if (!activeCitation) {
-                            return <p className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{content}</p>;
+                            return <p ref={docTextRef} className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{content}</p>;
                           }
                           // Anchored by stored offset, so repeated phrases highlight the right one.
                           const start = activeCitation.offset;
                           const end = start + activeCitation.excerpt.length;
                           return (
-                            <p className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
+                            <p ref={docTextRef} className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
                               {content.slice(0, start)}
                               <mark ref={markRef} className="bg-amber-100 font-bold px-0.5 rounded border-b-2 border-amber-500 text-slate-950 shadow-sm">
                                 {content.slice(start, end)}
@@ -2413,6 +2658,84 @@ export default function App() {
                         )}
                       </div>
                     </div>
+
+                    {/* Prompt for a passage the attorney highlighted, shown over
+                        the viewer so it appears where they are already looking. */}
+                    {pendingSelection && (
+                      <div className="absolute inset-x-0 bottom-0 z-10 border-t border-amber-500/40 bg-[#161821] p-3.5 shadow-[0_-8px_24px_rgba(0,0,0,0.35)] animate-fadeIn">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-amber-400">
+                              Add this passage as your citation
+                            </p>
+                            <p className="text-[11px] text-slate-300 mt-1 leading-snug line-clamp-2">
+                              &ldquo;{pendingSelection.excerpt.length > 160
+                                ? `${pendingSelection.excerpt.slice(0, 160)}…`
+                                : pendingSelection.excerpt}&rdquo;
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => { setPendingSelection(null); window.getSelection()?.removeAllRanges(); }}
+                            className="p-1 rounded-lg border border-white/[0.08] text-slate-400 hover:bg-white/[0.05] shrink-0"
+                            aria-label="Discard selection"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+
+                        <div className="mt-2.5">
+                          <p className="text-[9px] font-mono text-slate-500 mb-1.5">
+                            Tag it {knownTags.length > 0 ? '— reuse one of yours or write a new one' : '— write your own label'}
+                          </p>
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {pendingTags.map(tag => (
+                              <button
+                                key={tag}
+                                onClick={() => setPendingTags(prev => prev.filter(t => t !== tag))}
+                                className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border bg-amber-500/15 border-amber-500/40 text-amber-300 inline-flex items-center gap-1"
+                              >
+                                <span className="w-1 h-1 rounded-full bg-amber-400" />{tag}<X size={9} />
+                              </button>
+                            ))}
+                            {knownTags.filter(t => !pendingTags.includes(t)).map(tag => (
+                              <button
+                                key={tag}
+                                onClick={() => addPendingTag(tag)}
+                                className="text-[9px] font-mono px-2 py-0.5 rounded-full border border-white/[0.1] text-slate-400 hover:border-amber-500/40 hover:text-amber-400 transition-colors"
+                              >
+                                + {tag}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="flex gap-1.5">
+                            <input
+                              type="text"
+                              placeholder="New tag…"
+                              value={tagDraft}
+                              onChange={(e) => { setTagDraft(e.target.value); setIsTyping(true); }}
+                              onBlur={() => setIsTyping(false)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') { e.preventDefault(); addPendingTag(tagDraft); }
+                              }}
+                              className="flex-1 min-w-0 text-[11px] px-2 py-1.5 rounded-lg border bg-[#101119] border-white/[0.08] text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            />
+                            <button
+                              onClick={() => addPendingTag(tagDraft)}
+                              className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg border border-amber-500/30 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 shrink-0"
+                            >
+                              Add tag
+                            </button>
+                            <button
+                              onClick={commitUserCitation}
+                              className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-amber-500 text-slate-950 hover:bg-amber-400 shrink-0"
+                            >
+                              Save citation
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
