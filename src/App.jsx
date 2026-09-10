@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import {
   FolderDown,
   UploadCloud,
@@ -31,6 +31,7 @@ import {
   EyeOff,
   ScrollText,
   FileSpreadsheet,
+  Filter,
 } from 'lucide-react';
 
 import { readDocument, manifestHash, ACCEPTED_EXTENSIONS } from './lib/documents.js';
@@ -44,6 +45,12 @@ import {
 } from './lib/citations.js';
 import { computeIntegrityReport, RECOLLECT_RATIO } from './lib/integrity.js';
 import { MIN_SET_COHESION } from './lib/cohesion.js';
+import {
+  screenDocuments,
+  parseCriteriaList,
+  hasCriteria,
+  RELEVANCE_CATEGORIES,
+} from './lib/relevance.js';
 import { saveMatter, loadMatter, clearMatter } from './lib/persistence.js';
 import {
   buildPrivilegeLog,
@@ -288,6 +295,15 @@ export default function App() {
   // --- Ingest ---
   const [searchQuery, setSearchQuery] = useState('');
   const [fileFilter, setFileFilter] = useState('ALL');
+  const [relevanceFilter, setRelevanceFilter] = useState('ALL');
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
+
+  // Screening criteria are supplied by counsel, not inferred. Relevance is a
+  // judgment against the claims and defenses; the tool only reports hits.
+  const [criteriaParties, setCriteriaParties] = useState('');
+  const [criteriaTerms, setCriteriaTerms] = useState('');
+  const [criteriaFrom, setCriteriaFrom] = useState('');
+  const [criteriaTo, setCriteriaTo] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadNotices, setUploadNotices] = useState([]);
@@ -365,6 +381,10 @@ export default function App() {
       setMemoText(saved.memoText ?? DEFAULT_MEMO);
       setConfirmedRelated(saved.confirmedRelated || []);
       setConfirmedCollections(saved.confirmedCollections || []);
+      setCriteriaParties(saved.criteriaParties || '');
+      setCriteriaTerms(saved.criteriaTerms || '');
+      setCriteriaFrom(saved.criteriaFrom || '');
+      setCriteriaTo(saved.criteriaTo || '');
       hydrated.current = true;
     });
     return () => { cancelled = true; };
@@ -377,19 +397,37 @@ export default function App() {
         documents, citations, privilege, selectedForReview, notes, auditLog,
         caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
         confirmedRelated, confirmedCollections,
+        criteriaParties, criteriaTerms, criteriaFrom, criteriaTo,
       });
     }, 400);
     return () => clearTimeout(handle);
   }, [documents, citations, privilege, selectedForReview, notes, auditLog,
       caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
-      confirmedRelated, confirmedCollections]);
+      confirmedRelated, confirmedCollections,
+      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo]);
 
   // ---------- Derived ----------
+
+  const relevanceCriteria = useMemo(() => ({
+    parties: parseCriteriaList(criteriaParties),
+    terms: parseCriteriaList(criteriaTerms),
+    from: criteriaFrom,
+    to: criteriaTo,
+  }), [criteriaParties, criteriaTerms, criteriaFrom, criteriaTo]);
+
+  const screeningActive = hasCriteria(relevanceCriteria);
+
+  const { results: relevanceResults, counts: relevanceCounts } = useMemo(
+    () => screenDocuments(documents, relevanceCriteria),
+    [documents, relevanceCriteria]
+  );
 
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = fileFilter === 'ALL' || doc.type === fileFilter;
-    return matchesSearch && matchesType;
+    const matchesRelevance = relevanceFilter === 'ALL'
+      || relevanceResults[doc.name]?.category === relevanceFilter;
+    return matchesSearch && matchesType && matchesRelevance;
   });
 
   const documentTypes = ['ALL', ...Array.from(new Set(documents.map(d => d.type)))];
@@ -850,6 +888,8 @@ export default function App() {
     setDocuments([]); setCitations({}); setPrivilege({}); setSelectedForReview([]);
     setNotes({}); setAuditLog([]); setBatesAssignments({}); setIntegrityReport(null);
     setConfirmedRelated([]); setConfirmedCollections([]);
+    setCriteriaParties(''); setCriteriaTerms(''); setCriteriaFrom(''); setCriteriaTo('');
+    setRelevanceFilter('ALL');
     setManifestSha(null); setTimeline([]); setAnalysisComplete(false); setAnalysisProgress(0);
     setSelectedDocSource(null); setSelectedFinding(0); setMemoText(DEFAULT_MEMO);
     setIsFlaggedForReview(false); setCaseTitle('In Re Jones Litigation');
@@ -1321,6 +1361,166 @@ export default function App() {
                 </div>
               )}
 
+              {/* Relevance screening criteria — supplied by counsel */}
+              <div className={`rounded-2xl border ${panelClass}`}>
+                <button
+                  onClick={() => setCriteriaOpen(!criteriaOpen)}
+                  className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Filter size={14} className="text-indigo-500 shrink-0" />
+                    <div className="min-w-0">
+                      <h4 className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                        Relevance Screening Criteria
+                      </h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                        {screeningActive
+                          ? `${relevanceCriteria.parties.length} part${relevanceCriteria.parties.length === 1 ? 'y' : 'ies'}, ${relevanceCriteria.terms.length} key term${relevanceCriteria.terms.length === 1 ? '' : 's'}${criteriaFrom || criteriaTo ? ', date range set' : ''}`
+                          : 'Not set — documents are unscreened until you define the matter'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight size={14} className={`text-slate-500 shrink-0 transition-transform ${criteriaOpen ? 'rotate-90' : ''}`} />
+                </button>
+
+                {criteriaOpen && (
+                  <div className="px-5 pb-5 space-y-3 border-t border-white/[0.04] pt-4 animate-fadeIn">
+                    <p className="text-[10px] leading-relaxed text-slate-500">
+                      Relevance is measured against the claims and defenses of your case, which no tool can read out of
+                      a file. State the criteria here and every document is screened against them &mdash; the judgment
+                      stays yours, the matching is automated. Separate entries with commas.
+                    </p>
+
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">
+                        Parties &amp; custodians
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Acme Holdings, Jane Doe, Meridian Partners"
+                        value={criteriaParties}
+                        onChange={(e) => setCriteriaParties(e.target.value)}
+                        onFocus={() => setIsTyping(true)}
+                        onBlur={() => setIsTyping(false)}
+                        className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                          isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">
+                        Key terms
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="escrow, wire transfer, account 4471-882"
+                        value={criteriaTerms}
+                        onChange={(e) => setCriteriaTerms(e.target.value)}
+                        onFocus={() => setIsTyping(true)}
+                        onBlur={() => setIsTyping(false)}
+                        className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                          isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">
+                          Period from
+                        </label>
+                        <input
+                          type="date"
+                          value={criteriaFrom}
+                          onChange={(e) => setCriteriaFrom(e.target.value)}
+                          onFocus={() => setIsTyping(true)}
+                          onBlur={() => setIsTyping(false)}
+                          className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                            isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">
+                          Period to
+                        </label>
+                        <input
+                          type="date"
+                          value={criteriaTo}
+                          onChange={(e) => setCriteriaTo(e.target.value)}
+                          onFocus={() => setIsTyping(true)}
+                          onBlur={() => setIsTyping(false)}
+                          className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                            isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] leading-relaxed text-slate-500 pt-1">
+                      Keyword screening both over- and under-includes &mdash; a responsive document that happens to use
+                      none of your terms will read as no match. Treat these results as a review queue, not a
+                      determination.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Screening summary — the indicator that something is out of scope */}
+              {screeningActive && documents.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setRelevanceFilter('ALL')}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold border transition-all ${
+                      relevanceFilter === 'ALL'
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : isDarkMode ? 'bg-[#151622] border-white/[0.04] text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    ALL {documents.length}
+                  </button>
+                  {['strong', 'possible', 'out_of_period', 'none'].map(key => {
+                    const meta = RELEVANCE_CATEGORIES[key];
+                    const count = relevanceCounts[key];
+                    if (count === 0) return null;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setRelevanceFilter(relevanceFilter === key ? 'ALL' : key)}
+                        title={meta.blurb}
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold border transition-all ${
+                          relevanceFilter === key ? toneClasses[meta.tone] + ' ring-1 ring-current' : toneClasses[meta.tone] + ' opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        {meta.short} {count}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Out-of-scope banner */}
+              {screeningActive && (relevanceCounts.none > 0 || relevanceCounts.out_of_period > 0) && (
+                <div className={`border rounded-2xl p-4 flex gap-3 items-start ${
+                  isDarkMode ? 'bg-red-500/[0.04] border-red-500/20' : 'bg-red-50 border-red-200'
+                }`}>
+                  <AlertTriangle className="text-red-400 shrink-0 mt-0.5" size={16} />
+                  <div>
+                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-red-400 font-mono">
+                      {relevanceCounts.none > 0 && `${relevanceCounts.none} document${relevanceCounts.none === 1 ? '' : 's'} with no connection to this matter`}
+                      {relevanceCounts.none > 0 && relevanceCounts.out_of_period > 0 && ' · '}
+                      {relevanceCounts.out_of_period > 0 && `${relevanceCounts.out_of_period} outside the relevant period`}
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                      These matched none of your parties or key terms, or fall wholly outside the period you set. Review
+                      them before Stage&nbsp;02 &mdash; anything genuinely out of scope should not be selected for
+                      production.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Search & filter */}
               <div className={`p-4 rounded-2xl border transition-colors flex flex-col md:flex-row gap-3 items-center justify-between ${
                 isDarkMode ? 'bg-[#111219] border-white/[0.04]' : 'bg-white border-slate-200'
@@ -1362,12 +1562,14 @@ export default function App() {
                   hint={documents.length === 0 ? 'Use Choose Files above to load documents from your computer' : 'Adjust the search or filter'}
                 />
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 animate-fadeIn">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fadeIn">
                   {filteredDocuments.map((doc) => (
                     <div
                       key={doc.name}
                       className={`border rounded-xl p-3 flex items-start justify-between gap-2 transition-all group ${
-                        isDarkMode ? 'bg-[#111218] border-white/[0.04] hover:border-white/[0.08]' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
+                        screeningActive && relevanceResults[doc.name]?.category === 'none'
+                          ? isDarkMode ? 'bg-red-500/[0.03] border-red-500/20' : 'bg-red-50/60 border-red-200'
+                          : isDarkMode ? 'bg-[#111218] border-white/[0.04] hover:border-white/[0.08]' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
                       }`}
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
@@ -1387,6 +1589,28 @@ export default function App() {
                             {(citations[doc.name] || []).length} citation{(citations[doc.name] || []).length === 1 ? '' : 's'}
                             {batesAssignments[doc.name] ? ` · ${batesAssignments[doc.name]}` : ''}
                           </p>
+                          {screeningActive && relevanceResults[doc.name] && (() => {
+                            const result = relevanceResults[doc.name];
+                            const meta = RELEVANCE_CATEGORIES[result.category];
+                            return (
+                              <div className="mt-1.5">
+                                <span
+                                  title={meta.blurb}
+                                  className={`text-[8px] font-mono border px-1.5 py-0.5 rounded font-bold whitespace-nowrap ${toneClasses[meta.tone]}`}
+                                >
+                                  {meta.short}
+                                </span>
+                                {result.reason && (
+                                  <p className={`text-[9px] mt-1 leading-snug ${
+                                    result.category === 'none' ? 'text-red-400'
+                                      : result.category === 'out_of_period' ? 'text-amber-500' : 'text-slate-500'
+                                  }`}>
+                                    {result.reason}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
