@@ -31,6 +31,7 @@ import {
   EyeOff,
   ScrollText,
   UserRound,
+  StickyNote,
   FileSpreadsheet,
   Filter,
 } from 'lucide-react';
@@ -494,6 +495,22 @@ export default function App() {
 
   // Every tag used anywhere in the matter, so tagging stays consistent across
   // documents instead of drifting into near-duplicates.
+  // Notes on the open document, resolved back to the citation each is attached
+  // to and ordered by position in the document.
+  const documentNotes = selectedDocSource
+    ? Object.entries(notes)
+        .filter(([key]) => key.startsWith(`${selectedDocSource}::`))
+        .map(([key, text]) => {
+          const id = key.slice(selectedDocSource.length + 2);
+          return {
+            key,
+            text,
+            citation: activeCitations.find(c => String(c.id) === id) || null,
+          };
+        })
+        .sort((a, b) => (a.citation?.offset ?? Infinity) - (b.citation?.offset ?? Infinity))
+    : [];
+
   const knownTags = Array.from(
     new Set(Object.values(citations).flat().flatMap(c => c.tags || []))
   ).sort();
@@ -2445,14 +2462,24 @@ export default function App() {
                             <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 truncate">
                               {batesAssignments[item.source] || 'Bates pending'} &middot; Line {item.line}
                             </span>
-                            {item.origin === 'user' && (
-                              <span
-                                title="You created this citation by selecting the passage"
-                                className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-amber-500/10 border-amber-500/30 text-amber-400 shrink-0 inline-flex items-center gap-1"
-                              >
-                                <UserRound size={9} /> YOURS
-                              </span>
-                            )}
+                            <span className="flex items-center gap-1 shrink-0">
+                              {notes[`${item.source}::${item.id}`] && (
+                                <span
+                                  title={`Note attached: "${notes[`${item.source}::${item.id}`]}"`}
+                                  className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-sky-500/10 border-sky-500/30 text-sky-400 inline-flex items-center gap-1"
+                                >
+                                  <StickyNote size={9} /> NOTE
+                                </span>
+                              )}
+                              {item.origin === 'user' && (
+                                <span
+                                  title="You created this citation by selecting the passage"
+                                  className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-amber-500/10 border-amber-500/30 text-amber-400 inline-flex items-center gap-1"
+                                >
+                                  <UserRound size={9} /> YOURS
+                                </span>
+                              )}
+                            </span>
                           </div>
                           <p className={`text-[11px] leading-relaxed font-sans font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
                             {item.finding}
@@ -2739,6 +2766,94 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {/* All notes on the open document */}
+              {producibleNames.length > 0 && (
+                <div className={`rounded-2xl border ${panelClass}`}>
+                  <div className={`px-5 py-3.5 border-b flex items-center justify-between gap-3 ${
+                    isDarkMode ? 'border-white/[0.04]' : 'border-slate-200'
+                  }`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <StickyNote size={14} className="text-sky-400 shrink-0" />
+                      <h4 className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                        Notes in this document
+                      </h4>
+                      <span className="text-[10px] font-mono text-slate-500 truncate">
+                        {selectedDocSource}
+                      </span>
+                    </div>
+                    <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border shrink-0 ${
+                      documentNotes.length > 0 ? toneClasses.indigo : toneClasses.slate
+                    }`}>
+                      {documentNotes.length}
+                    </span>
+                  </div>
+
+                  {documentNotes.length === 0 ? (
+                    <p className="px-5 py-6 text-[11px] text-slate-500 text-center">
+                      No notes on this document yet. Select a citation above and write one in
+                      &ldquo;Note on this passage&rdquo;.
+                    </p>
+                  ) : (
+                    <div className="p-3 space-y-2">
+                      {documentNotes.map(({ key, text, citation }) => (
+                        <div
+                          key={key}
+                          onClick={() => citation && setSelectedFinding(citation.id)}
+                          className={`p-3 rounded-xl border transition-all ${
+                            citation ? 'cursor-pointer' : ''
+                          } ${
+                            citation && selectedFinding === citation.id
+                              ? isDarkMode ? 'bg-[#181924] border-indigo-500/50 ring-1 ring-indigo-500/30' : 'bg-indigo-50/50 border-indigo-300'
+                              : isDarkMode ? 'bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.04]' : 'bg-slate-50 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            {citation ? (
+                              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 truncate">
+                                {batesAssignments[citation.source] || 'Bates pending'} &middot; Line {citation.line}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+                                Citation no longer exists
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1 shrink-0">
+                              {citation?.origin === 'user' && (
+                                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-amber-500/10 border-amber-500/30 text-amber-400 inline-flex items-center gap-1">
+                                  <UserRound size={9} /> YOURS
+                                </span>
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setNotes(prev => { const next = { ...prev }; delete next[key]; return next; });
+                                  appendAudit('Deleted note', key);
+                                }}
+                                title="Delete this note"
+                                className="p-1 rounded-md text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </span>
+                          </div>
+
+                          {/* The passage the note is attached to */}
+                          {citation && (
+                            <p className="text-[10px] text-slate-500 leading-snug italic mb-1.5 line-clamp-2">
+                              on: &ldquo;{citation.finding}&rdquo;
+                            </p>
+                          )}
+
+                          <p className={`text-[11px] leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                            {text}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -2852,10 +2967,36 @@ export default function App() {
                 <div className="pt-5 border-t border-white/[0.04] flex flex-col sm:flex-row justify-between gap-3">
                   <button
                     onClick={() => {
-                      // Genuinely re-extract from current document contents.
+                      // Re-extract from current document contents, without
+                      // discarding the attorney's work. Citations counsel wrote
+                      // are kept verbatim; tags and notes are re-attached by
+                      // content anchor, because re-extraction renumbers the
+                      // generated citations and an id-based remap would move a
+                      // note onto a different passage.
                       const rebuilt = {};
-                      documents.forEach(d => { rebuilt[d.name] = extractCitations(d.content, d.name); });
+                      const noteRemap = {};
+                      documents.forEach(d => {
+                        const prior = citations[d.name] || [];
+                        const anchorOf = c => `${c.offset}::${c.excerpt}`;
+                        const priorByAnchor = new Map(prior.map(c => [anchorOf(c), c]));
+                        const fresh = extractCitations(d.content, d.name).map(c => {
+                          const match = priorByAnchor.get(anchorOf(c));
+                          if (match && match.id !== c.id) {
+                            noteRemap[`${d.name}::${match.id}`] = `${d.name}::${c.id}`;
+                          }
+                          return { ...c, tags: match?.tags || [] };
+                        });
+                        const userCitations = prior.filter(c => c.origin === 'user');
+                        rebuilt[d.name] = [...fresh, ...userCitations].sort((a, b) => a.offset - b.offset);
+                      });
                       setCitations(rebuilt);
+                      setNotes(prev => {
+                        const next = {};
+                        Object.entries(prev).forEach(([key, value]) => {
+                          next[noteRemap[key] || key] = value;
+                        });
+                        return next;
+                      });
                       appendAudit('Re-extracted citations', `${documents.length} documents`);
                       handleStepChange(4);
                     }}
