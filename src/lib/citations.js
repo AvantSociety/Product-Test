@@ -103,20 +103,103 @@ function citationBudget(text) {
   return Math.max(3, Math.min(25, Math.round(text.length / 12000) + 3));
 }
 
+// Abbreviations whose trailing period never ends a sentence. Seeded from the
+// usage legal documents are full of — honorifics, corporate forms, reporters
+// and court abbreviations — because a splitter that breaks on "Mr." or "F.3d"
+// severs the very passages worth citing.
+const ABBREVIATIONS = new Set([
+  'mr', 'mrs', 'ms', 'dr', 'prof', 'hon', 'esq', 'jr', 'sr', 'st',
+  'inc', 'llc', 'llp', 'ltd', 'co', 'corp', 'plc', 'gmbh',
+  'no', 'nos', 'vol', 'ed', 'eds', 'p', 'pp', 'para', 'art', 'sec', 'ch',
+  'v', 'vs', 'al', 'seq', 'cf', 'ibid', 'id', 'supra', 'infra',
+  'cir', 'ct', 'dist', 'div', 'app', 'rev', 'supp', 'stat', 'reg', 'rul',
+  'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec',
+  'approx', 'est', 'dept', 'univ', 'assn', 'bros', 'etc', 'e.g', 'i.e',
+]);
+
+/**
+ * Decides whether the period at `index` genuinely ends a sentence.
+ *
+ * The previous implementation split on every period, which produced citations
+ * truncated mid-email-address, citations opening on the decimal half of a
+ * dollar figure, and citations that dropped the first named party after an
+ * honorific. Each of those reads as a defect in a brief.
+ */
+function endsSentence(text, index) {
+  const next = text[index + 1];
+
+  // A period with no following whitespace sits inside a token: an email
+  // address, a domain, a decimal, a version, a reporter cite like F.3d.
+  if (next !== undefined && !/\s/.test(next)) return false;
+
+  const before = text.slice(0, index);
+
+  // Decimal fraction: "$92,000.00" — digits on both sides.
+  if (/\d$/.test(before) && /^\d/.test(text.slice(index + 1).trimStart())) return false;
+
+  // A single capital is an initial: "Robert V. Vertex".
+  if (/(?:^|[\s(])[A-Z]$/.test(before)) return false;
+
+  // Known abbreviation immediately before the period.
+  const word = (before.match(/([A-Za-z.]+)$/) || [])[1];
+  if (word && ABBREVIATIONS.has(word.toLowerCase().replace(/\.$/, ''))) return false;
+
+  return true;
+}
+
+/**
+ * Email and similar headers are routing metadata, never the substance of a
+ * document. Citing a From: line displaces a real finding, so the header block
+ * is skipped for extraction while remaining visible in the viewer.
+ */
+const HEADER_LINE = /^\s*(from|to|cc|bcc|subject|date|sent|reply-to|message-id|importance|attachments?)\s*:/i;
+
+export function headerBlockLength(text) {
+  const lines = text.split(/\n/);
+  let consumed = 0;
+  let sawHeader = false;
+  for (const line of lines) {
+    if (HEADER_LINE.test(line)) {
+      sawHeader = true;
+      consumed += line.length + 1;
+      continue;
+    }
+    // A blank line closes the header block; anything else means it was never
+    // a header block at all.
+    if (sawHeader && line.trim() === '') { consumed += line.length + 1; break; }
+    if (sawHeader) break;
+    return 0;
+  }
+  return sawHeader ? Math.min(consumed, text.length) : 0;
+}
+
 /**
  * Splits into sentences while tracking each sentence's start offset in the
- * source text, so highlights can be anchored precisely.
+ * source text, so highlights can be anchored precisely. Also records the
+ * sentence's ordinal on its line, which is what makes two citations from the
+ * same paragraph distinguishable in a brief.
  */
-function sentencesWithOffsets(text) {
+function sentencesWithOffsets(text, startAt = 0) {
   const out = [];
-  const re = /[^.!?\n]+[.!?]*/g;
-  let match;
-  while ((match = re.exec(text)) !== null) {
-    const raw = match[0];
+  let cursor = startAt;
+  let index = startAt;
+
+  const push = (end) => {
+    const raw = text.slice(cursor, end);
     const leading = raw.length - raw.trimStart().length;
     const trimmed = raw.trim();
-    if (trimmed.length > 40) out.push({ text: trimmed, offset: match.index + leading });
+    if (trimmed.length > 40) out.push({ text: trimmed, offset: cursor + leading });
+    cursor = end;
+  };
+
+  while (index < text.length) {
+    const ch = text[index];
+    if (ch === '\n') { push(index + 1); }
+    else if (ch === '!' || ch === '?') { push(index + 1); }
+    else if (ch === '.' && endsSentence(text, index)) { push(index + 1); }
+    index += 1;
   }
+  push(text.length);
   return out;
 }
 
@@ -136,9 +219,12 @@ export function detectSignals(text) {
 
 /** Builds a citation from a passage the attorney selected in the viewer. */
 export function buildUserCitation({ id, content, excerpt, offset, fileName, tags = [] }) {
+  const span = lineSpan(content, offset, excerpt.length);
   return {
     id,
-    line: lineNumberAt(content, offset),
+    line: span.start,
+    lineEnd: span.end,
+    sentence: 1,
     finding: excerpt.length > 150 ? `${excerpt.slice(0, 150)}…` : excerpt,
     excerpt,
     offset,
@@ -152,7 +238,10 @@ export function buildUserCitation({ id, content, excerpt, offset, fileName, tags
 export function extractCitations(content, fileName) {
   if (!content || !content.trim()) return [];
 
-  const scored = sentencesWithOffsets(content).map((s, i) => {
+  // Routing headers are skipped so a From: line cannot displace a real finding.
+  const bodyStart = headerBlockLength(content);
+
+  const scored = sentencesWithOffsets(content, bodyStart).map((s, i) => {
     const signals = [];
     let score = 0;
     if (DATE_PATTERN.test(s.text)) { signals.push('date'); score += 3; }
@@ -170,17 +259,37 @@ export function extractCitations(content, fileName) {
     .slice(0, citationBudget(content))
     .sort((a, b) => a.index - b.index);
 
-  return top.map((item, i) => ({
-    id: i,
-    line: lineNumberAt(content, item.offset),
-    finding: item.text.length > 150 ? `${item.text.slice(0, 150)}…` : item.text,
-    excerpt: item.text,
-    offset: item.offset,
-    signals: item.signals,
-    source: fileName,
-    origin: 'extracted',
-    tags: [],
-  }));
+  // Ordinal within the line, so two passages from one paragraph cite distinctly.
+  const perLine = new Map();
+
+  return top.map((item, i) => {
+    const span = lineSpan(content, item.offset, item.text.length);
+    const seen = (perLine.get(span.start) || 0) + 1;
+    perLine.set(span.start, seen);
+    return {
+      id: i,
+      line: span.start,
+      lineEnd: span.end,
+      sentence: seen,
+      finding: item.text.length > 150 ? `${item.text.slice(0, 150)}…` : item.text,
+      excerpt: item.text,
+      offset: item.offset,
+      signals: item.signals,
+      source: fileName,
+      origin: 'extracted',
+      tags: [],
+    };
+  });
+}
+
+/**
+ * The locator as it would appear in a brief. A passage spanning lines cites a
+ * range; several passages on one line are told apart by sentence ordinal.
+ */
+export function formatLocator(citation) {
+  const { line, lineEnd, sentence } = citation;
+  const range = lineEnd && lineEnd > line ? `Lines ${line}-${lineEnd}` : `Line ${line}`;
+  return sentence && sentence > 1 ? `${range}, sent. ${sentence}` : range;
 }
 
 export function lineNumberAt(text, offset) {
@@ -189,9 +298,16 @@ export function lineNumberAt(text, offset) {
   return line;
 }
 
+/** How many lines a passage spans, so a long passage cites a range. */
+export function lineSpan(text, offset, length) {
+  const start = lineNumberAt(text, offset);
+  const end = lineNumberAt(text, Math.min(offset + length, text.length));
+  return { start, end };
+}
+
 /** Formats a record citation the way it would appear in a brief. */
 export function formatCitation(citation, batesNumber) {
-  const locator = `Line ${citation.line}`;
+  const locator = formatLocator(citation);
   return batesNumber
     ? `${batesNumber} (${citation.source}, ${locator})`
     : `${citation.source}, ${locator}`;

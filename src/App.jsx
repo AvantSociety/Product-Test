@@ -28,6 +28,9 @@ import {
   Plus,
   Trash2,
   Activity,
+  Circle,
+  Lock,
+  Eye,
   EyeOff,
   ScrollText,
   UserRound,
@@ -62,6 +65,8 @@ import {
   buildAuditLog,
   buildExceptionsReport,
   triggerDownload,
+  triggerBlobDownload,
+  renderTextPdf,
   byteLabel,
 } from './lib/exports.js';
 
@@ -84,7 +89,7 @@ const MicroStatusVisualizer = ({ active, isDarkMode }) => (
  * another, so colliding points are stacked into lanes above the axis. Hovering
  * a point shows the document it came from.
  */
-const TimelineStrip = ({ timeline, isDarkMode, bates = {} }) => {
+const TimelineStrip = ({ timeline, isDarkMode, bates = {}, onOpen }) => {
   const plotRef = useRef(null);
   const [plotWidth, setPlotWidth] = useState(0);
   const [hovered, setHovered] = useState(null);
@@ -168,11 +173,12 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {} }) => {
             >
               <button
                 type="button"
-                aria-label={`${formatEventDate(point.time)} — ${point.source}`}
+                aria-label={`${formatEventDate(point.time)} — ${point.source}. Open document.`}
                 onMouseEnter={() => setHovered(point.key)}
                 onMouseLeave={() => setHovered(null)}
                 onFocus={() => setHovered(point.key)}
                 onBlur={() => setHovered(null)}
+                onClick={() => onOpen?.(point.source)}
                 className="block p-0 border-0 bg-transparent cursor-pointer"
               >
                 <span
@@ -198,6 +204,7 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {} }) => {
                   <p className="text-[9px] font-mono text-slate-500 mt-0.5">
                     {bates[point.source] ? `${bates[point.source]} · ` : ''}matched &ldquo;{point.label}&rdquo;
                   </p>
+                  <p className="text-[9px] font-mono text-indigo-400 mt-1">Click to open this document</p>
                 </div>
               )}
             </div>
@@ -208,7 +215,7 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {} }) => {
       <div className="flex justify-between text-[9px] font-mono text-slate-500 mt-1.5 gap-2">
         <span className="shrink-0">{formatEventDate(min)}</span>
         <span className="text-slate-600 text-center truncate">
-          numeric dates read as month/day/year &middot; hover a point for its source
+          numeric dates read as month/day/year &middot; click a point to open its document
         </span>
         <span className="shrink-0">{formatEventDate(max)}</span>
       </div>
@@ -228,9 +235,22 @@ const STEPS = [
   { id: 4, title: 'Deep Analysis', actor: 'Processor', icon: Cpu, description: 'Cross-document chronological matching' },
   { id: 5, title: 'Citation Matrix', actor: 'Trust Layer', icon: ShieldCheck, description: 'Record citations traced to source' },
   { id: 6, title: 'Interactive Review', actor: 'Attorney', icon: FileText, description: 'Strategic brief drafted from findings' },
-  { id: 7, title: 'Override & Refine', actor: 'Attorney', icon: Edit3, description: 'Matter parameters & Bates numbering' },
-  { id: 8, title: 'Package Ready', actor: 'Deliverables', icon: Archive, description: 'Production deliverables and exports' },
-  { id: 9, title: 'Pipeline Complete', actor: 'Archived', icon: Trophy, description: 'Matter summary and reset' },
+  { id: 7, title: 'Override & Refine', actor: 'Attorney', icon: Edit3, description: 'Matter parameters, Bates numbering & approval' },
+  { id: 8, title: 'Package Ready', actor: 'Deliverables', icon: Archive, description: 'Preview and export production deliverables' },
+  { id: 9, title: 'Completion Check', actor: 'Archived', icon: Trophy, description: 'Completion checklist and matter summary' },
+];
+
+// What "complete" means for a production, as a checklist the attorney can see.
+// Each item is satisfied by a stage's real state, not by having visited it.
+const COMPLETION_ITEMS = [
+  { stage: 1, label: 'Documents ingested and hashed' },
+  { stage: 2, label: 'Every document designated, with a complete privilege log entry for each one withheld' },
+  { stage: 3, label: 'Readiness check run against the production set' },
+  { stage: 4, label: 'Chronology built from the producible documents' },
+  { stage: 5, label: 'Findings annotated by counsel' },
+  { stage: 6, label: 'Brief reviewed and edited, not left as a scaffold' },
+  { stage: 7, label: 'Package approved by a named attorney' },
+  { stage: 8, label: 'Deliverables exported' },
 ];
 
 const ACTOR_STYLES = {
@@ -251,9 +271,9 @@ const ADVISOR_TIPS = {
   4: 'Dates are extracted from each document and assembled into a case chronology. Progress reflects documents actually processed.',
   5: 'Select a finding to highlight the exact passage it was drawn from. Notes you add are attached to that passage in that document.',
   6: 'The brief is drafted from the findings you extracted. Edit it directly — your changes are kept and exported.',
-  7: 'Set the Bates prefix and starting number before the integrity check assigns numbers. Flagging for senior counsel marks the package.',
-  8: 'Download the production deliverables: the brief, the privilege log, the production index, and the audit log.',
-  9: 'Matter summary. Resetting clears every document and annotation from this browser.',
+  7: 'Set the Bates prefix and starting number before the integrity check assigns numbers, then record the attorney approving the package. Changing a designation afterwards voids that approval.',
+  8: 'Preview each deliverable before you download it. The brief and privilege log also render as paginated PDFs; the index and audit log stay CSV for loading into a review platform.',
+  9: 'A checklist of what a finished production requires, each item checked against real matter state. Resetting clears every document and annotation from this browser.',
 };
 
 const PRIVILEGE_BASES = ['Attorney-Client', 'Work Product', 'Common Interest', 'Other'];
@@ -298,12 +318,23 @@ export default function App() {
   const [confirmedCollections, setConfirmedCollections] = useState([]);
   const [isFlaggedForReview, setIsFlaggedForReview] = useState(false);
   const [memoText, setMemoText] = useState(DEFAULT_MEMO);
+  // A generated listing is not work product until counsel has worked on it.
+  const [memoEdited, setMemoEdited] = useState(false);
+  // Who approved the package for service, and when. FRCP 26(g) requires a
+  // signature from an attorney of record; an unattributed "approved" event is
+  // worth nothing if the production is later challenged.
+  const [approval, setApproval] = useState(null);
+  const [approverDraft, setApproverDraft] = useState('');
+  const [previewKey, setPreviewKey] = useState(null);
+  const [pdfPending, setPdfPending] = useState(null);
 
   // --- Ingest ---
   const [searchQuery, setSearchQuery] = useState('');
   const [fileFilter, setFileFilter] = useState('ALL');
   const [relevanceFilter, setRelevanceFilter] = useState('ALL');
-  const [criteriaOpen, setCriteriaOpen] = useState(false);
+  // Open while the matter has no criteria: collapsed, it reads as optional and
+  // first-time users walk straight past the most useful control on the page.
+  const [criteriaOpen, setCriteriaOpen] = useState(true);
 
   // Screening criteria are supplied by counsel, not inferred. Relevance is a
   // judgment against the claims and defenses; the tool only reports hits.
@@ -322,6 +353,9 @@ export default function App() {
   // --- Integrity ---
   const [isRunningIntegrityCheck, setIsRunningIntegrityCheck] = useState(false);
   const [integrityReport, setIntegrityReport] = useState(null);
+  // Set when a completed check is invalidated by a later edit, so the warning
+  // appears where the change was made rather than only where the result lived.
+  const [voidedCheck, setVoidedCheck] = useState(null);
   const [manifestSha, setManifestSha] = useState(null);
 
   // --- Analysis ---
@@ -339,6 +373,9 @@ export default function App() {
   const [selectedFinding, setSelectedFinding] = useState(0);
   const [activeNoteInput, setActiveNoteInput] = useState('');
   const [copiedCitation, setCopiedCitation] = useState(false);
+  // Citations, tags and the note previously stacked in one narrow column and
+  // pushed the tag editor below the fold. The editors now share a tab.
+  const [sidePane, setSidePane] = useState('note');
   // A passage the attorney has highlighted in the viewer, awaiting confirmation
   // before it becomes a citation.
   const [pendingSelection, setPendingSelection] = useState(null);
@@ -400,6 +437,8 @@ export default function App() {
       setCriteriaTerms(saved.criteriaTerms || '');
       setCriteriaFrom(saved.criteriaFrom || '');
       setCriteriaTo(saved.criteriaTo || '');
+      setMemoEdited(!!saved.memoEdited);
+      setApproval(saved.approval || null);
       hydrated.current = true;
     });
     return () => { cancelled = true; };
@@ -413,13 +452,14 @@ export default function App() {
         caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
         confirmedRelated, confirmedCollections,
         criteriaParties, criteriaTerms, criteriaFrom, criteriaTo,
+        memoEdited, approval,
       });
     }, 400);
     return () => clearTimeout(handle);
   }, [documents, citations, privilege, selectedForReview, notes, auditLog,
       caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
       confirmedRelated, confirmedCollections,
-      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo]);
+      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, approval]);
 
   // ---------- Derived ----------
 
@@ -447,11 +487,20 @@ export default function App() {
 
   const documentTypes = ['ALL', ...Array.from(new Set(documents.map(d => d.type)))];
 
+  // Screened-out documents sort to the top of the designation list: they are
+  // the ones needing a decision, and burying them is how an irrelevant document
+  // ends up produced.
+  const RELEVANCE_ORDER = { none: 0, out_of_period: 1, possible: 2, strong: 3, unscreened: 3 };
   const reviewDocuments = documents
     .filter(doc => doc.name.toLowerCase().includes(reviewSearch.toLowerCase()))
     .sort((a, b) => {
       if (reviewSort === 'pages') return b.pages - a.pages;
       if (reviewSort === 'type') return a.type.localeCompare(b.type);
+      if (reviewSort === 'relevance' || screeningActive) {
+        const ra = RELEVANCE_ORDER[relevanceResults[a.name]?.category ?? 'unscreened'];
+        const rb = RELEVANCE_ORDER[relevanceResults[b.name]?.category ?? 'unscreened'];
+        if (ra !== rb) return ra - rb;
+      }
       return a.name.localeCompare(b.name);
     });
 
@@ -479,6 +528,13 @@ export default function App() {
   const pagesEstimated = selectedDocs.some(d => !d.pagesExact);
   const withheldCount = selectedForReview.filter(n => dispositionOf(n) === 'withhold').length;
 
+  // "Ready" mixed two questions: a withheld document is not defective but is
+  // also not going out. These split them so the three numbers sum to the set.
+  const withheldReadyCount = integrityReport
+    ? integrityReport.ready.filter(n => dispositionOf(n) === 'withhold').length : 0;
+  const producingCount = integrityReport
+    ? integrityReport.ready.length - withheldReadyCount : 0;
+
   // A privilege log entry without a basis and description is incomplete under
   // FRCP 26(b)(5) and invites a motion to compel.
   const incompletePrivilege = selectedForReview.filter(name => {
@@ -492,6 +548,73 @@ export default function App() {
   const noteKey = selectedDocSource ? `${selectedDocSource}::${selectedFinding}` : null;
 
   const allProducibleCitations = producibleDocs.flatMap(d => citations[d.name] || []);
+
+  // ---------- Stage progress ----------
+  //
+  // The stepper used to show only where you were standing, which tells an
+  // attorney picking the matter back up nothing about what is left. Each stage
+  // reports one of four states, derived from real matter state:
+  //   done     — the work this stage exists for has actually been done
+  //   blocked  — an earlier stage has not produced what this one needs
+  //   todo     — reachable, not yet done
+  // A stage is never marked done because you merely visited it.
+  const deliverableDownloaded = auditLog.some(e => e.action === 'Downloaded deliverable');
+
+  const baseProgress = useMemo(() => {
+    const ingested = documents.length > 0;
+    const selected = selectedForReview.length > 0;
+    const producible = producibleNames.length > 0;
+    const cited = allProducibleCitations.length > 0;
+    // Annotation is the attorney's own work on the record: a note, a tag, or a
+    // citation they wrote themselves.
+    const annotated = Object.values(notes).some(n => n?.trim())
+      || allProducibleCitations.some(c => (c.tags || []).length > 0 || c.origin === 'user');
+
+    const state = (done, blockedWhen, blockedHint, todoHint, doneHint) =>
+      done ? { state: 'done', hint: doneHint }
+        : blockedWhen ? { state: 'blocked', hint: blockedHint }
+        : { state: 'todo', hint: todoHint };
+
+    return {
+      0: state(ingested, false, '', 'Read the orientation', 'Orientation read'),
+      1: state(ingested, false, '', 'No documents ingested', `${documents.length} ingested`),
+      2: state(selected && incompletePrivilege.length === 0, !ingested,
+          'Ingest documents first',
+          incompletePrivilege.length > 0
+            ? `${incompletePrivilege.length} privilege entr${incompletePrivilege.length === 1 ? 'y' : 'ies'} incomplete`
+            : 'Nothing designated',
+          `${producibleNames.length} producing, ${withheldCount} withheld`),
+      3: state(integrityReport?.state === 'ready', !producible, 'Designate documents first',
+          integrityReport ? (integrityReport.stateMeta?.label || 'Not ready').toLowerCase() : 'Check not run',
+          `${integrityReport?.ready.length ?? 0} ready to produce`),
+      4: state(analysisComplete, !producible, 'Designate documents first', 'Analysis not run',
+          `${timeline.length} dated event${timeline.length === 1 ? '' : 's'}`),
+      5: state(annotated, !cited, 'No citations to work from', 'No notes or tags yet',
+          `${allProducibleCitations.length} citations on the record`),
+      6: state(memoEdited, !cited, 'No citations to draft from', 'Draft not yet edited',
+          'Draft edited by counsel'),
+      7: state(!!approval, !producible, 'Nothing to approve', 'No approver recorded',
+          `Approved by ${approval?.by || ''}`),
+      8: state(deliverableDownloaded, !producible, 'Nothing to package', 'Nothing downloaded yet',
+          'Deliverables downloaded'),
+      9: { state: 'todo', hint: '' },
+    };
+  }, [documents.length, selectedForReview.length, producibleNames.length, withheldCount,
+      incompletePrivilege.length, integrityReport, analysisComplete, timeline.length,
+      allProducibleCitations, notes, memoEdited, approval, deliverableDownloaded]);
+
+  const completionOutstanding = COMPLETION_ITEMS.filter(
+    item => baseProgress[item.stage].state !== 'done'
+  );
+
+  // Stage 09 is not a stage you do; it is done exactly when everything else is.
+  const stageProgress = {
+    ...baseProgress,
+    9: completionOutstanding.length === 0
+      ? { state: 'done', hint: 'Production complete' }
+      : { state: 'todo', hint: `${completionOutstanding.length} step${completionOutstanding.length === 1 ? '' : 's'} outstanding` },
+  };
+
 
   // Every tag used anywhere in the matter, so tagging stays consistent across
   // documents instead of drifting into near-duplicates.
@@ -510,6 +633,15 @@ export default function App() {
         })
         .sort((a, b) => (a.citation?.offset ?? Infinity) - (b.citation?.offset ?? Infinity))
     : [];
+
+  // Tags that actually carry producible citations, with their counts, so the
+  // drafting stage can offer them as sections.
+  const tagSections = Array.from(
+    allProducibleCitations.reduce((map, c) => {
+      (c.tags || []).forEach(t => map.set(t, (map.get(t) || 0) + 1));
+      return map;
+    }, new Map())
+  ).sort((a, b) => b[1] - a[1]);
 
   const knownTags = Array.from(
     new Set(Object.values(citations).flat().flatMap(c => c.tags || []))
@@ -543,13 +675,17 @@ export default function App() {
     setActiveNoteInput(noteKey ? (notes[noteKey] || '') : '');
   }, [noteKey, notes]);
 
-  // Escape closes the document reader.
+  // Escape closes the document reader and the deliverable preview.
   useEffect(() => {
-    if (!openDocument) return;
-    const onKey = (e) => { if (e.key === 'Escape') setOpenDocument(null); };
+    if (!openDocument && !previewKey) return;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      setOpenDocument(null);
+      setPreviewKey(null);
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openDocument]);
+  }, [openDocument, previewKey]);
 
   // Bring the highlighted passage to the top of the viewer whenever the
   // selected finding or document changes. Runs before paint so the reader
@@ -571,10 +707,19 @@ export default function App() {
   }, [producibleNames.join('|'), citations]);
 
   // A change to the selection or its designations invalidates the check.
+  const hadReportRef = useRef(null);
+  useEffect(() => { hadReportRef.current = integrityReport; }, [integrityReport]);
+
   useEffect(() => {
+    if (hadReportRef.current) {
+      setVoidedCheck({ at: new Date(), ready: hadReportRef.current.ready.length });
+    }
     setIntegrityReport(null);
     setManifestSha(null);
     setIsRunningIntegrityCheck(false);
+    // An approval covers the set that was approved. Change the set and the
+    // approval no longer describes what would go out.
+    setApproval(null);
   }, [selectedForReview.join('|'), JSON.stringify(privilege), confirmedRelated.join('|'),
       confirmedCollections.join('|')]);
 
@@ -769,6 +914,7 @@ export default function App() {
     setBatesAssignments(assignments);
     setManifestSha(sha);
     setIntegrityReport(report);
+    setVoidedCheck(null); setApproval(null); setApproverDraft(''); setPreviewKey(null);
     setIsRunningIntegrityCheck(false);
     appendAudit(
       `Ran readiness check — ${report.ready.length} of ${report.total} ready`
@@ -919,7 +1065,7 @@ export default function App() {
         const found = citations[doc.name] || [];
         if (found.length === 0) return null;
         const lead = found[0];
-        return `${doc.name} (${batesAssignments[doc.name] || 'Bates not assigned'}) contributes ${found.length} record citation${found.length === 1 ? '' : 's'}. The most significant reads: "${lead.excerpt}"`;
+        return `${doc.name} (${batesAssignments[doc.name] || 'Bates not assigned'}) contributes ${found.length} record citation${found.length === 1 ? '' : 's'}. The first reads: "${lead.excerpt}"`;
       })
       .filter(Boolean);
 
@@ -932,7 +1078,33 @@ export default function App() {
         ? `${withheldCount} document${withheldCount === 1 ? ' was' : 's were'} withheld as privileged and ${withheldCount === 1 ? 'is' : 'are'} recorded on the privilege log rather than discussed here.`
         : 'No documents in this set were withheld as privileged.',
     ].join('\n'));
+    setMemoEdited(false);
     appendAudit('Generated strategic brief draft', `${allProducibleCitations.length} citations`);
+  };
+
+  /**
+   * Inserts every citation carrying a tag as a block under a heading, so the
+   * tags applied in Stage 05 become the outline of the brief rather than
+   * labels that go nowhere.
+   */
+  const insertTagSection = (tag, heading) => {
+    const matching = allProducibleCitations.filter(c => (c.tags || []).includes(tag));
+    if (matching.length === 0) return;
+    const block = [
+      `${heading || tag.toUpperCase()}`,
+      '',
+      ...matching.map((c, i) => {
+        const note = notes[`${c.source}::${c.id}`];
+        return [
+          `${i + 1}. ${formatCitation(c, batesAssignments[c.source])}`,
+          `   "${c.excerpt}"`,
+          note ? `   Attorney note: ${note}` : null,
+        ].filter(Boolean).join('\n');
+      }),
+    ].join('\n');
+    setMemoText(prev => (prev === DEFAULT_MEMO ? block : `${prev.trimEnd()}\n\n${block}`));
+    setMemoEdited(true);
+    appendAudit('Inserted tagged citations into the brief', `${tag} (${matching.length})`);
   };
 
   const handleAdvisorSubmit = (e) => {
@@ -977,7 +1149,7 @@ export default function App() {
         tone: 'emerald',
         title: 'Strategic Brief',
         blurb: 'The evaluation text with every record citation traced to its source document and Bates number.',
-        build: () => buildBrief({ caseTitle, memoText, citations: allProducibleCitations, bates: batesAssignments, notes }),
+        build: () => buildBrief({ caseTitle, memoText, citations: allProducibleCitations, bates: batesAssignments, notes, approval }),
       },
       {
         key: 'privilege',
@@ -1014,10 +1186,66 @@ export default function App() {
     ];
   };
 
+  const handleReanalyze = () => {
+                      // Re-extract from current document contents, without
+                      // discarding the attorney's work. Citations counsel wrote
+                      // are kept verbatim; tags and notes are re-attached by
+                      // content anchor, because re-extraction renumbers the
+                      // generated citations and an id-based remap would move a
+                      // note onto a different passage.
+                      const rebuilt = {};
+                      const noteRemap = {};
+                      documents.forEach(d => {
+                        const prior = citations[d.name] || [];
+                        const anchorOf = c => `${c.offset}::${c.excerpt}`;
+                        const priorByAnchor = new Map(prior.map(c => [anchorOf(c), c]));
+                        const fresh = extractCitations(d.content, d.name).map(c => {
+                          const match = priorByAnchor.get(anchorOf(c));
+                          if (match && match.id !== c.id) {
+                            noteRemap[`${d.name}::${match.id}`] = `${d.name}::${c.id}`;
+                          }
+                          return { ...c, tags: match?.tags || [] };
+                        });
+                        const userCitations = prior.filter(c => c.origin === 'user');
+                        rebuilt[d.name] = [...fresh, ...userCitations].sort((a, b) => a.offset - b.offset);
+                      });
+                      setCitations(rebuilt);
+                      setNotes(prev => {
+                        const next = {};
+                        Object.entries(prev).forEach(([key, value]) => {
+                          next[noteRemap[key] || key] = value;
+                        });
+                        return next;
+                      });
+                      appendAudit('Re-extracted citations', `${documents.length} documents`);
+                      handleStepChange(4);
+                    };
+
   const handleDownload = (item) => {
     const file = item.build();
     triggerDownload(file.filename, file.content, file.mime);
     appendAudit('Downloaded deliverable', file.filename);
+  };
+
+  // PDF is rendered on demand: jsPDF is a large dependency and most sessions
+  // never leave with one.
+  const handleDownloadPdf = async (item) => {
+    const file = item.build();
+    if (!file.printable) return;
+    setPdfPending(item.key);
+    try {
+      const blob = await renderTextPdf({
+        title: file.caption,
+        caption: file.caption,
+        body: file.printable,
+      });
+      triggerBlobDownload(file.pdfFilename, blob);
+      appendAudit('Downloaded deliverable', file.pdfFilename);
+    } catch {
+      window.alert('The PDF could not be rendered. The text and CSV versions are still available.');
+    } finally {
+      setPdfPending(null);
+    }
   };
 
   const handleReset = async () => {
@@ -1025,6 +1253,7 @@ export default function App() {
     await clearMatter();
     setDocuments([]); setCitations({}); setPrivilege({}); setSelectedForReview([]);
     setNotes({}); setAuditLog([]); setBatesAssignments({}); setIntegrityReport(null);
+    setVoidedCheck(null);
     setConfirmedRelated([]); setConfirmedCollections([]);
     setCriteriaParties(''); setCriteriaTerms(''); setCriteriaFrom(''); setCriteriaTo('');
     setRelevanceFilter('ALL');
@@ -1210,6 +1439,13 @@ export default function App() {
             const isActive = activeStep === step.id;
             const styleToken = ACTOR_STYLES[step.actor] || { border: 'border-white/10', text: 'text-slate-400', bg: 'bg-white/5' };
             const StepIcon = step.icon;
+            const progress = stageProgress[step.id];
+            const StatusIcon = progress.state === 'done' ? CheckCircle2
+              : progress.state === 'blocked' ? Lock
+              : Circle;
+            const statusColor = progress.state === 'done' ? 'text-emerald-500'
+              : progress.state === 'blocked' ? 'text-slate-600'
+              : 'text-amber-500';
 
             return (
               <button
@@ -1226,10 +1462,12 @@ export default function App() {
                 {isActive && (
                   <div className="absolute left-1.5 top-3.5 bottom-3.5 w-1 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]" />
                 )}
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-all relative ${
                   isActive
                     ? isDarkMode ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-400' : 'bg-indigo-100 border-indigo-300 text-indigo-600'
-                    : isDarkMode ? 'bg-[#14151C] border-white/[0.04] text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-500'
+                    : progress.state === 'done'
+                      ? isDarkMode ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-500' : 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                      : isDarkMode ? 'bg-[#14151C] border-white/[0.04] text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-500'
                 }`}>
                   <StepIcon size={14} />
                 </div>
@@ -1249,6 +1487,10 @@ export default function App() {
                   }`}>
                     {step.title}
                   </h3>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <StatusIcon size={9} className={`shrink-0 ${statusColor}`} />
+                    <span className={`text-[9px] font-mono truncate ${statusColor}`}>{progress.hint}</span>
+                  </div>
                 </div>
               </button>
             );
@@ -1368,8 +1610,14 @@ export default function App() {
                 Next <ArrowRight size={13} />
               </button>
             ) : (
-              <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                <Check size={13} className="stroke-[3]" /> Complete
+              <span className={`text-xs font-bold border px-3 py-1.5 rounded-xl flex items-center gap-1.5 ${
+                completionOutstanding.length === 0
+                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                  : 'text-amber-500 bg-amber-500/10 border-amber-500/20'
+              }`}>
+                {completionOutstanding.length === 0
+                  ? <><Check size={13} className="stroke-[3]" /> Complete</>
+                  : <><AlertTriangle size={13} /> {completionOutstanding.length} outstanding</>}
               </span>
             )}
           </div>
@@ -1391,6 +1639,27 @@ export default function App() {
                   for production or privilege, verify their integrity, and draft a brief whose every citation traces
                   back to a specific passage in a specific document.
                 </p>
+              </div>
+
+              {/* The confidentiality position is the first question a litigator
+                  asks about a tool that touches client files, so it is answered
+                  here rather than left for them to find in Stage 01. */}
+              <div className={`rounded-2xl border p-5 flex gap-4 items-start ${
+                isDarkMode ? 'bg-emerald-500/[0.03] border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'
+              }`}>
+                <ShieldCheck className="text-emerald-500 shrink-0 mt-0.5" size={20} />
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-500 font-mono">
+                    Your documents never leave this browser
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                    Every file you upload is read, hashed, analyzed and cited on this device. Nothing is sent to a
+                    server, and no third party ever sees the text &mdash; which is what lets you use this on a live
+                    matter without a Model Rule 1.6 problem or a vendor agreement. The matter is stored in this
+                    browser's own database so you can close the tab and come back; you can erase it at any time from
+                    Stage&nbsp;09.
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
@@ -1847,16 +2116,25 @@ export default function App() {
                       }`}
                     >
                       <option value="name">Sort: Name</option>
+                      <option value="relevance">Sort: Relevance</option>
                       <option value="pages">Sort: Pages</option>
                       <option value="type">Sort: Type</option>
                     </select>
                     <button
-                      onClick={() => setSelectedForReview(
-                        selectedForReview.length === documents.length ? [] : documents.map(d => d.name)
-                      )}
-                      className="text-[11px] font-mono font-bold text-indigo-400 hover:text-indigo-300 px-2 shrink-0"
+                      onClick={() => {
+                        // "Select relevant" deliberately excludes no-match and
+                        // out-of-period documents rather than sweeping them in.
+                        const eligible = documents
+                          .filter(d => !screeningActive
+                            || !['none', 'out_of_period'].includes(relevanceResults[d.name]?.category))
+                          .map(d => d.name);
+                        const alreadyAll = eligible.every(n => selectedForReview.includes(n))
+                          && selectedForReview.length >= eligible.length;
+                        setSelectedForReview(alreadyAll ? [] : eligible);
+                      }}
+                      className="text-[11px] font-mono font-bold text-indigo-400 hover:text-indigo-300 px-2 shrink-0 text-right"
                     >
-                      {selectedForReview.length === documents.length ? 'Deselect All' : 'Select All'}
+                      {selectedForReview.length > 0 ? 'Deselect All' : (screeningActive ? 'Select relevant' : 'Select All')}
                     </button>
                   </div>
 
@@ -1891,6 +2169,17 @@ export default function App() {
                               <span className="text-[10px] text-slate-500 font-mono shrink-0 hidden sm:inline">
                                 {doc.pages}p &middot; {doc.type}
                               </span>
+                              {screeningActive && relevanceResults[doc.name] && (() => {
+                                const meta = RELEVANCE_CATEGORIES[relevanceResults[doc.name].category];
+                                return (
+                                  <span
+                                    title={relevanceResults[doc.name].reason || meta.blurb}
+                                    className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border shrink-0 ${toneClasses[meta.tone]}`}
+                                  >
+                                    {meta.short}
+                                  </span>
+                                );
+                              })()}
                             </button>
 
                             {isSelected && (
@@ -1911,6 +2200,15 @@ export default function App() {
                               </div>
                             )}
                           </div>
+
+                          {isSelected && screeningActive
+                            && ['none', 'out_of_period'].includes(relevanceResults[doc.name]?.category)
+                            && disposition === 'produce' && (
+                            <p className="px-3 pb-2.5 -mt-1 text-[10px] leading-snug text-red-400">
+                              Screening found no connection between this document and your matter, yet it is set to
+                              produce. {relevanceResults[doc.name]?.reason}
+                            </p>
+                          )}
 
                           {isSelected && disposition !== 'produce' && (
                             <div className={`px-3 pb-3 pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2 border-t ${
@@ -1943,6 +2241,18 @@ export default function App() {
                       );
                     })}
                   </div>
+
+                  {voidedCheck && (
+                    <div className="p-3 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-500 text-[11px] flex items-start gap-2 animate-fadeIn">
+                      <RefreshCw size={13} className="shrink-0 mt-0.5" />
+                      <span>
+                        This change voided the readiness check you ran at{' '}
+                        {voidedCheck.at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {' '}({voidedCheck.ready} document{voidedCheck.ready === 1 ? '' : 's'} were cleared to produce).
+                        Run it again in Stage\u00A003 before packaging.
+                      </span>
+                    </div>
+                  )}
 
                   {incompletePrivilege.length > 0 && (
                     <div className="p-3 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-500 text-[11px] flex items-start gap-2 animate-fadeIn">
@@ -2051,11 +2361,11 @@ export default function App() {
                                 integrityReport.stateMeta.tone === 'emerald' ? 'text-emerald-500'
                                   : integrityReport.stateMeta.tone === 'amber' ? 'text-amber-500' : 'text-red-400'
                               }`}>
-                                {integrityReport.setHold ? 0 : integrityReport.ready.length}
+                                {integrityReport.setHold ? 0 : producingCount}
                                 <span className="text-lg text-slate-500">/{integrityReport.total}</span>
                               </div>
                               <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold mt-1.5">
-                                ready to produce
+                                producing
                               </p>
                             </div>
                             <div className="text-center sm:text-left">
@@ -2063,17 +2373,23 @@ export default function App() {
                                 {integrityReport.setHold
                                   ? 'Nothing can be produced from this set yet'
                                   : integrityReport.exceptions.length === 0
-                                    ? `All ${integrityReport.total} document${integrityReport.total === 1 ? '' : 's'} ready to produce`
+                                    ? `All ${integrityReport.total} document${integrityReport.total === 1 ? '' : 's'} cleared`
                                     : `${integrityReport.exceptions.length} document${integrityReport.exceptions.length === 1 ? '' : 's'} need${integrityReport.exceptions.length === 1 ? 's' : ''} attention`}
                               </p>
                               <p className={`text-xs leading-relaxed mt-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
                                 {integrityReport.stateMeta.verdict}
                               </p>
-                              <p className="text-[10px] font-mono text-slate-500 mt-1.5">
-                                {integrityReport.setHold
-                                  ? 'Held pending confirmation that this is the right collection'
-                                  : `${integrityReport.coverage}% of the set is production-ready`}
-                              </p>
+                              {integrityReport.setHold ? (
+                                <p className="text-[10px] font-mono text-slate-500 mt-1.5">
+                                  Held pending confirmation that this is the right collection
+                                </p>
+                              ) : (
+                                <p className="text-[10px] font-mono text-slate-500 mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                                  <span><b className="text-emerald-500">{producingCount}</b> producing</span>
+                                  <span><b className="text-slate-400">{withheldReadyCount}</b> withheld</span>
+                                  <span><b className="text-amber-500">{integrityReport.exceptions.length}</b> held back</span>
+                                </p>
+                              )}
                             </div>
                           </div>
 
@@ -2226,7 +2542,7 @@ export default function App() {
               </div>
 
               <div className="text-center pt-2">
-                <MicroStatusVisualizer active={!!integrityReport} isDarkMode={isDarkMode} />
+                <MicroStatusVisualizer active={completionOutstanding.length === 0} isDarkMode={isDarkMode} />
                 <p className="text-xs font-mono text-slate-500 mt-2">
                   Manifest state: <span className={`font-bold ${integrityReport ? 'text-emerald-500' : 'text-slate-400'}`}>
                     {integrityReport ? 'VERIFIED' : 'AWAITING VERIFICATION'}
@@ -2257,7 +2573,7 @@ export default function App() {
                       {integrityReport.setHold
                         ? 'Proceed to Deep Analysis'
                         : integrityReport.exceptions.length > 0
-                          ? `Proceed with ${integrityReport.ready.length} ready document${integrityReport.ready.length === 1 ? '' : 's'}`
+                          ? `Proceed with ${producingCount} document${producingCount === 1 ? '' : 's'}`
                           : 'Proceed to Deep Analysis'}
                       <ChevronRight size={14} />
                     </button>
@@ -2273,9 +2589,11 @@ export default function App() {
                       </p>
                     ) : integrityReport.exceptions.length > 0 && (
                       <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
-                        The {integrityReport.exceptions.length} held-back document{integrityReport.exceptions.length === 1 ? '' : 's'} stay
-                        in the matter and appear on the exceptions report in Stage&nbsp;08. They are excluded from
-                        analysis, citations and the brief until cured.
+                        {integrityReport.exceptions.length === 1
+                          ? 'The held-back document stays in the matter and appears'
+                          : `The ${integrityReport.exceptions.length} held-back documents stay in the matter and appear`}
+                        {' '}on the exceptions report in Stage&nbsp;08, and are excluded from analysis, citations and
+                        the brief until cured.
                       </p>
                     )}
                   </div>
@@ -2285,7 +2603,26 @@ export default function App() {
           )}
 
           {/* ============ STAGE 4: DEEP ANALYSIS ============ */}
-          {activeStep === 4 && (
+          {activeStep === 4 && producibleDocs.length === 0 && (
+            <div className="max-w-2xl mx-auto py-8 animate-fadeIn">
+              <EmptyState
+                icon={Cpu}
+                title="NOTHING TO ANALYSE"
+                hint="Select documents in Review & Designate (Stage 02), then run the readiness check in Stage 03"
+              />
+              <div className="flex justify-center mt-5">
+                <button
+                  onClick={() => handleStepChange(2)}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 inline-flex items-center gap-2 ${primaryButton}`}
+                >
+                  Go to Review &amp; Designate
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeStep === 4 && producibleDocs.length > 0 && (
             <div className="space-y-6 max-w-2xl mx-auto py-8 animate-fadeIn">
               <div className="text-center space-y-2">
                 <div className={`w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-2 ${analysisComplete ? '' : 'animate-pulse'}`}>
@@ -2368,7 +2705,12 @@ export default function App() {
                 </div>
               )}
 
-              <TimelineStrip timeline={timeline} isDarkMode={isDarkMode} bates={batesAssignments} />
+              <TimelineStrip
+                timeline={timeline}
+                isDarkMode={isDarkMode}
+                bates={batesAssignments}
+                onOpen={(name) => setOpenDocument(name)}
+              />
 
               {analysisComplete && (
                 <div className="flex justify-center pt-2 animate-fadeIn">
@@ -2511,9 +2853,30 @@ export default function App() {
                       ))
                     )}
 
-                    {/* Tags on the selected citation */}
+                    {/* Editors for the selected citation, tabbed to keep the
+                        citation list readable in a narrow column. */}
                     {activeCitation && (
-                      <div className={`p-4 rounded-xl border ${panelClass}`}>
+                      <div className={`rounded-xl border ${panelClass}`}>
+                        <div className={`flex items-stretch border-b ${isDarkMode ? 'border-white/[0.06]' : 'border-slate-200'}`}>
+                          {[
+                            ['note', 'Note', notes[noteKey] ? 1 : 0],
+                            ['tags', 'Tags', (activeCitation.tags || []).length],
+                          ].map(([key, label, count]) => (
+                            <button
+                              key={key}
+                              onClick={() => setSidePane(key)}
+                              className={`flex-1 px-3 py-2.5 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors ${
+                                sidePane === key
+                                  ? 'text-indigo-400 border-b-2 border-indigo-500 -mb-px'
+                                  : 'text-slate-500 hover:text-slate-300'
+                              }`}
+                            >
+                              {label}{count > 0 ? ` (${count})` : ''}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="p-4" hidden={sidePane !== 'tags'}>
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <label className="text-[10px] font-mono font-bold tracking-wider text-slate-500 uppercase">
                             Your tags
@@ -2594,11 +2957,9 @@ export default function App() {
                             Add
                           </button>
                         </form>
-                      </div>
-                    )}
+                        </div>
 
-                    {/* Annotation */}
-                    <div className={`p-4 rounded-xl border ${panelClass}`}>
+                        <div className="p-4" hidden={sidePane !== 'note'}>
                       <label className="text-[10px] font-mono font-bold tracking-wider text-slate-500 block mb-2 uppercase">
                         Note on this passage
                       </label>
@@ -2631,7 +2992,9 @@ export default function App() {
                           Save Note
                         </button>
                       </div>
-                    </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Viewer */}
@@ -2865,9 +3228,13 @@ export default function App() {
               }`}>
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6 pb-4 border-b border-white/[0.04]">
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-500 font-mono">Privileged &amp; Confidential</h3>
+                    <h3 className={`text-xs font-bold uppercase tracking-widest font-mono ${memoEdited ? 'text-indigo-500' : 'text-amber-500'}`}>
+                      {memoEdited ? 'Privileged & Confidential' : 'Draft scaffold — not yet reviewed'}
+                    </h3>
                     <p className={`text-[10px] font-mono mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                      Attorney work product &mdash; {caseTitle}
+                      {memoEdited
+                        ? `Attorney work product — ${caseTitle}`
+                        : `Machine-assembled from findings — ${caseTitle}`}
                     </p>
                   </div>
                   <button
@@ -2881,9 +3248,43 @@ export default function App() {
                   </button>
                 </div>
 
+                {/* Build the argument from the tags applied in Stage 05 */}
+                <div className={`mb-5 p-3.5 rounded-xl border ${
+                  isDarkMode ? 'bg-white/[0.02] border-white/[0.05]' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 font-bold mb-2">
+                    Insert a section from your tags
+                  </p>
+                  {tagSections.length === 0 ? (
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Tag citations in the Citation Matrix and they appear here as sections you can drop into the
+                      draft under a heading of your choosing.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {tagSections.map(([tag, count]) => (
+                        <button
+                          key={tag}
+                          onClick={() => {
+                            const heading = window.prompt(
+                              `Heading for the "${tag}" section (${count} citation${count === 1 ? '' : 's'})`,
+                              tag.toUpperCase()
+                            );
+                            if (heading !== null) insertTagSection(tag, heading.trim());
+                          }}
+                          className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors inline-flex items-center gap-1.5"
+                        >
+                          <span className="w-1 h-1 rounded-full bg-amber-400" />{tag}
+                          <span className="opacity-70">{count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <textarea
                   value={memoText}
-                  onChange={(e) => { setMemoText(e.target.value); setIsTyping(true); }}
+                  onChange={(e) => { setMemoText(e.target.value); setMemoEdited(true); setIsTyping(true); }}
                   onBlur={() => setIsTyping(false)}
                   rows={14}
                   className={`w-full text-[13px] leading-relaxed p-4 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y font-sans ${
@@ -2964,54 +3365,75 @@ export default function App() {
                   </div>
                 </div>
 
+                <div className="pt-5 border-t border-white/[0.04] space-y-3">
+                  <div>
+                    <h4 className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                      Approval for packaging
+                    </h4>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                      FRCP 26(g) requires an attorney of record to sign the response. The name you enter is
+                      written to the audit log and printed on the brief &mdash; it is the record of who
+                      authorized this package, so enter your own.
+                    </p>
+                  </div>
+
+                  {approval ? (
+                    <div className="p-3.5 rounded-xl border bg-emerald-500/10 border-emerald-500/20 text-emerald-500 text-[11px] flex items-start gap-2.5">
+                      <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+                      <span>
+                        Approved by <strong>{approval.by}</strong> on {new Date(approval.at).toLocaleString()},
+                        covering {approval.producing} document{approval.producing === 1 ? '' : 's'} designated
+                        for production. Changing a designation voids this approval.
+                      </span>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={approverDraft}
+                      onChange={(e) => setApproverDraft(e.target.value)}
+                      placeholder="Approving attorney (e.g. Dana Ruiz, Bar No. 118204)"
+                      className={`w-full px-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all ${
+                        isDarkMode ? 'bg-[#151620] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                      }`}
+                    />
+                  )}
+                </div>
+
                 <div className="pt-5 border-t border-white/[0.04] flex flex-col sm:flex-row justify-between gap-3">
                   <button
-                    onClick={() => {
-                      // Re-extract from current document contents, without
-                      // discarding the attorney's work. Citations counsel wrote
-                      // are kept verbatim; tags and notes are re-attached by
-                      // content anchor, because re-extraction renumbers the
-                      // generated citations and an id-based remap would move a
-                      // note onto a different passage.
-                      const rebuilt = {};
-                      const noteRemap = {};
-                      documents.forEach(d => {
-                        const prior = citations[d.name] || [];
-                        const anchorOf = c => `${c.offset}::${c.excerpt}`;
-                        const priorByAnchor = new Map(prior.map(c => [anchorOf(c), c]));
-                        const fresh = extractCitations(d.content, d.name).map(c => {
-                          const match = priorByAnchor.get(anchorOf(c));
-                          if (match && match.id !== c.id) {
-                            noteRemap[`${d.name}::${match.id}`] = `${d.name}::${c.id}`;
-                          }
-                          return { ...c, tags: match?.tags || [] };
-                        });
-                        const userCitations = prior.filter(c => c.origin === 'user');
-                        rebuilt[d.name] = [...fresh, ...userCitations].sort((a, b) => a.offset - b.offset);
-                      });
-                      setCitations(rebuilt);
-                      setNotes(prev => {
-                        const next = {};
-                        Object.entries(prev).forEach(([key, value]) => {
-                          next[noteRemap[key] || key] = value;
-                        });
-                        return next;
-                      });
-                      appendAudit('Re-extracted citations', `${documents.length} documents`);
-                      handleStepChange(4);
-                    }}
+                    onClick={handleReanalyze}
                     className={`w-full sm:w-auto px-4 py-2 text-xs font-semibold border rounded-xl flex items-center justify-center gap-1.5 transition-all ${
                       isDarkMode ? 'bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06] text-slate-300' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
                     }`}
                   >
                     <RefreshCw size={12} /> Re-analyze Documents
                   </button>
-                  <button
-                    onClick={() => { appendAudit('Approved package', caseTitle); handleStepChange(8); }}
-                    className={`w-full sm:w-auto px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-lg text-center ${primaryButton}`}
-                  >
-                    Approve and Package
-                  </button>
+                  {approval ? (
+                    <button
+                      onClick={() => handleStepChange(8)}
+                      className={`w-full sm:w-auto px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-lg text-center ${primaryButton}`}
+                    >
+                      Go to Package
+                    </button>
+                  ) : (
+                    <button
+                      disabled={approverDraft.trim().length < 2}
+                      onClick={() => {
+                        const by = approverDraft.trim();
+                        const record = { by, at: new Date().toISOString(), producing: producibleNames.length };
+                        setApproval(record);
+                        appendAudit('Approved package for service', `${by} — ${caseTitle}`);
+                        handleStepChange(8);
+                      }}
+                      className={`w-full sm:w-auto px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-lg text-center ${
+                        approverDraft.trim().length < 2
+                          ? 'bg-slate-500/20 text-slate-500 cursor-not-allowed'
+                          : primaryButton
+                      }`}
+                    >
+                      Approve and Package
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -3028,6 +3450,19 @@ export default function App() {
                 />
               ) : (
                 <>
+                  <div className={`p-3.5 rounded-xl border text-[11px] flex items-start gap-2.5 ${
+                    approval
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                      : 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                  }`}>
+                    {approval ? <CheckCircle2 size={14} className="shrink-0 mt-0.5" /> : <AlertTriangle size={14} className="shrink-0 mt-0.5" />}
+                    <span>
+                      {approval
+                        ? `Approved by ${approval.by} on ${new Date(approval.at).toLocaleString()}. That name is written to the audit log and printed on the brief.`
+                        : 'No one has approved this package. Record an approving attorney in Stage 07 before these files are served.'}
+                    </span>
+                  </div>
+
                   {incompletePrivilege.length > 0 && (
                     <div className="p-3.5 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-500 text-[11px] flex items-start gap-2.5">
                       <AlertTriangle size={14} className="shrink-0 mt-0.5" />
@@ -3057,16 +3492,35 @@ export default function App() {
                             <h4 className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.title}</h4>
                             <p className="text-[10px] text-slate-400 mt-1.5 leading-normal">{item.blurb}</p>
                           </div>
-                          <div className="flex items-center justify-between gap-2 mt-3">
-                            <span className="text-[9px] font-mono text-slate-500 font-bold uppercase">
+                          <div className="mt-3 space-y-2">
+                            <span className="text-[9px] font-mono text-slate-500 font-bold uppercase block">
                               {file.count} entr{file.count === 1 ? 'y' : 'ies'} &middot; {byteLabel(file.content)}
                             </span>
-                            <button
-                              onClick={() => handleDownload(item)}
-                              className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-all inline-flex items-center gap-1.5 shrink-0"
-                            >
-                              <Download size={12} /> Download
-                            </button>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button
+                                onClick={() => setPreviewKey(item.key)}
+                                className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg border transition-all inline-flex items-center gap-1.5 ${
+                                  isDarkMode ? 'border-white/[0.08] text-slate-300 hover:bg-white/[0.05]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                              >
+                                <Eye size={12} /> Preview
+                              </button>
+                              <button
+                                onClick={() => handleDownload(item)}
+                                className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-all inline-flex items-center gap-1.5 shrink-0"
+                              >
+                                <Download size={12} /> {file.mime === 'text/csv' ? 'CSV' : 'Text'}
+                              </button>
+                              {file.printable && (
+                                <button
+                                  onClick={() => handleDownloadPdf(item)}
+                                  disabled={pdfPending === item.key}
+                                  className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60 transition-all inline-flex items-center gap-1.5 shrink-0"
+                                >
+                                  <Download size={12} /> {pdfPending === item.key ? 'Rendering…' : 'PDF'}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -3116,12 +3570,49 @@ export default function App() {
 
               <div className="space-y-2 mt-4">
                 <h3 className={`text-md sm:text-lg font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                  Matter Summary
+                  {completionOutstanding.length === 0 ? 'Production Complete' : 'Production Not Yet Complete'}
                 </h3>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-                  {caseTitle} &mdash; {documents.length} document{documents.length === 1 ? '' : 's'} ingested,{' '}
-                  {producibleNames.length} designated for production, {withheldCount} withheld as privileged.
+                  {completionOutstanding.length === 0
+                    ? `${caseTitle} — every step below is done. ${producibleNames.length} document${producibleNames.length === 1 ? '' : 's'} designated for production, ${withheldCount} withheld as privileged.`
+                    : `${completionOutstanding.length} step${completionOutstanding.length === 1 ? '' : 's'} still outstanding. This matter is not ready to serve.`}
                 </p>
+              </div>
+
+              {/* The checklist. Reaching this screen is not the same as finishing
+                  the work, so each item is checked against real matter state and
+                  links back to the stage that satisfies it. */}
+              <div className={`border rounded-2xl p-2 text-left shadow-2xl ${
+                isDarkMode ? 'bg-[#111218] border-white/[0.04]' : 'bg-white border-slate-200'
+              }`}>
+                {COMPLETION_ITEMS.map(item => {
+                  const progress = stageProgress[item.stage];
+                  const done = progress.state === 'done';
+                  return (
+                    <button
+                      key={item.stage}
+                      onClick={() => handleStepChange(item.stage)}
+                      className={`w-full text-left p-3 rounded-xl flex items-start gap-3 transition-all ${
+                        isDarkMode ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      {done
+                        ? <CheckCircle2 size={15} className="text-emerald-500 shrink-0 mt-0.5" />
+                        : <Circle size={15} className="text-amber-500 shrink-0 mt-0.5" />}
+                      <div className="min-w-0 flex-1">
+                        <span className={`text-[11px] font-semibold block ${
+                          done ? (isDarkMode ? 'text-slate-300' : 'text-slate-700') : 'text-amber-500'
+                        }`}>
+                          {item.label}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono block mt-0.5 truncate">
+                          Stage 0{item.stage} &middot; {progress.hint}
+                        </span>
+                      </div>
+                      <ChevronRight size={13} className="text-slate-600 shrink-0 mt-0.5" />
+                    </button>
+                  );
+                })}
               </div>
 
               <div className={`border rounded-2xl p-5 grid grid-cols-2 gap-4 text-left shadow-2xl ${
@@ -3136,18 +3627,25 @@ export default function App() {
                   <span className="text-sm font-bold text-indigo-500 font-mono mt-0.5 block">{auditLog.length}</span>
                 </div>
                 <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/[0.01] border-white/[0.04]' : 'bg-slate-50 border-slate-200'}`}>
-                  <span className="text-[9px] uppercase tracking-widest font-mono text-slate-500 font-bold block">Integrity Grade</span>
-                  <span className="text-sm font-bold text-emerald-400 font-mono mt-0.5 block">
-                    {integrityReport ? `${integrityReport.score}/100` : 'Not run'}
+                  <span className="text-[9px] uppercase tracking-widest font-mono text-slate-500 font-bold block">Readiness</span>
+                  <span className={`text-[11px] font-bold font-mono mt-1 block leading-snug ${
+                    integrityReport?.state === 'ready' ? 'text-emerald-400'
+                      : integrityReport ? 'text-amber-500' : 'text-slate-500'
+                  }`}>
+                    {integrityReport ? integrityReport.stateMeta.label : 'CHECK NOT RUN'}
                   </span>
                 </div>
                 <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/[0.01] border-white/[0.04]' : 'bg-slate-50 border-slate-200'}`}>
-                  <span className="text-[9px] uppercase tracking-widest font-mono text-slate-500 font-bold block">Manifest</span>
-                  <span className="text-sm font-bold text-indigo-500 font-mono mt-0.5 block truncate">
-                    {manifestSha ? `${manifestSha.slice(0, 10)}…` : '—'}
+                  <span className="text-[9px] uppercase tracking-widest font-mono text-slate-500 font-bold block">Approved By</span>
+                  <span className={`text-sm font-bold font-mono mt-0.5 block truncate ${approval ? 'text-emerald-400' : 'text-amber-500'}`}>
+                    {approval ? approval.by : 'No one'}
                   </span>
                 </div>
               </div>
+
+              <p className="text-[10px] text-slate-500 font-mono">
+                Manifest {manifestSha ? `${manifestSha.slice(0, 16)}…` : 'not generated'}
+              </p>
 
               <button
                 onClick={handleReset}
@@ -3237,6 +3735,73 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* DELIVERABLE PREVIEW */}
+      {previewKey && (() => {
+        const item = deliverables().find(d => d.key === previewKey);
+        if (!item) return null;
+        const file = item.build();
+        const shown = file.printable || file.content;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/70 backdrop-blur-sm animate-fadeIn"
+            onClick={() => setPreviewKey(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-3xl max-h-full bg-white rounded-2xl border border-[#D1D5DB] flex flex-col overflow-hidden text-slate-900 shadow-2xl"
+            >
+              <div className="bg-[#E5E7EB] px-4 py-2.5 border-b border-[#D1D5DB] flex justify-between items-center gap-3 shrink-0">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-mono font-bold text-slate-700 truncate flex items-center gap-1.5">
+                    <FileText size={13} className="shrink-0" /> {item.title}
+                  </p>
+                  <p className="text-[10px] font-mono text-slate-500 mt-0.5 truncate">
+                    {file.count} entr{file.count === 1 ? 'y' : 'ies'} &middot; {byteLabel(shown)}
+                    {file.printable ? ' · print layout' : ' · CSV source'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPreviewKey(null)}
+                  className="p-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-200 transition-all shrink-0"
+                  aria-label="Close preview"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto bg-[#F9FAFB] p-6 select-text min-h-0">
+                <div className="border border-slate-200/60 p-6 bg-white shadow-sm rounded-xl">
+                  <pre className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{shown}</pre>
+                </div>
+              </div>
+
+              <div className="px-4 py-2.5 border-t border-[#D1D5DB] bg-[#E5E7EB] flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <span className="text-[10px] font-mono text-slate-500">
+                  This is the exact content that will download. Press Esc to close.
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => handleDownload(item)}
+                    className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-all inline-flex items-center gap-1.5"
+                  >
+                    <Download size={12} /> {file.mime === 'text/csv' ? 'CSV' : 'Text'}
+                  </button>
+                  {file.printable && (
+                    <button
+                      onClick={() => handleDownloadPdf(item)}
+                      disabled={pdfPending === item.key}
+                      className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60 transition-all inline-flex items-center gap-1.5"
+                    >
+                      <Download size={12} /> {pdfPending === item.key ? 'Rendering…' : 'PDF'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* DOCUMENT READER */}
       {openDocument && (() => {
