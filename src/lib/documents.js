@@ -94,14 +94,42 @@ function parseEml(raw) {
  * transcript, which is what the previous implementation did.
  */
 export function classifyDocument(name, text) {
-  const head = text.slice(0, 2000);
-  if (/^(from|to|subject|date):/im.test(head) && /@/.test(head)) return 'EMAIL';
-  if (/^\s*[QA][.:]\s/m.test(head) || /\b(deposition|examination) of\b/i.test(head)) return 'TRANSCRIPT';
-  const lines = head.split('\n').filter(Boolean).slice(0, 5);
-  if (lines.length >= 2 && lines.every(l => (l.match(/[,;\t]/g) || []).length >= 2)) return 'LEDGER';
-  if (/^\s*[[{]/.test(head.trim())) return 'SYSTEM';
-  if (name.toLowerCase().endsWith('.csv')) return 'LEDGER';
-  if (name.toLowerCase().endsWith('.json')) return 'SYSTEM';
+  const head = text.slice(0, 3000);
+  const lower = head.toLowerCase();
+  const filename = name.toLowerCase();
+
+  // Email: routing headers plus an address.
+  if (/^(from|to|sent|subject)\s*:/im.test(head) && /@/.test(head)) return 'EMAIL';
+
+  // Transcript: Q/A pairs, or a caption naming the proceeding.
+  if (/^\s*[QA][.:]\s/m.test(head) || /\b(deposition|examination|testimony) of\b/i.test(head)) {
+    return 'TRANSCRIPT';
+  }
+
+  // Invoice: an invoice marker together with an amount due.
+  if (/\b(invoice|bill to|remit to|amount due|net \d+)\b/i.test(lower) && /\$\s?[\d,]+/.test(head)) {
+    return 'INVOICE';
+  }
+
+  // Agreement: execution language typical of a signed instrument.
+  if (/\b(agreement|contract|deed|lease|amendment|addendum|retainer)\b/i.test(lower)
+      && /\b(between|executed|entered into|the parties|hereby|shall)\b/i.test(lower)) {
+    return 'AGREEMENT';
+  }
+
+  // Log or report: a dated record of observations.
+  if (/\b(log|report|inspection|survey|minutes|memorandum|memo)\b/i.test(lower)) return 'REPORT';
+
+  // Correspondence: letter conventions without email headers.
+  if (/\b(dear|sincerely|yours faithfully|kind regards)\b/i.test(lower)) return 'LETTER';
+
+  // Ledger: delimited rows.
+  const lines = head.split('\n').filter(Boolean).slice(0, 6);
+  if (lines.length >= 3 && lines.every(l => (l.match(/[,;\t]/g) || []).length >= 2)) return 'LEDGER';
+
+  if (/^\s*[[{]/.test(head.trim())) return 'DATA';
+  if (filename.endsWith('.csv')) return 'LEDGER';
+  if (filename.endsWith('.json')) return 'DATA';
   return 'DOCUMENT';
 }
 
