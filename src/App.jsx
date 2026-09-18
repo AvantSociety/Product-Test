@@ -2542,7 +2542,7 @@ export default function App() {
               </div>
 
               <div className="text-center pt-2">
-                <MicroStatusVisualizer active={completionOutstanding.length === 0} isDarkMode={isDarkMode} />
+                <MicroStatusVisualizer active={!!integrityReport} isDarkMode={isDarkMode} />
                 <p className="text-xs font-mono text-slate-500 mt-2">
                   Manifest state: <span className={`font-bold ${integrityReport ? 'text-emerald-500' : 'text-slate-400'}`}>
                     {integrityReport ? 'VERIFIED' : 'AWAITING VERIFICATION'}
@@ -2607,7 +2607,7 @@ export default function App() {
             <div className="max-w-2xl mx-auto py-8 animate-fadeIn">
               <EmptyState
                 icon={Cpu}
-                title="NOTHING TO ANALYSE"
+                title="NOTHING TO ANALYZE"
                 hint="Select documents in Review & Designate (Stage 02), then run the readiness check in Stage 03"
               />
               <div className="flex justify-center mt-5">
@@ -3565,7 +3565,7 @@ export default function App() {
             <div className="space-y-6 max-w-xl mx-auto text-center py-4">
               <div className="relative inline-block">
                 <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-xl scale-125" />
-                <MicroStatusVisualizer active={!!integrityReport} isDarkMode={isDarkMode} />
+                <MicroStatusVisualizer active={completionOutstanding.length === 0} isDarkMode={isDarkMode} />
               </div>
 
               <div className="space-y-2 mt-4">
