@@ -77,7 +77,7 @@ import {
 const MicroStatusVisualizer = ({ active, isDarkMode }) => (
   <div className="relative w-32 h-32 mx-auto flex items-center justify-center">
     <div className={`absolute inset-0 rounded-full border border-dashed transition-all duration-700 ${active ? 'border-indigo-500/30 animate-spin' : 'border-slate-500/10'}`} style={{ animationDuration: '30s' }} />
-    <div className="w-20 h-20 rounded-full bg-gradient-to-b from-white/[0.07] to-white/[0.02] border border-white/[0.1] flex items-center justify-center backdrop-blur-md shadow-2xl relative z-10">
+    <div className="w-20 h-20 rounded-full border border-slate-300 bg-white flex items-center justify-center relative z-10">
       {active ? <Activity className="w-8 h-8 text-indigo-500 animate-pulse" /> : <ShieldCheck className="w-8 h-8 text-slate-500" />}
     </div>
   </div>
@@ -296,7 +296,7 @@ export default function App() {
   const [copilotOpen, setCopilotOpen] = useState(
     () => (typeof window === 'undefined' ? true : window.innerWidth >= 1024)
   );
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // --- Matter state (persisted) ---
   const [documents, setDocuments] = useState([]);
@@ -1384,7 +1384,7 @@ export default function App() {
   );
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden font-sans transition-colors duration-500 ${
+    <div data-theme={isDarkMode ? 'dark' : 'light'} className={`flex h-screen w-full overflow-hidden font-sans transition-colors duration-500 ${
       isDarkMode ? 'bg-[#08090C] text-slate-200' : 'bg-slate-50 text-slate-900'
     }`}>
 
@@ -1403,6 +1403,7 @@ export default function App() {
         </span>
         <button
           onClick={() => setIsDarkMode(!isDarkMode)}
+          aria-label={isDarkMode ? 'Switch to the light theme' : 'Switch to the dark theme'}
           className={`p-2 rounded-xl border ${isDarkMode ? 'bg-white/[0.04] border-white/[0.06] text-amber-400' : 'bg-slate-100 border-slate-200 text-indigo-600'}`}
         >
           {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
@@ -1420,11 +1421,12 @@ export default function App() {
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
               <h1 className={`text-[10px] font-bold tracking-widest uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Discovery Framework</h1>
             </div>
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
+              aria-label={isDarkMode ? 'Switch to the light theme' : 'Switch to the dark theme'}
               className={`hidden lg:flex p-1.5 rounded-full border transition-all hover:scale-105 active:scale-95 ${
                 isDarkMode ? 'bg-white/[0.04] border-white/[0.06] text-amber-400' : 'bg-slate-100 border-slate-200 text-indigo-600'
               }`}
@@ -1457,13 +1459,13 @@ export default function App() {
                 className={`w-full text-left p-3 rounded-xl flex gap-3.5 items-center transition-all duration-200 relative border cursor-pointer ${
                   isActive
                     ? isDarkMode
-                      ? 'bg-gradient-to-r from-white/[0.05] to-white/[0.01] border-white/[0.08] shadow-lg translate-x-1 text-white'
-                      : 'bg-gradient-to-r from-indigo-50/70 to-transparent border-indigo-100 shadow-md translate-x-1 text-indigo-950'
+                      ? 'bg-white/[0.04] border-white/[0.08] text-white'
+                      : 'bg-indigo-50 border-indigo-200 text-indigo-900'
                     : 'bg-transparent border-transparent hover:bg-white/[0.02] text-slate-400'
                 }`}
               >
                 {isActive && (
-                  <div className="absolute left-1.5 top-3.5 bottom-3.5 w-1 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]" />
+                  <div className="absolute left-1.5 top-3.5 bottom-3.5 w-[3px] bg-indigo-600" />
                 )}
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-all relative ${
                   isActive
@@ -1538,7 +1540,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-mono text-slate-500">SELECTED:</span>
-              <span className="text-[10px] font-mono text-slate-300 font-bold">{selectedForReview.length}</span>
+              <span className={`text-[10px] font-mono font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>{selectedForReview.length}</span>
             </div>
             {withheldCount > 0 && (
               <div className="flex items-center gap-1.5">
@@ -1554,7 +1556,7 @@ export default function App() {
           </div>
           <div className="hidden md:flex items-center gap-2 text-[10px] font-mono text-slate-500">
             <span>MANIFEST:</span>
-            <span className="text-slate-300 font-bold">
+            <span className={`font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>
               {manifestSha ? `${manifestSha.slice(0, 12)}…` : 'not computed'}
             </span>
           </div>
@@ -1622,7 +1624,7 @@ export default function App() {
             {activeStep < 9 ? (
               <button
                 onClick={() => handleStepChange(activeStep + 1)}
-                className="px-4 py-1.5 text-xs font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
+                className="px-4 py-1.5 text-xs font-semibold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-colors flex items-center gap-2"
               >
                 Next <ArrowRight size={13} />
               </button>
@@ -1651,7 +1653,7 @@ export default function App() {
                 <h3 className="serif-title text-2xl sm:text-4xl font-bold tracking-tight mt-2 leading-tight">
                   Welcome to the Discovery Framework
                 </h3>
-                <p className="text-sm text-slate-400 mt-4 leading-relaxed font-light">
+                <p className="text-sm text-slate-500 mt-4 leading-relaxed">
                   A document analysis workspace for small litigation teams: ingest a client's documents, designate them
                   for production or privilege, verify their integrity, and draft a brief whose every citation traces
                   back to a specific passage in a specific document.
@@ -1778,7 +1780,7 @@ export default function App() {
                 ].map(card => (
                   <div key={card.n} className={`p-5 rounded-2xl border transition-all hover:-translate-y-1 ${panelClass}`}>
                     <span className="text-indigo-400 font-mono text-xs font-bold block">{card.n}</span>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 mt-2">{card.t}</h4>
+                    <h4 className={`text-xs font-bold uppercase tracking-wider mt-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{card.t}</h4>
                     <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">{card.d}</p>
                   </div>
                 ))}
@@ -1814,7 +1816,7 @@ export default function App() {
               {/* Upload */}
               <div className={`rounded-2xl border p-5 sm:p-6 transition-all duration-300 ${
                 isUploading
-                  ? 'border-indigo-500/50 bg-indigo-500/[0.02] shadow-[0_0_35px_rgba(99,102,241,0.12)]'
+                  ? 'border-indigo-500/50 bg-indigo-500/[0.03]'
                   : isDarkMode ? 'border-white/[0.06] bg-white/[0.01] hover:border-white/[0.12]' : 'border-slate-200 bg-white hover:border-slate-300 shadow-sm'
               }`}>
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -2156,7 +2158,7 @@ export default function App() {
               <div className="pt-8 border-t border-white/[0.04] text-center">
                 <MicroStatusVisualizer active={documents.length > 0} isDarkMode={isDarkMode} />
                 <p className="text-xs font-mono text-slate-500 mt-2">
-                  Ingestion queue: <span className="font-bold text-slate-300">
+                  Ingestion queue: <span className={`font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>
                     {documents.length > 0
                       ? `${documents.length} document${documents.length === 1 ? '' : 's'} ready for review`
                       : 'awaiting upload'}
@@ -3166,7 +3168,7 @@ export default function App() {
                             <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-amber-400">
                               Add this passage as your citation
                             </p>
-                            <p className="text-[11px] text-slate-300 mt-1 leading-snug line-clamp-2">
+                            <p className={`text-[11px] mt-1 leading-snug line-clamp-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                               &ldquo;{pendingSelection.excerpt.length > 160
                                 ? `${pendingSelection.excerpt.slice(0, 160)}…`
                                 : pendingSelection.excerpt}&rdquo;
