@@ -31,6 +31,9 @@ import {
   Circle,
   Lock,
   Eye,
+  PanelLeftClose,
+  PanelLeftOpen,
+  RotateCcw,
   EyeOff,
   ScrollText,
   UserRound,
@@ -253,6 +256,62 @@ const COMPLETION_ITEMS = [
   { stage: 8, label: 'Deliverables exported' },
 ];
 
+// The eight steps a production needs, as the matter bar shows them. Labels are
+// verbs so the bar reads as a sequence of work rather than a list of screens.
+const METER = [
+  { id: 1, label: 'Ingest' },
+  { id: 2, label: 'Designate' },
+  { id: 3, label: 'Check' },
+  { id: 4, label: 'Analyze' },
+  { id: 5, label: 'Cite' },
+  { id: 6, label: 'Draft' },
+  { id: 7, label: 'Approve' },
+  { id: 8, label: 'Export' },
+];
+
+/**
+ * Eases a number toward its new value, so counts visibly move when work lands
+ * rather than jumping. Honours reduced-motion: those users get the value at once.
+ */
+function useAnimatedNumber(value, duration = 650) {
+  const [shown, setShown] = useState(value);
+  const fromRef = useRef(value);
+  useEffect(() => {
+    const reduce = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const from = fromRef.current;
+    if (reduce || from === value) {
+      setShown(value);
+      fromRef.current = value;
+      return undefined;
+    }
+    let raf;
+    const start = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setShown(Math.round(from + (value - from) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else fromRef.current = value;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); fromRef.current = value; };
+  }, [value, duration]);
+  return shown;
+}
+
+/** One figure in the matter bar. Defined outside App so it never remounts. */
+const MatterStat = ({ label, value, isDarkMode, tone }) => (
+  <div className="min-w-0">
+    <span className="text-[9px] font-mono uppercase tracking-widest text-slate-500 block">{label}</span>
+    <span className={`text-lg font-bold tabular-nums leading-tight block ${
+      tone || (isDarkMode ? 'text-white' : 'text-slate-900')
+    }`} style={{ fontFamily: 'var(--font-serif)' }}>
+      {value}
+    </span>
+  </div>
+);
+
 const ACTOR_STYLES = {
   System: { border: 'border-indigo-500/20', text: 'text-indigo-400', bg: 'bg-indigo-500/5' },
   Source: { border: 'border-slate-500/20', text: 'text-slate-400', bg: 'bg-slate-500/5' },
@@ -293,9 +352,18 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // The Advisor is a full-screen overlay below lg, so opening it by default on
   // a phone would bury the stage and its navigation. Desktop keeps it open.
-  const [copilotOpen, setCopilotOpen] = useState(
-    () => (typeof window === 'undefined' ? true : window.innerWidth >= 1024)
-  );
+  // The Advisor starts closed. Open, it took 330px from the workspace on every
+  // stage while mostly repeating guidance a returning user has already read.
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  // The stage rail can collapse to icons. A per-viewer preference, so it lives
+  // in browser storage, which can be unavailable — hence the guards.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return window.localStorage.getItem('ci.railCollapsed') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem('ci.railCollapsed', sidebarCollapsed ? '1' : '0'); } catch { /* storage blocked */ }
+  }, [sidebarCollapsed]);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // --- Matter state (persisted) ---
@@ -617,6 +685,15 @@ export default function App() {
       : { state: 'todo', hint: `${completionOutstanding.length} step${completionOutstanding.length === 1 ? '' : 's'} outstanding` },
   };
 
+  const stepsDone = COMPLETION_ITEMS.length - completionOutstanding.length;
+  const readinessPct = Math.round((stepsDone / COMPLETION_ITEMS.length) * 100);
+  const shownDocs = useAnimatedNumber(documents.length);
+  const shownProducing = useAnimatedNumber(producibleNames.length);
+  const shownCitations = useAnimatedNumber(allProducibleCitations.length);
+  const shownEvents = useAnimatedNumber(auditLog.length);
+  const shownPct = useAnimatedNumber(readinessPct);
+  const hasMatter = documents.length > 0 || auditLog.length > 0;
+
 
   // Every tag used anywhere in the matter, so tagging stays consistent across
   // documents instead of drifting into near-duplicates.
@@ -679,16 +756,17 @@ export default function App() {
 
   // Escape closes the document reader and the deliverable preview.
   useEffect(() => {
-    if (!openDocument && !previewKey && !ledgerOpen) return;
+    if (!openDocument && !previewKey && !ledgerOpen && !confirmClear) return;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
       setOpenDocument(null);
       setPreviewKey(null);
       setLedgerOpen(false);
+      setConfirmClear(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openDocument, previewKey, ledgerOpen]);
+  }, [openDocument, previewKey, ledgerOpen, confirmClear]);
 
   // Bring the highlighted passage to the top of the viewer whenever the
   // selected finding or document changes. Runs before paint so the reader
@@ -1251,9 +1329,16 @@ export default function App() {
     }
   };
 
-  const handleReset = async () => {
-    if (!window.confirm('Clear every document, annotation and result from this browser? This cannot be undone.')) return;
+  const handleReset = () => setConfirmClear(true);
+
+  const performClear = async () => {
+    setConfirmClear(false);
     await clearMatter();
+    // These four were missing, so a cleared matter kept its approval, and a
+    // fresh untouched draft kept the "attorney work product" header that is
+    // only meant to appear once counsel has edited it.
+    setApproval(null); setApproverDraft(''); setMemoEdited(false);
+    setPreviewKey(null); setLedgerOpen(false); setTrustOpen(false);
     setDocuments([]); setCitations({}); setPrivilege({}); setSelectedForReview([]);
     setNotes({}); setAuditLog([]); setBatesAssignments({}); setIntegrityReport(null);
     setVoidedCheck(null);
@@ -1413,14 +1498,20 @@ export default function App() {
       {/* LEFT SIDEBAR */}
       <div className={`
         fixed inset-y-0 left-0 w-[310px] sm:w-[340px] h-full border-r flex flex-col z-40 transition-all duration-300 ease-out lg:static lg:translate-x-0 shrink-0
+        ${sidebarCollapsed ? 'lg:w-[76px]' : ''}
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         ${isDarkMode ? 'bg-[#0E0F14] border-r-white/[0.04]' : 'bg-white border-slate-200'}
       `}>
-        <div className={`p-6 border-b flex flex-col gap-1.5 transition-colors ${
+        <div className={`p-6 border-b flex flex-col gap-1.5 transition-colors ${sidebarCollapsed ? 'lg:px-0 lg:py-5 lg:items-center' : ''} ${
           isDarkMode ? 'bg-[#0A0B0E] border-white/[0.04]' : 'bg-slate-50 border-slate-200'
         }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          {/* Monogram, shown only when the rail is collapsed. */}
+          <div className={`hidden ${sidebarCollapsed ? 'lg:flex' : ''} w-9 h-9 items-center justify-center rounded-md bg-indigo-600 text-white text-[11px] font-bold tracking-wider mb-1`}
+               style={{ fontFamily: 'var(--font-serif)' }}>
+            AS
+          </div>
+          <div className={`flex items-center justify-between ${sidebarCollapsed ? 'lg:justify-center' : ''}`}>
+            <div className={`flex items-center gap-2 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
               <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
               <div className="leading-tight">
                 <h1 className={`text-[11px] font-bold tracking-[0.18em] uppercase ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
@@ -1431,22 +1522,34 @@ export default function App() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              aria-label={isDarkMode ? 'Switch to the light theme' : 'Switch to the dark theme'}
-              className={`hidden lg:flex p-1.5 rounded-full border transition-all hover:scale-105 active:scale-95 ${
-                isDarkMode ? 'bg-white/[0.04] border-white/[0.06] text-amber-400' : 'bg-slate-100 border-slate-200 text-indigo-600'
-              }`}
-            >
-              {isDarkMode ? <Sun size={13} /> : <Moon size={13} />}
-            </button>
+            <div className={`hidden lg:flex items-center gap-1.5 ${sidebarCollapsed ? 'lg:flex-col' : ''}`}>
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                aria-label={isDarkMode ? 'Switch to the light theme' : 'Switch to the dark theme'}
+                className={`p-1.5 rounded-full border transition-all hover:scale-105 active:scale-95 ${
+                  isDarkMode ? 'bg-white/[0.04] border-white/[0.06] text-amber-400' : 'bg-slate-100 border-slate-200 text-indigo-600'
+                }`}
+              >
+                {isDarkMode ? <Sun size={13} /> : <Moon size={13} />}
+              </button>
+              <button
+                onClick={() => setSidebarCollapsed(v => !v)}
+                aria-label={sidebarCollapsed ? 'Expand the stage list' : 'Collapse the stage list'}
+                title={sidebarCollapsed ? 'Expand the stage list' : 'Collapse to icons for more working space'}
+                className={`p-1.5 rounded-full border transition-all hover:scale-105 active:scale-95 ${
+                  isDarkMode ? 'bg-white/[0.04] border-white/[0.06] text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
+                }`}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
+              </button>
+            </div>
           </div>
-          <p className={`text-xs font-bold tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+          <p className={`text-xs font-bold tracking-tight transition-colors ${sidebarCollapsed ? 'lg:hidden' : ''} ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
             {caseTitle}
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-1">
+        <div className={`flex-1 overflow-y-auto p-4 space-y-1 ${sidebarCollapsed ? 'lg:px-2' : ''}`}>
           {STEPS.map((step) => {
             const isActive = activeStep === step.id;
             const styleToken = ACTOR_STYLES[step.actor] || { border: 'border-white/10', text: 'text-slate-400', bg: 'bg-white/5' };
@@ -1463,7 +1566,9 @@ export default function App() {
               <button
                 key={step.id}
                 onClick={() => handleStepChange(step.id)}
-                className={`w-full text-left p-3 rounded-xl flex gap-3.5 items-center transition-all duration-200 relative border cursor-pointer ${
+                title={sidebarCollapsed ? `Stage 0${step.id} · ${step.title} — ${progress.hint}` : undefined}
+                aria-label={`Stage 0${step.id}: ${step.title}. ${progress.hint}`}
+                className={`w-full text-left p-3 rounded-xl flex gap-3.5 items-center transition-all duration-200 relative border cursor-pointer ${sidebarCollapsed ? 'lg:justify-center lg:p-2' : ''} ${
                   isActive
                     ? isDarkMode
                       ? 'bg-white/[0.04] border-white/[0.08] text-white'
@@ -1482,8 +1587,11 @@ export default function App() {
                       : isDarkMode ? 'bg-[#14151C] border-white/[0.04] text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-500'
                 }`}>
                   <StepIcon size={14} />
+                  <span className={`hidden ${sidebarCollapsed ? 'lg:block' : ''} absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 ${
+                    isDarkMode ? 'border-[#0E0F14]' : 'border-white'
+                  } ${progress.state === 'done' ? 'bg-emerald-500' : progress.state === 'blocked' ? 'bg-slate-300' : 'bg-amber-400'}`} />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className={`flex-1 min-w-0 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
                   <div className="flex items-center justify-between gap-1.5">
                     <span className={`text-[9px] font-mono font-bold ${isActive ? 'text-indigo-400' : 'text-slate-500'}`}>
                       STAGE 0{step.id}
@@ -1509,7 +1617,7 @@ export default function App() {
           })}
         </div>
 
-        <div className={`px-5 py-3 border-t flex items-center gap-2 text-[9px] font-mono ${
+        <div className={`px-5 py-3 border-t flex items-center gap-2 text-[9px] font-mono ${sidebarCollapsed ? 'lg:hidden' : ''} ${
           isDarkMode ? 'bg-[#090A0F] border-white/[0.04] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-500'
         }`}>
           <Keyboard size={12} className="shrink-0" />
@@ -1519,11 +1627,11 @@ export default function App() {
         <div className={`p-5 border-t text-[10px] flex justify-between items-center transition-colors ${
           isDarkMode ? 'bg-[#090A0F] border-white/[0.04] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-500'
         }`}>
-          <div className="flex items-center gap-1.5">
+          <div className={`flex items-center gap-1.5 ${sidebarCollapsed ? 'lg:mx-auto' : ''}`} title="Stored in this browser">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span className="font-semibold">Stored in this browser</span>
+            <span className={`font-semibold ${sidebarCollapsed ? 'lg:hidden' : ''}`}>Stored in this browser</span>
           </div>
-          <span className="font-mono text-slate-600">v5.0.0</span>
+          <span className={`font-mono text-slate-600 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>v5.1.0</span>
         </div>
       </div>
 
@@ -1534,47 +1642,93 @@ export default function App() {
       {/* CENTRAL WORKSPACE */}
       <div ref={rightPanelRef} className="flex-1 h-full overflow-y-auto flex flex-col transition-all duration-300 pt-14 lg:pt-0">
 
-        {/* TELEMETRY BAR */}
-        <div className={`w-full px-6 sm:px-12 py-3 border-b flex items-center justify-between transition-colors ${
-          isDarkMode ? 'bg-[#0E0F14] border-white/[0.04]' : 'bg-slate-100 border-slate-200'
+        {/* MATTER BAR — the matter at a glance: what it is, how far through it
+            is, and the figures that matter. Every number here is live, and the
+            readiness track is the same state the completion check uses, so the
+            bar can never claim progress the checklist would not. */}
+        <div className={`w-full px-6 sm:px-10 py-4 border-b transition-colors ${
+          isDarkMode ? 'bg-[#0B0C11] border-white/[0.04]' : 'bg-white border-slate-200'
         }`}>
-          <div className="flex items-center gap-6 overflow-x-auto py-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono text-slate-500">INGESTED:</span>
-              <span className="text-[10px] font-mono text-indigo-400 font-bold">
-                {documents.length} DOC{documents.length === 1 ? '' : 'S'}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono text-slate-500">SELECTED:</span>
-              <span className={`text-[10px] font-mono font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>{selectedForReview.length}</span>
-            </div>
-            {withheldCount > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-mono text-slate-500">WITHHELD:</span>
-                <span className="text-[10px] font-mono text-amber-500 font-bold">{withheldCount}</span>
+          <div className="flex flex-col xl:flex-row xl:items-center gap-4 xl:gap-10">
+            <div className="min-w-0 xl:w-60 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-mono uppercase tracking-widest text-slate-500">Matter</span>
+                {isFlaggedForReview && (
+                  <span className="text-[8px] font-mono font-bold text-amber-600 border border-amber-500/30 bg-amber-500/10 px-1.5 py-px rounded">
+                    SENIOR COUNSEL
+                  </span>
+                )}
               </div>
-            )}
-            {isFlaggedForReview && (
-              <span className="text-[10px] font-mono font-bold text-amber-500 border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 rounded shrink-0">
-                FLAGGED FOR SENIOR COUNSEL
+              <span className={`text-base font-bold truncate block leading-snug ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                    style={{ fontFamily: 'var(--font-serif)' }}>
+                {caseTitle}
               </span>
-            )}
-          </div>
-          <div className="hidden md:flex items-center gap-2 text-[10px] font-mono text-slate-500">
-            <span>MANIFEST:</span>
-            <span className={`font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>
-              {manifestSha ? `${manifestSha.slice(0, 12)}…` : 'not computed'}
-            </span>
+              <span className="text-[9px] font-mono text-slate-500 truncate block mt-0.5">
+                {manifestSha ? `Manifest ${manifestSha.slice(0, 16)}…` : 'Manifest not yet computed'}
+              </span>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="text-[9px] font-mono uppercase tracking-widest text-slate-500">Production readiness</span>
+                <span className="text-[10px] font-mono text-slate-500">
+                  <span className={`font-bold tabular-nums ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{stepsDone}</span>
+                  {' '}of {COMPLETION_ITEMS.length} steps
+                  <span className={`ml-2 font-bold tabular-nums ${stepsDone === COMPLETION_ITEMS.length ? 'text-emerald-600' : 'text-indigo-600'}`}>
+                    {shownPct}%
+                  </span>
+                </span>
+              </div>
+              <div className="flex gap-1.5 items-end">
+                {METER.map(m => {
+                  const state = stageProgress[m.id].state;
+                  const current = activeStep === m.id;
+                  const fill = state === 'done' ? 'bg-indigo-600'
+                    : state === 'blocked' ? (isDarkMode ? 'bg-white/[0.07]' : 'bg-slate-200')
+                    : (isDarkMode ? 'bg-amber-400/50' : 'bg-amber-300');
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => handleStepChange(m.id)}
+                      title={`${STEPS[m.id].title} — ${stageProgress[m.id].hint}`}
+                      aria-label={`Go to ${STEPS[m.id].title}: ${stageProgress[m.id].hint}`}
+                      className="group flex-1 min-w-0 text-left focus:outline-none"
+                    >
+                      <span className={`block w-full rounded-full transition-all duration-700 ease-out ${fill} ${
+                        current ? 'h-2.5' : 'h-1.5 group-hover:h-2'
+                      } ${current ? 'ring-2 ring-indigo-500/25 ring-offset-1' : ''}`} />
+                      <span className={`hidden md:block text-[9px] font-mono mt-1.5 truncate transition-colors ${
+                        current ? (isDarkMode ? 'text-white font-bold' : 'text-slate-900 font-bold')
+                          : state === 'done' ? 'text-indigo-600' : 'text-slate-500 group-hover:text-slate-700'
+                      }`}>
+                        {m.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-5 xl:gap-7 shrink-0">
+              <MatterStat label="Documents" value={shownDocs} isDarkMode={isDarkMode} />
+              <MatterStat label="Producing" value={shownProducing} isDarkMode={isDarkMode} />
+              <MatterStat label="Citations" value={shownCitations} isDarkMode={isDarkMode} />
+              <MatterStat label="Ledger" value={shownEvents} isDarkMode={isDarkMode} tone="text-indigo-600" />
+            </div>
           </div>
         </div>
 
         {/* HEADER CONSOLE — pinned so stage navigation stays reachable while
             reading long stages. The telemetry bar above it scrolls away, which
             keeps the fixed chrome to just the controls. */}
-        <div className={`sticky top-0 z-20 w-full border-b px-6 sm:px-12 py-3 sm:py-5 flex flex-col sm:flex-row gap-2.5 sm:gap-4 sm:items-center justify-between shrink-0 transition-colors duration-500 ${
-          isDarkMode ? 'bg-[#0E0F14] border-white/[0.04]' : 'bg-white border-slate-200'
-        }`}>
+        <div className={`sticky top-0 z-20 w-full border-b px-6 sm:px-10 py-3 sm:py-3.5 flex flex-col sm:flex-row gap-2.5 sm:gap-4 sm:items-center justify-between shrink-0 transition-colors duration-500 ${
+          isDarkMode ? 'bg-[#0E0F14]/95 border-white/[0.04]' : 'bg-white/95 border-slate-200'
+        } backdrop-blur`}>
+          <div
+            className="absolute left-0 -bottom-px h-[2px] bg-indigo-600 transition-all duration-700 ease-out"
+            style={{ width: `${readinessPct}%` }}
+            aria-hidden="true"
+          />
           <div className="min-w-0">
             {/* Breadcrumb is redundant on mobile — the fixed top bar already
                 names the stage — so it is dropped there to keep the pinned
@@ -1586,7 +1740,7 @@ export default function App() {
               <span>/</span>
               <span className="text-indigo-500 font-semibold">{STEPS[activeStep].title}</span>
             </div>
-            <h2 className={`text-sm sm:text-xl font-bold tracking-tight sm:mt-1 leading-snug truncate sm:whitespace-normal transition-colors ${
+            <h2 className={`text-sm sm:text-lg font-bold tracking-tight sm:mt-0.5 leading-snug truncate transition-colors ${
               isDarkMode ? 'text-white' : 'text-slate-800'
             }`}>
               {STEPS[activeStep].description}
@@ -1594,6 +1748,22 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2.5 self-end sm:self-auto">
+            {/* Clearing is reachable from every stage — between prospect demos
+                especially — but always goes through a confirmation that says
+                exactly what will be lost, because nothing is kept anywhere else. */}
+            <button
+              onClick={handleReset}
+              disabled={!hasMatter}
+              title={hasMatter ? 'Clear this matter from the browser' : 'Nothing to clear yet'}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
+                isDarkMode
+                  ? 'bg-white/[0.02] border-white/[0.06] text-slate-400 enabled:hover:text-red-400 enabled:hover:border-red-500/30'
+                  : 'bg-white border-slate-200 text-slate-500 shadow-sm enabled:hover:text-red-600 enabled:hover:border-red-200'
+              }`}
+            >
+              <RotateCcw size={13} />
+              <span className="hidden sm:inline">Clear</span>
+            </button>
             {/* The review ledger is a compliance artifact, not an export. A firm
                 evidencing its own supervision needs to be able to see it at any
                 point in the matter, so it is reachable from every stage. */}
@@ -1650,7 +1820,7 @@ export default function App() {
         </div>
 
         {/* STAGE ROUTER */}
-        <div className="flex-1 p-6 sm:p-12 max-w-5xl w-full mx-auto animate-fadeIn">
+        <div className="flex-1 p-6 sm:p-10 max-w-6xl w-full mx-auto animate-fadeIn">
 
           {/* ============ STAGE 0: ORIENTATION ============ */}
           {activeStep === 0 && (
@@ -3852,6 +4022,74 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* CLEAR CONFIRMATION */}
+      {confirmClear && (() => {
+        const citationTotal = Object.values(citations).reduce((n, list) => n + (list?.length || 0), 0);
+        const noteTotal = Object.values(notes).filter(n => n?.trim()).length;
+        const losing = [
+          [documents.length, 'document'],
+          [citationTotal, 'citation'],
+          [noteTotal, 'note'],
+          [auditLog.length, 'ledger event'],
+        ].filter(([n]) => n > 0);
+        return (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm animate-fadeIn"
+            onClick={() => setConfirmClear(false)}
+          >
+            <div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="clear-title"
+              aria-describedby="clear-body"
+              onClick={(e) => e.stopPropagation()}
+              className={`w-full max-w-md rounded-lg border p-6 shadow-2xl ${
+                isDarkMode ? 'bg-[#111218] border-white/[0.08]' : 'bg-white border-slate-200'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-md bg-red-500/10 text-red-600 flex items-center justify-center shrink-0">
+                  <RotateCcw size={16} />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="clear-title" className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    Clear this matter?
+                  </h3>
+                  <div id="clear-body" className="text-xs text-slate-500 mt-2 leading-relaxed space-y-2">
+                    <p>
+                      Everything about <strong className={isDarkMode ? 'text-slate-200' : 'text-slate-800'}>{caseTitle}</strong> is
+                      removed from this browser
+                      {losing.length > 0 && <>: {losing.map(([n, w]) => `${n} ${w}${n === 1 ? '' : 's'}`).join(', ')}</>}.
+                    </p>
+                    <p>
+                      There is no copy anywhere else, so this cannot be undone. If you need the brief, the
+                      privilege log or the ledger, export them from Stage&nbsp;08 first.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  autoFocus
+                  onClick={() => setConfirmClear(false)}
+                  className={`px-4 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+                    isDarkMode ? 'border-white/[0.08] text-slate-300 hover:bg-white/[0.04]' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Keep working
+                </button>
+                <button
+                  onClick={performClear}
+                  className="px-4 py-2 text-xs font-bold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                >
+                  Clear matter
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* REVIEW LEDGER */}
       {ledgerOpen && (
