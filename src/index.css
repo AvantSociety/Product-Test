@@ -1,6 +1,110 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   VISUAL IDENTITY
+   ==========================================================================
+
+   The audience is litigation counsel, and the interface has to read the way
+   their working documents read: sober, printed, unfussy. Most of the work here
+   is remapping Tailwind's theme tokens, so the whole application re-skins
+   without touching a thousand class names in the markup.
+
+   No webfonts, deliberately. A Google Fonts request would send every user's IP
+   to a third party on page load, which contradicts the one claim this product
+   rests on — that nothing about a matter leaves the machine. The serif stack
+   below is resident on effectively every device and costs nothing to load.
+   ========================================================================== */
+
+@theme {
+  /* Charter and Sitka are the best of the resident serifs; Cambria and Georgia
+     carry Windows and everything older. */
+  --font-serif: 'Charter', 'Bitstream Charter', 'Sitka Text', Cambria, Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+               'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+               'Liberation Mono', monospace;
+
+  /* The accent was indigo, which reads as software. Navy reads as counsel.
+     Remapping the scale re-colours every accent in the application at once. */
+  --color-indigo-50:  #F2F5F9;
+  --color-indigo-100: #DDE5EF;
+  --color-indigo-200: #C2D0E1;
+  --color-indigo-300: #8AA3BF;
+  --color-indigo-400: #4A6B91;
+  --color-indigo-500: #27496D;
+  --color-indigo-600: #1E3A5F;
+  --color-indigo-700: #18304F;
+  --color-indigo-800: #14284B;
+  --color-indigo-900: #0F1D30;
+  --color-indigo-950: #0A1420;
+
+  /* Warm the ink. Pure slate against white reads cold and screen-like; a warm
+     charcoal reads like print. */
+  --color-slate-800: #292524;
+  --color-slate-900: #1C1917;
+
+  /* The secondary greys were chosen against a near-black ground, where they
+     are correct, and are far too faint on paper — slate-400 on white is about
+     2.8:1, which fails for body text. The light ramp below is darkened to
+     clear 4.5:1 on white; the dark theme restores the original values further
+     down, because a grey legible on paper is illegible on near-black and the
+     reverse. One ramp cannot serve both. */
+  --color-slate-400: #6B6560;
+  --color-slate-500: #57534E;
+  --color-slate-600: #44403C;
+
+  /* Institutional work is squared off. 2xl rounding is consumer software. */
+  --radius-sm:  2px;
+  --radius-md:  3px;
+  --radius-lg:  4px;
+  --radius-xl:  4px;
+  --radius-2xl: 5px;
+  --radius-3xl: 6px;
+}
+
+/* The dark theme keeps Tailwind's original cool greys. Redefining the tokens
+   under the theme attribute re-points every utility that references them, so
+   neither theme is compromised for the other. */
+[data-theme="dark"] {
+  --color-slate-400: #94A3B8;
+  --color-slate-500: #94A3B8;
+  --color-slate-600: #CBD5E1;
+  --color-slate-800: #E2E8F0;
+  --color-slate-900: #F1F5F9;
+}
+
+@layer base {
+  body {
+    margin: 0;
+    background: #FAFAF9;
+    color: var(--color-slate-900);
+    font-family: var(--font-sans);
+    /* Legal text is read at length. Give it the rendering it deserves. */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Headings carry the serif; interface chrome stays sans, which keeps labels
+     and controls legible at small sizes. */
+  h1, h2, h3, h4 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+}
+
 @layer utilities {
+  .serif-title {
+    font-family: var(--font-serif);
+    letter-spacing: -0.02em;
+  }
+
+  /* Document surfaces — the reader, deliverable previews, the brief — are
+     meant to look like paper rather than like panels. */
+  .paper {
+    background: #FFFFFF;
+    border: 1px solid #E7E5E4;
+  }
+
   .animate-fadeIn {
     animation: fadeIn 0.3s ease-out;
   }
@@ -8,8 +112,4 @@
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
-}
-
-body {
-  margin: 0;
 }
