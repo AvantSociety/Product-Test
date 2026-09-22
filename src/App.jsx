@@ -326,6 +326,8 @@ export default function App() {
   const [approval, setApproval] = useState(null);
   const [approverDraft, setApproverDraft] = useState('');
   const [previewKey, setPreviewKey] = useState(null);
+  const [trustOpen, setTrustOpen] = useState(false);
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const [pdfPending, setPdfPending] = useState(null);
 
   // --- Ingest ---
@@ -677,15 +679,16 @@ export default function App() {
 
   // Escape closes the document reader and the deliverable preview.
   useEffect(() => {
-    if (!openDocument && !previewKey) return;
+    if (!openDocument && !previewKey && !ledgerOpen) return;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
       setOpenDocument(null);
       setPreviewKey(null);
+      setLedgerOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openDocument, previewKey]);
+  }, [openDocument, previewKey, ledgerOpen]);
 
   // Bring the highlighted passage to the top of the viewer whenever the
   // selected finding or document changes. Runs before paint so the reader
@@ -1582,6 +1585,20 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2.5 self-end sm:self-auto">
+            {/* The review ledger is a compliance artifact, not an export. A firm
+                evidencing its own supervision needs to be able to see it at any
+                point in the matter, so it is reachable from every stage. */}
+            <button
+              onClick={() => setLedgerOpen(true)}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all flex items-center gap-2 active:scale-95 ${
+                isDarkMode ? 'bg-white/[0.02] border-white/[0.06] text-slate-300' : 'bg-white border-slate-200 text-slate-600 shadow-sm'
+              }`}
+              title="Every action taken on this matter, in order"
+            >
+              <ScrollText size={13} />
+              <span className="hidden sm:inline">Ledger</span>
+              <span className="font-mono text-[10px] text-indigo-400 font-bold">{auditLog.length}</span>
+            </button>
             <button
               onClick={() => setCopilotOpen(!copilotOpen)}
               className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all flex items-center gap-2 active:scale-95 ${
@@ -1659,8 +1676,99 @@ export default function App() {
                     browser's own database so you can close the tab and come back; you can erase it at any time from
                     Stage&nbsp;09.
                   </p>
+                  <button
+                    onClick={() => setTrustOpen(v => !v)}
+                    className="mt-2.5 text-[10px] font-mono font-bold text-emerald-500 hover:text-emerald-400 inline-flex items-center gap-1 transition-colors"
+                  >
+                    <ChevronRight size={11} className={`transition-transform ${trustOpen ? 'rotate-90' : ''}`} />
+                    {trustOpen ? 'Hide the detail' : 'Where does my data actually go?'}
+                  </button>
                 </div>
               </div>
+
+              {/* The data-handling detail, in product rather than in a PDF nobody
+                  opens. This is the page a partner is shown when they ask where
+                  their client's privileged production physically lives. */}
+              {trustOpen && (
+                <div className={`rounded-2xl border p-5 sm:p-6 space-y-5 animate-fadeIn ${panelClass}`}>
+                  <div>
+                    <h4 className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                      Data handling, in full
+                    </h4>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Everything below is a property of how this software is built, not a policy we promise to follow.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[
+                      {
+                        q: 'Where do the documents live?',
+                        a: 'In this browser, on this computer. They are read from the disk you selected them from and held in the browser\u2019s own local database. No copy is created anywhere else.',
+                      },
+                      {
+                        q: 'What is transmitted?',
+                        a: 'Nothing. The application itself is downloaded once, the way any web page is. After that, no document text, file name, search term or result is sent anywhere.',
+                      },
+                      {
+                        q: 'Who can see the contents?',
+                        a: 'Whoever can use this computer and this browser profile. Not us \u2014 we have no server receiving it, so there is nothing for us to look at, hand over or lose.',
+                      },
+                      {
+                        q: 'Who are the subprocessors?',
+                        a: 'There are none. No analytics, no error reporting, no model provider, no cloud storage. Nothing about your matter reaches a third party.',
+                      },
+                      {
+                        q: 'How long is it retained?',
+                        a: 'Until you delete it. There is no expiry and no background cleanup, because there is no service managing it \u2014 only this browser\u2019s storage.',
+                      },
+                      {
+                        q: 'How is it deleted?',
+                        a: 'Stage\u00a009, \u201cClear Matter From This Browser\u201d, erases every document, note, tag and result. Clearing site data in your browser settings does the same.',
+                      },
+                    ].map(item => (
+                      <div key={item.q} className={`p-3.5 rounded-xl border ${
+                        isDarkMode ? 'bg-white/[0.01] border-white/[0.04]' : 'bg-slate-50 border-slate-200'
+                      }`}>
+                        <span className={`text-[11px] font-bold block ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                          {item.q}
+                        </span>
+                        <span className="text-[10px] text-slate-400 leading-relaxed block mt-1">{item.a}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-2.5">
+                      The whole data flow
+                    </span>
+                    <div className={`p-4 rounded-xl border font-mono text-[10px] leading-relaxed ${
+                      isDarkMode ? 'bg-[#0B0C11] border-white/[0.05] text-slate-400' : 'bg-slate-900 border-slate-800 text-slate-300'
+                    }`}>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-emerald-400">your disk</span>
+                        <span className="text-slate-600">&rarr;</span>
+                        <span className="text-emerald-400">this browser tab</span>
+                        <span className="text-slate-600">&rarr;</span>
+                        <span className="text-emerald-400">this browser&rsquo;s local database</span>
+                        <span className="text-slate-600">&rarr;</span>
+                        <span className="text-emerald-400">files you download</span>
+                      </div>
+                      <div className="mt-2.5 pt-2.5 border-t border-white/[0.06] text-slate-500">
+                        There is no step in that sequence that leaves this machine. That is the entire diagram &mdash;
+                        not a simplification of one.
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/[0.04] pt-4">
+                    <strong className={isDarkMode ? 'text-slate-300' : 'text-slate-700'}>One limit, stated plainly:</strong>{' '}
+                    because the matter lives in this browser, it is not backed up, does not sync to your other devices,
+                    and will be lost if you clear your browser data. Keep your original documents wherever you keep
+                    them now. This is a workspace, not a document management system.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
                 {[
@@ -3731,6 +3839,98 @@ export default function App() {
                   Search
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REVIEW LEDGER */}
+      {ledgerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/70 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setLedgerOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-2xl max-h-full rounded-2xl border flex flex-col overflow-hidden shadow-2xl ${
+              isDarkMode ? 'bg-[#111218] border-white/[0.06]' : 'bg-white border-slate-200'
+            }`}
+          >
+            <div className={`px-5 py-4 border-b flex justify-between items-start gap-3 shrink-0 ${
+              isDarkMode ? 'border-white/[0.06]' : 'border-slate-200'
+            }`}>
+              <div className="min-w-0">
+                <h3 className={`text-xs font-bold uppercase tracking-widest font-mono flex items-center gap-2 ${
+                  isDarkMode ? 'text-white' : 'text-slate-800'
+                }`}>
+                  <ScrollText size={14} className="text-indigo-500" /> Review Ledger
+                </h3>
+                <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+                  Every action taken on this matter, in order, with the time it happened. Entries are appended and
+                  never edited or removed &mdash; which is what makes this usable as evidence that the review
+                  actually took place.
+                </p>
+              </div>
+              <button
+                onClick={() => setLedgerOpen(false)}
+                className={`p-1.5 rounded-lg border transition-all shrink-0 ${
+                  isDarkMode ? 'border-white/[0.06] text-slate-400 hover:bg-white/[0.05]' : 'border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}
+                aria-label="Close ledger"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-0 p-5">
+              {auditLog.length === 0 ? (
+                <p className="text-[11px] text-slate-500 text-center py-8 leading-relaxed">
+                  Nothing has happened on this matter yet.<br />
+                  The ledger fills as you work.
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {[...auditLog].reverse().map((entry, i) => (
+                    <div
+                      key={`${entry.ts}-${i}`}
+                      className={`flex items-start gap-3 p-2.5 rounded-lg border ${
+                        isDarkMode ? 'bg-white/[0.01] border-white/[0.03]' : 'bg-slate-50 border-slate-100'
+                      }`}
+                    >
+                      <span className="text-[9px] font-mono text-slate-500 shrink-0 w-20 pt-0.5">
+                        {new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span className={`text-[11px] font-semibold block ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                          {entry.action}
+                        </span>
+                        {entry.target && (
+                          <span className="text-[10px] text-slate-500 font-mono block truncate">{entry.target}</span>
+                        )}
+                      </div>
+                      <span className="text-[9px] font-mono text-slate-600 shrink-0 pt-0.5">{entry.actor}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className={`px-5 py-3 border-t flex flex-wrap items-center justify-between gap-2 shrink-0 ${
+              isDarkMode ? 'border-white/[0.06] bg-white/[0.01]' : 'border-slate-200 bg-slate-50'
+            }`}>
+              <span className="text-[10px] font-mono text-slate-500">
+                {auditLog.length} event{auditLog.length === 1 ? '' : 's'} &middot; append-only
+              </span>
+              <button
+                onClick={() => {
+                  const file = buildAuditLog({ caseTitle, auditLog });
+                  triggerDownload(file.filename, file.content, file.mime);
+                }}
+                disabled={auditLog.length === 0}
+                className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 transition-all inline-flex items-center gap-1.5"
+              >
+                <Download size={12} /> Export CSV
+              </button>
             </div>
           </div>
         </div>
