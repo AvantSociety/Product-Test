@@ -1,0 +1,5 @@
+# This is a working prototype, demonstrated to prospects with a person present.
+# It is not a public product page and should not be indexed or surfaced in
+# search results, where it would be seen without any of that context.
+User-agent: *
+Disallow: /
