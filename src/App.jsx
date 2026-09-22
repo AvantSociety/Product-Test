@@ -1422,7 +1422,14 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
-              <h1 className={`text-[10px] font-bold tracking-widest uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Discovery Framework</h1>
+              <div className="leading-tight">
+                <h1 className={`text-[11px] font-bold tracking-[0.18em] uppercase ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
+                  Avant Society
+                </h1>
+                <p className={`text-[9px] font-mono tracking-wider uppercase mt-0.5 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                  Case Intelligence
+                </p>
+              </div>
             </div>
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1575,7 +1582,7 @@ export default function App() {
             <div className={`hidden sm:flex items-center gap-2 text-[10px] font-mono tracking-widest uppercase font-bold ${
               isDarkMode ? 'text-slate-500' : 'text-slate-400'
             }`}>
-              <span>DISCOVERY FRAMEWORK</span>
+              <span>CASE INTELLIGENCE</span>
               <span>/</span>
               <span className="text-indigo-500 font-semibold">{STEPS[activeStep].title}</span>
             </div>
@@ -1651,7 +1658,7 @@ export default function App() {
               <div className="max-w-2xl">
                 <span className="text-xs font-mono uppercase tracking-widest text-indigo-500 font-bold">Orientation</span>
                 <h3 className="serif-title text-2xl sm:text-4xl font-bold tracking-tight mt-2 leading-tight">
-                  Welcome to the Discovery Framework
+                  Avant Society Case Intelligence
                 </h3>
                 <p className="text-sm text-slate-500 mt-4 leading-relaxed">
                   A document analysis workspace for small litigation teams: ingest a client's documents, designate them
