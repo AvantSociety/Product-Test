@@ -1,0 +1,42 @@
+HARLOW INDUSTRIAL SUPPLY, INC.
+4410 Fulton Industrial Boulevard
+Atlanta, Georgia 30336
+Accounts Receivable: ar@harlowindustrial.com
+
+INVOICE
+
+Invoice No.: HIS-20417
+Invoice Date: 9/4/2025
+Payment Terms: Net 45
+Due Date: 10/19/2025
+
+Bill To:
+Pinecrest Distribution LLC
+Attn: Accounts Payable
+1275 Commerce Parkway
+McDonough, Georgia 30253
+
+Ship To:
+Pinecrest Distribution LLC, McDonough Facility, Dock 4
+
+Customer PO: 55120
+Ship Date: 9/2/2025
+Carrier: Southline Freight, PRO 88410273
+
+LINE ITEMS
+
+Line 1 — Part HB-96-5000 — Step beam assembly, 96 in, 5,000 lb pair capacity — Qty 1,120 — Unit $142.50 — Amount $159,600.00
+Line 2 — Part SC-12 — Safety clip, pack of 100 — Qty 45 — Unit $38.00 — Amount $1,710.00
+Line 3 — Part WD-4246 — Wire deck, 42 x 46 in — Qty 280 — Unit $61.25 — Amount $17,150.00
+Line 4 — Freight — Expedited LTL surcharge — Qty 1 — Amount $6,290.00
+
+Subtotal: $184,750.00
+Sales Tax: Exempt (resale certificate on file)
+TOTAL DUE: $184,750.00
+
+Notes:
+Freight surcharge applied for expedited shipment per verbal request.
+Late payments accrue interest at 1% per month per Master Supply Agreement section 4.4.
+
+Please remit to: Harlow Industrial Supply, Inc., Account ending 4471, Peachtree Commercial Bank.
+Questions regarding this invoice should be directed to Tasha Monroe, tmonroe@harlowindustrial.com.

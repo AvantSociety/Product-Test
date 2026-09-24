@@ -1,0 +1,78 @@
+MASTER SUPPLY AGREEMENT
+
+This Master Supply Agreement (the "Agreement") is entered into as of January 13, 2025 (the "Effective Date") by and between Harlow Industrial Supply, Inc., a Georgia corporation with its principal place of business at 4410 Fulton Industrial Boulevard, Atlanta, Georgia 30336 ("Supplier"), and Pinecrest Distribution LLC, a Georgia limited liability company with its principal place of business at 1275 Commerce Parkway, McDonough, Georgia 30253 ("Buyer").
+
+RECITALS
+
+Buyer operates regional distribution warehouses and requires pallet racking components, beam assemblies and associated hardware for the expansion of its McDonough facility. Supplier manufactures and distributes such components. The parties wish to set out the terms on which Buyer will purchase, and Supplier will supply, those goods.
+
+1. PURCHASE ORDERS
+
+1.1 Buyer shall issue written purchase orders specifying quantity, part number, delivery location and the requested delivery date. Each purchase order accepted by Supplier in writing forms a separate contract governed by this Agreement.
+
+1.2 Supplier shall confirm or reject each purchase order within three (3) business days of receipt. A purchase order not rejected within that period is deemed accepted.
+
+2. DELIVERY
+
+2.1 Time is of the essence. Supplier shall deliver all goods to the delivery location stated in the purchase order no later than the delivery date confirmed by Supplier.
+
+2.2 Supplier shall notify Buyer in writing of any anticipated delay no later than five (5) business days before the confirmed delivery date. Notice shall state the cause of the delay and a revised delivery date.
+
+2.3 If delivery is more than ten (10) calendar days late, Buyer may, at its option and without prejudice to any other remedy, (a) cancel the affected purchase order without liability, or (b) accept late delivery and deduct from the invoice price a sum equal to one percent (1%) of the purchase order value for each day of delay, up to a maximum of fifteen percent (15%).
+
+3. INSPECTION AND ACCEPTANCE
+
+3.1 Buyer shall have fifteen (15) business days after delivery (the "Inspection Period") to inspect the goods.
+
+3.2 Buyer may reject any goods that do not conform to the specifications attached as Schedule A, including load-rating certifications, by written notice to Supplier within the Inspection Period describing the nonconformity.
+
+3.3 Goods not rejected within the Inspection Period are deemed accepted, except as to latent defects not reasonably discoverable on inspection.
+
+4. PRICE AND PAYMENT
+
+4.1 Prices are as stated in Schedule B. Prices are fixed for the term of this Agreement unless amended in writing signed by both parties.
+
+4.2 Supplier shall invoice Buyer upon delivery. Buyer shall pay each undisputed invoice within forty-five (45) days of the invoice date.
+
+4.3 Buyer may withhold payment of any amount disputed in good faith, provided Buyer notifies Supplier in writing of the disputed amount and the basis of the dispute before the payment due date. The parties shall work in good faith to resolve any dispute within thirty (30) days.
+
+4.4 Undisputed amounts not paid when due shall bear interest at one percent (1%) per month.
+
+5. WARRANTIES
+
+5.1 Supplier warrants that all goods shall (a) conform to the specifications in Schedule A, (b) be free from defects in material and workmanship for a period of twenty-four (24) months from delivery, and (c) carry the manufacturer's load-rating certification for the stated capacity.
+
+5.2 Supplier's warranty obligations are to repair or replace nonconforming goods, or, at Buyer's election, refund the purchase price of such goods.
+
+6. LIMITATION OF LIABILITY
+
+Neither party shall be liable for indirect, incidental or consequential damages, including lost profits, arising out of this Agreement, except in the case of gross negligence or willful misconduct.
+
+7. TERM AND TERMINATION
+
+7.1 This Agreement shall remain in force for twenty-four (24) months from the Effective Date.
+
+7.2 Either party may terminate this Agreement for material breach if the breach is not cured within thirty (30) days after written notice.
+
+8. GOVERNING LAW AND VENUE
+
+This Agreement shall be governed by the laws of the State of Georgia. The parties consent to the exclusive jurisdiction of the state and federal courts located in Fulton County, Georgia.
+
+9. NOTICES
+
+Notices shall be in writing and delivered by email with confirmation of receipt, or by overnight courier, to:
+
+Supplier: Gregory Harlow, President, Harlow Industrial Supply, Inc., gharlow@harlowindustrial.com
+Buyer: Renee Castellanos, Director of Operations, Pinecrest Distribution LLC, rcastellanos@pinecrestdist.com
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date.
+
+HARLOW INDUSTRIAL SUPPLY, INC.
+By: Gregory Harlow
+Title: President
+Date: January 13, 2025
+
+PINECREST DISTRIBUTION LLC
+By: Martin Oyelaran
+Title: Chief Executive Officer
+Date: January 13, 2025

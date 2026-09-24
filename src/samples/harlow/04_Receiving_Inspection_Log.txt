@@ -1,0 +1,45 @@
+PINECREST DISTRIBUTION LLC
+McDONOUGH FACILITY — RECEIVING AND INSPECTION LOG
+Vendor: Harlow Industrial Supply, Inc.
+Prepared by: Dwayne Pruitt, Warehouse Manager
+
+Entry 1
+Date: 8/1/2025
+PO: 55118 — Upright frames, 42 in x 192 in
+Received: 160 frames
+Inspector: Luis Ferreira
+Notes: Delivered on time. 23 frames missing load-rating labels. Two frames with bent horizontal bracing, tagged and set aside in bay R-14. Requested certification sheets from vendor.
+
+Entry 2
+Date: 8/8/2025
+PO: 55120 — Beam assemblies
+Received: None
+Inspector: Luis Ferreira
+Notes: Confirmed delivery date. No shipment arrived. No advance notice received from vendor. Crew of six held on site and released at 2:00 p.m.
+
+Entry 3
+Date: 8/14/2025
+PO: 55118 — Upright frames
+Inspector: Luis Ferreira
+Notes: Certification sheets still not received. Frames without labels quarantined. Cannot load bays built with unlabeled frames under our safety policy.
+
+Entry 4
+Date: 9/3/2025
+PO: 55120 — Beam assemblies
+Received: 1,120 beam assemblies, 280 wire decks, 45 packs safety clips
+Inspector: Luis Ferreira
+Notes: Delivered 26 days after confirmed date. Random sample of 60 beams inspected. 9 beams show weld porosity at the connector plate. 4 beams measure 95.25 in, outside the 96 in +/- 0.125 in tolerance in Schedule A. Photographs taken, stored in shared drive folder Harlow_Inspection_Sept2025.
+
+Entry 5
+Date: 9/12/2025
+PO: 55120 — Beam assemblies
+Inspector: Aisha Bello, third-party inspector, Southeast Rack Safety Group
+Notes: Full inspection of beam lot. 118 of 1,120 beams (10.5%) show weld defects at connector plates. Recommend rejection of affected beams. Report to follow.
+
+Entry 6
+Date: 9/19/2025
+Notes: Written rejection notice for 118 beams sent to Gregory Harlow by email from Renee Castellanos. Dispute notice regarding invoice HIS-20417 sent same day under section 4.3, disputing $31,420.00 for rejected goods and applying late-delivery deduction of 15% on PO 55120 value.
+
+Entry 7
+Date: 10/2/2025
+Notes: No response from vendor to rejection notice. Replacement beams not received. Bays 1 through 40 remain unloaded.
