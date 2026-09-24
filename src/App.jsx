@@ -61,6 +61,7 @@ import {
   RELEVANCE_CATEGORIES,
 } from './lib/relevance.js';
 import { saveMatter, loadMatter, clearMatter } from './lib/persistence.js';
+import { SAMPLE_MATTERS, loadSampleFiles } from './lib/samples.js';
 import {
   buildPrivilegeLog,
   buildProductionIndex,
@@ -364,6 +365,9 @@ export default function App() {
     try { window.localStorage.setItem('ci.railCollapsed', sidebarCollapsed ? '1' : '0'); } catch { /* storage blocked */ }
   }, [sidebarCollapsed]);
   const [confirmClear, setConfirmClear] = useState(false);
+  // Set while a fictional sample matter is loaded, so it is labelled as one.
+  const [sampleMatter, setSampleMatter] = useState(null);
+  const [loadingSample, setLoadingSample] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // --- Matter state (persisted) ---
@@ -508,6 +512,7 @@ export default function App() {
       setCriteriaFrom(saved.criteriaFrom || '');
       setCriteriaTo(saved.criteriaTo || '');
       setMemoEdited(!!saved.memoEdited);
+      setSampleMatter(saved.sampleMatter || null);
       setApproval(saved.approval || null);
       hydrated.current = true;
     });
@@ -522,14 +527,14 @@ export default function App() {
         caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
         confirmedRelated, confirmedCollections,
         criteriaParties, criteriaTerms, criteriaFrom, criteriaTo,
-        memoEdited, approval,
+        memoEdited, approval, sampleMatter,
       });
     }, 400);
     return () => clearTimeout(handle);
   }, [documents, citations, privilege, selectedForReview, notes, auditLog,
       caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
       confirmedRelated, confirmedCollections,
-      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, approval]);
+      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, approval, sampleMatter]);
 
   // ---------- Derived ----------
 
@@ -868,7 +873,12 @@ export default function App() {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
     if (files.length === 0) return;
+    await ingestFiles(files);
+  };
 
+  // The one ingest path. Uploads and sample matters both come through here, so
+  // a sample is processed exactly as a real document would be.
+  const ingestFiles = async (files) => {
     setIsUploading(true);
     setUploadProgress(0);
     setUploadNotices([]);
@@ -932,6 +942,7 @@ export default function App() {
 
     setUploadNotices(notices);
     setIsUploading(false);
+    return accepted;
   };
 
   const removeDocument = (name) => {
@@ -1331,13 +1342,93 @@ export default function App() {
 
   const handleReset = () => setConfirmClear(true);
 
+  // Loads a fictional matter set up the way counsel would set up a real one:
+  // named, screened, and with its privileged document withheld and logged.
+  // The readiness check is deliberately left for the presenter to run.
+  const loadSample = async (id) => {
+    const sample = SAMPLE_MATTERS.find(m => m.id === id);
+    if (!sample || documentsRef.current.length > 0) return;
+    setLoadingSample(id);
+    try {
+      const files = await loadSampleFiles(id);
+      const accepted = await ingestFiles(files);
+      const names = accepted.map(d => d.name);
+      setCaseTitle(sample.title);
+      setBatesPrefix(sample.batesPrefix);
+      setBatesStart(1);
+      setCriteriaParties(sample.criteria.parties);
+      setCriteriaTerms(sample.criteria.terms);
+      setCriteriaFrom(sample.criteria.from);
+      setCriteriaTo(sample.criteria.to);
+      setSelectedForReview(names);
+      setPrivilege(prev => ({
+        ...prev,
+        [sample.privileged.file]: {
+          status: 'withhold',
+          basis: sample.privileged.basis,
+          description: sample.privileged.description,
+        },
+      }));
+      setSampleMatter(id);
+      appendAudit('Loaded sample matter (fictional)', sample.title);
+      handleStepChange(1);
+    } finally {
+      setLoadingSample(null);
+    }
+  };
+
+  const renderSamplePicker = (compact = false) => (
+    <div className={`rounded-2xl border p-5 sm:p-6 ${panelClass}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h4 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+          {compact ? 'No documents yet? Load a sample matter' : 'See it on a worked matter'}
+        </h4>
+        <span className="text-[10px] font-mono text-slate-500">Fictional · for demonstration</span>
+      </div>
+      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+        Each loads six documents through the normal ingest, with screening criteria set and the privileged
+        document withheld. Every name, company and case in them is invented.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+        {SAMPLE_MATTERS.map(m => (
+          <button
+            key={m.id}
+            onClick={() => loadSample(m.id)}
+            disabled={hasMatter || loadingSample !== null}
+            className={`text-left p-4 rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              isDarkMode ? 'border-white/[0.08] enabled:hover:border-indigo-400/50 bg-white/[0.01]' : 'border-slate-200 enabled:hover:border-indigo-400 bg-white'
+            }`}
+          >
+            <span className="text-[9px] font-mono uppercase tracking-widest text-indigo-600 block">{m.kind} · {m.place}</span>
+            <span className={`text-[13px] font-bold block mt-1 leading-snug ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                  style={{ fontFamily: 'var(--font-serif)' }}>
+              {m.title}
+            </span>
+            <span className="text-[11px] text-slate-500 block mt-1.5 leading-relaxed">{m.summary}</span>
+            <span className="text-[10px] text-slate-500 block mt-2 leading-relaxed">
+              <strong className={isDarkMode ? 'text-slate-300' : 'text-slate-700'}>Shows:</strong> {m.shows}
+            </span>
+            <span className="text-[11px] font-bold text-indigo-600 inline-flex items-center gap-1 mt-3">
+              {loadingSample === m.id ? 'Loading\u2026' : <>Load sample <ArrowRight size={12} /></>}
+            </span>
+          </button>
+        ))}
+      </div>
+      {hasMatter && (
+        <p className="text-[10px] text-slate-500 mt-3">
+          A matter is already open. Clear it first to load a sample.
+        </p>
+      )}
+    </div>
+  );
+
   const performClear = async () => {
     setConfirmClear(false);
     await clearMatter();
     // These four were missing, so a cleared matter kept its approval, and a
     // fresh untouched draft kept the "attorney work product" header that is
     // only meant to appear once counsel has edited it.
-    setApproval(null); setApproverDraft(''); setMemoEdited(false);
+    setApproval(null); setApproverDraft(''); setMemoEdited(false); setSampleMatter(null);
     setPreviewKey(null); setLedgerOpen(false); setTrustOpen(false);
     setDocuments([]); setCitations({}); setPrivilege({}); setSelectedForReview([]);
     setNotes({}); setAuditLog([]); setBatesAssignments({}); setIntegrityReport(null);
@@ -1658,6 +1749,12 @@ export default function App() {
                     SENIOR COUNSEL
                   </span>
                 )}
+                {sampleMatter && (
+                  <span className="text-[8px] font-mono font-bold text-indigo-600 border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-px rounded"
+                        title="Every name, company and case in this matter is invented">
+                    SAMPLE · FICTIONAL
+                  </span>
+                )}
               </div>
               <span className={`text-base font-bold truncate block leading-snug ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
                     style={{ fontFamily: 'var(--font-serif)' }}>
@@ -1963,6 +2060,8 @@ export default function App() {
                 ))}
               </div>
 
+              {renderSamplePicker(false)}
+
               <div className="pt-6 border-t border-white/[0.04]">
                 <button
                   onClick={() => handleStepChange(1)}
@@ -2060,6 +2159,8 @@ export default function App() {
                   ))}
                 </div>
               )}
+
+              {documents.length === 0 && renderSamplePicker(true)}
 
               {/* Relevance screening criteria — supplied by counsel */}
               <div className={`rounded-2xl border ${panelClass}`}>
