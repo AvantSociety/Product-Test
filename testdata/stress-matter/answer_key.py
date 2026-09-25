@@ -44,7 +44,10 @@ FILL = {'PASS': 'D9EAD3', 'FAIL': 'F4CCCC', 'FINDING': 'FFF2CC', 'n/a': 'EEEEEE'
 HOLD_LABELS = {
     'needs_ocr': 'Scanned image with no text layer', 'empty': 'No readable text',
     'corrupt': 'Corrupted character encoding', 'unrelated': 'Does not appear to belong to this matter',
+    'no_connection': 'Names no party or key term of this matter',
 }
+# Either hold is a correct catch for a document from another matter.
+FOREIGN = {'Does not appear to belong to this matter', 'Names no party or key term of this matter'}
 
 
 def us(d):
@@ -76,6 +79,12 @@ def expected(m):
     exp['accepted'] = len(docs)
     exp['screen_counts'] = Counter(v['screen'] for v in exp['docs'].values())
     exp['pass1_holds'] = {d['file']: d['integrity'] for d in docs if d.get('integrity') in HOLD_LABELS}
+    # Any other readable document that matches none of the criteria is held
+    # for confirmation too (the newsletter, the text-message export).
+    for d in docs:
+        if d['file'] not in exp['pass1_holds'] and app_text(d).strip() and d['fmt'] != 'cp1252' \
+                and exp['docs'][d['file']]['screen'] == 'none':
+            exp['pass1_holds'][d['file']] = 'no_connection'
     return exp
 
 
@@ -196,15 +205,19 @@ def stage_checks(m, r, exp):
     for f, code in holds_exp.items():
         accepted = f in obs_docs if r else True
         got = '; '.join(p1.get(f, [])) if r else ''
-        ok = HOLD_LABELS[code] in p1.get(f, [])
+        ok = (bool(FOREIGN & set(p1.get(f, []))) if code in ('unrelated', 'no_connection')
+              else HOLD_LABELS[code] in p1.get(f, []))
         note = ''
+        if code == 'no_connection':
+            note = 'Readable, but matches none of the screening criteria. Held until the attorney confirms it belongs; released with one click if it does.'
         if code == 'unrelated' and r and not ok:
             note = ('DEFECT FOUND: this letter comes from our own law firm (Mabry & Colquitt) for another client. It shares the firm name, "LLP", "client" and "attorney" with our privileged emails, so the cohesion test sees it as related. '
                     'A misfiled document from the same firm is the most likely real-world intruder. Screening (NO MATCH) is the only thing that catches it.')
         if r and not accepted:
             note = 'Never reached Stage 03: it was skipped at upload as a false duplicate (see Stage 01).'
         res = ('n/a' if not accepted else status(ok)) if r else ''
-        add('03 Readiness (pass 1: all selected)', f'Held: {f}', HOLD_LABELS[code], got or ('not in matter' if not accepted else 'not held'),
+        add('03 Readiness (pass 1: all selected)', f'Held: {f}',
+            'Held as not belonging to this matter (either test)' if code in ('unrelated', 'no_connection') else HOLD_LABELS[code], got or ('not in matter' if not accepted else 'not held'),
             res, note or 'Blocking defect; the document cannot be produced as it stands.')
     extra = [f'{n} ({"; ".join(v)})' for n, v in p1.items() if n not in holds_exp]
     add('03 Readiness (pass 1: all selected)', 'Nothing else held back', 'None', '; '.join(extra) or 'None',
@@ -212,10 +225,16 @@ def stage_checks(m, r, exp):
         'Anything listed here was held by the cohesion test. Review whether it truly belongs to another matter.')
     add('03 Readiness (pass 1: all selected)', 'Overall state', 'CURE REQUIRED', (R.get('pass1') or {}).get('state'),
         status((R.get('pass1') or {}).get('state') == 'CURE REQUIRED') if r else '', 'Under 25% unreadable, so cure rather than re-collect.')
+    before = {e['name']: e['defects'] for e in (R.get('pass2BeforeConfirm') or R.get('pass2') or {}).get('exceptions', [])}
+    tm = '2025-02-18 Text messages - Carranza to Haldane.txt'
+    add('03 Readiness (pass 2: attorney selection)', 'A NO MATCH document the attorney added by hand is held for confirmation',
+        f'{tm}: Names no party or key term of this matter', '; '.join(before.get(tm, [])) or 'not held',
+        status(HOLD_LABELS['no_connection'] in before.get(tm, [])) if r else '',
+        'The attorney confirms it belongs ("This document belongs to the matter"), which is written to the audit log, and it is released.')
     p2 = {e['name']: e['defects'] for e in (R.get('pass2') or {}).get('exceptions', [])}
     add('03 Readiness (pass 2: attorney selection)', 'Held back', 'Keystone delay notice (legacy export, Windows-1252).txt: Corrupted character encoding',
         '; '.join(f'{n}: {"; ".join(v)}' for n, v in p2.items()), status(list(p2) == ['Keystone delay notice (legacy export, Windows-1252).txt']) if r else '',
-        'Only the corrupt export should be held. The scans and intruders were already excluded by screening.')
+        'After the attorney confirms the text messages, only the corrupt export should be held. The scans and intruders were already excluded by screening.')
     adv = {a['label']: a for a in (R.get('pass2') or {}).get('advisories', [])}
     for label, must in [('No date found', ['Project directory - Harpeth Ridge.json', 'Punch list - Level 3 (walk with Architect).md',
                                            'Manufacturer data sheet - galvanized duct gauges.pdf']),
@@ -258,10 +277,11 @@ def stage_checks(m, r, exp):
     add('05 Citations', 'Must-find passages surfaced by the extractor', f'{found + missed} passages across the hot documents', f'{found} found, {missed} missed' if r else '',
         status(missed == 0, finding=True) if r else '', 'See the "Must-find passages" sheet. A miss can still be added by hand in Stage 05.')
     pdf_multi = [d['file'] for d in docs if d['fmt'] == 'pdf' and (obs_docs.get(d['file']) or {}).get('pages', 0) > 1]
-    line1 = [f for f in pdf_multi if cit.get(f) and all(c['locator'] == 'Line 1' for c in cit[f]) and len(cit[f]) > 1]
+    line1 = [f for f in pdf_multi if any(not c['locator'].startswith('Page') for c in cit.get(f, []))]
     if r:
+        pdf_locs = '; '.join(f"{f}: {', '.join(c['locator'] for c in cit.get(f, []))}" for f in pdf_multi[:3])
         add('05 Citations', 'Citations in multi-page PDFs point to where the passage is',
-            'A page (or page and line) for each citation', f'{len(line1)} of {len(pdf_multi)} multi-page PDFs cite every passage as "Line 1": ' + '; '.join(line1[:4]),
+            'A page for each citation', (f'{len(line1)} of {len(pdf_multi)} multi-page PDFs cite by line: ' + '; '.join(line1[:4])) if line1 else f'All cite by page. {pdf_locs}',
             status(not line1),
             'DEFECT FOUND: PDF text is extracted as one line per page, so every citation on page 1 reads "Line 1" and a passage on page 2 reads "Line 3". In a brief, "BWB-000001, Line 1" does not tell the reader where to look. Fix: cite PDFs by page.')
     hot_zero = [d['file'] for d in docs if d.get('hot') and d['designation'] != 'withhold' and d['file'] in obs_docs and not cit.get(d['file'])]

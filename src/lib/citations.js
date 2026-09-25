@@ -224,6 +224,7 @@ export function buildUserCitation({ id, content, excerpt, offset, fileName, tags
     id,
     line: span.start,
     lineEnd: span.end,
+    ...pageSpan(content, offset, excerpt.length),
     sentence: 1,
     finding: excerpt.length > 150 ? `${excerpt.slice(0, 150)}…` : excerpt,
     excerpt,
@@ -259,17 +260,21 @@ export function extractCitations(content, fileName) {
     .slice(0, citationBudget(content))
     .sort((a, b) => a.index - b.index);
 
-  // Ordinal within the line, so two passages from one paragraph cite distinctly.
-  const perLine = new Map();
+  // Ordinal within the line (or, for a paginated document, within the page),
+  // so two passages from one paragraph or page cite distinctly.
+  const perLocator = new Map();
 
   return top.map((item, i) => {
     const span = lineSpan(content, item.offset, item.text.length);
-    const seen = (perLine.get(span.start) || 0) + 1;
-    perLine.set(span.start, seen);
+    const pages = pageSpan(content, item.offset, item.text.length);
+    const key = pages.page ? `p${pages.page}` : `l${span.start}`;
+    const seen = (perLocator.get(key) || 0) + 1;
+    perLocator.set(key, seen);
     return {
       id: i,
       line: span.start,
       lineEnd: span.end,
+      ...pages,
       sentence: seen,
       finding: item.text.length > 150 ? `${item.text.slice(0, 150)}…` : item.text,
       excerpt: item.text,
@@ -287,9 +292,32 @@ export function extractCitations(content, fileName) {
  * range; several passages on one line are told apart by sentence ordinal.
  */
 export function formatLocator(citation) {
-  const { line, lineEnd, sentence } = citation;
-  const range = lineEnd && lineEnd > line ? `Lines ${line}-${lineEnd}` : `Line ${line}`;
+  const { line, lineEnd, page, pageEnd, sentence } = citation;
+  // A PDF is cited by page, the way a brief pin-cites a produced document. Its
+  // extracted text has no meaningful line breaks, so a line number would
+  // point nowhere.
+  const range = page
+    ? (pageEnd && pageEnd > page ? `Pages ${page}-${pageEnd}` : `Page ${page}`)
+    : (lineEnd && lineEnd > line ? `Lines ${line}-${lineEnd}` : `Line ${line}`);
   return sentence && sentence > 1 ? `${range}, sent. ${sentence}` : range;
+}
+
+/** Marks the start of each page in text extracted from a paginated document. */
+export const PAGE_BREAK = '\f';
+
+/** Page on which a character offset falls, or null for unpaginated text. */
+export function pageNumberAt(text, offset) {
+  if (!text.includes(PAGE_BREAK)) return null;
+  let page = 1;
+  for (let i = 0; i < offset && i < text.length; i++) if (text[i] === PAGE_BREAK) page++;
+  return page;
+}
+
+/** The pages a passage spans; empty for unpaginated text. */
+export function pageSpan(text, offset, length) {
+  const page = pageNumberAt(text, offset);
+  if (page === null) return {};
+  return { page, pageEnd: pageNumberAt(text, Math.min(offset + length, text.length)) };
 }
 
 export function lineNumberAt(text, offset) {

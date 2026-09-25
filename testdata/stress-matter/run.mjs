@@ -27,7 +27,7 @@ const dir = resolve(process.argv[2] || 'testdata/stress-matter/out/120');
 const urlArg = process.argv.indexOf('--url');
 const APP_URL = urlArg > 0 ? process.argv[urlArg + 1] : 'http://localhost:5302/Product-Test/';
 const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
-const files = readdirSync(dir).filter(f => f !== 'manifest.json' && f !== 'results.json' && !f.startsWith('.'));
+const files = readdirSync(dir).filter(f => !['manifest.json', 'results.json', 'failure.png'].includes(f) && !f.endsWith('.xlsx') && !f.startsWith('.'));
 const byName = Object.fromEntries(manifest.documents.map(d => [d.file, d]));
 
 const t0 = Date.now();
@@ -182,6 +182,20 @@ results.selectionSummary = (await page.locator('body').innerText()).match(/\d+ s
 log(`pass 2 selection: ${results.selectionSummary}`);
 
 results.pass2 = await runCheck('pass2_readiness_check');
+// A document the attorney deliberately added over a NO MATCH screen is held
+// for confirmation. Confirm those (and only those), then check again.
+const toConfirm = results.pass2.exceptions.filter(e => addBack.some(d => d.file === e.name)
+  && e.defects.includes('Names no party or key term of this matter'));
+if (toConfirm.length) {
+  results.pass2BeforeConfirm = results.pass2;
+  for (const e of toConfirm) {
+    const card = page.locator('div.p-3.rounded-xl.border').filter({ has: page.locator(`span.font-mono.font-bold:text-is(${JSON.stringify(e.name)})`) }).first();
+    await card.getByRole('button', { name: /belongs to the matter/ }).click();
+    await page.waitForTimeout(300);
+  }
+  results.confirmedByAttorney = toConfirm.map(e => e.name);
+  results.pass2 = await runCheck('pass2_readiness_check_after_confirm');
+}
 log(`pass 2: ${results.pass2.state}, ${results.pass2.exceptions.length} held`);
 
 // ---------------- Stage 04: chronology ----------------
@@ -209,7 +223,10 @@ results.documents = Object.fromEntries((matter.documents || []).map(d => [d.name
   hasReplacementChar: (d.content || '').includes('�'), hash: d.hash,
 }]));
 results.citations = Object.fromEntries(Object.entries(matter.citations || {}).map(([n, list]) =>
-  [n, list.map(x => ({ locator: x.lineEnd > x.line ? `Lines ${x.line}-${x.lineEnd}` : `Line ${x.line}`, excerpt: x.excerpt, signals: x.signals }))]));
+  [n, list.map(x => ({
+    locator: x.page ? (x.pageEnd > x.page ? `Pages ${x.page}-${x.pageEnd}` : `Page ${x.page}`)
+      : (x.lineEnd > x.line ? `Lines ${x.line}-${x.lineEnd}` : `Line ${x.line}`),
+    excerpt: x.excerpt, signals: x.signals }))]));
 results.bates = matter.batesAssignments;
 results.privilege = matter.privilege;
 

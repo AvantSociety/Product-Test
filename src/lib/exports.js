@@ -181,12 +181,18 @@ export function buildPrivilegeLog({ caseTitle, documents, privilege, bates }) {
 
 /** The index that accompanies a production: what was produced, at what Bates range. */
 export function buildProductionIndex({ caseTitle, documents, privilege, bates }) {
-  const produced = documents.filter(d => privilege[d.name]?.status === 'produce');
+  // Everything going out: produced whole or produced with redactions. A
+  // redacted document is still Bates-stamped and served, so leaving it off
+  // the index would put pages in opposing counsel's hands that the index
+  // does not account for.
+  const status = (d) => privilege[d.name]?.status || 'produce';
+  const produced = documents.filter(d => status(d) !== 'withhold');
   const rows = [
-    ['Bates', 'Document', 'Type', 'Pages', 'Pages Exact', 'SHA-256'],
+    ['Bates', 'Document', 'Disposition', 'Type', 'Pages', 'Pages Exact', 'SHA-256'],
     ...produced.map(d => [
       bates[d.name] || '(not assigned)',
       d.name,
+      status(d) === 'redact' ? 'Produced in redacted form' : 'Produced',
       d.type,
       d.pages,
       d.pagesExact ? 'yes' : 'estimated',

@@ -2,6 +2,8 @@
 // DOCUMENT INGEST: parsing, hashing, typing
 // ==========================================
 
+import { PAGE_BREAK } from './citations.js';
+
 export const ACCEPTED_EXTENSIONS = '.pdf,.docx,.txt,.csv,.json,.log,.eml,.md';
 
 // pdf.js and mammoth together are ~1MB. They are loaded on first use so that
@@ -31,10 +33,24 @@ function loadMammoth() {
 // real page count is unavailable, and always surfaced to the user as an estimate.
 const CHARS_PER_PAGE = 3000;
 
-/** SHA-256 of a string, hex-encoded. Used for the custody manifest and dedupe. */
+/** SHA-256 of a string, hex-encoded. Used for the combined manifest digest. */
 export async function sha256Hex(text) {
   const bytes = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * SHA-256 of a file's bytes, hex-encoded. This is the document's fingerprint
+ * for dedupe and the custody manifest. Hashing the extracted text instead made
+ * every scanned PDF and every empty file identical (they all extract to ""),
+ * so the second and later ones were discarded as duplicates and never reached
+ * review. The bytes are what was collected, and what is produced.
+ */
+export async function sha256File(file) {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
   return Array.from(new Uint8Array(digest))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
@@ -64,7 +80,9 @@ async function extractPdf(file) {
     const content = await page.getTextContent();
     pages.push(content.items.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim());
   }
-  return { text: pages.join('\n\n'), pageCount: pdf.numPages, pageCountExact: true };
+  // Pages are separated by a form feed so citations can be located by page.
+  // The newline before it keeps a sentence from running across a page break.
+  return { text: pages.join(`\n${PAGE_BREAK}`), pageCount: pdf.numPages, pageCountExact: true };
 }
 
 async function extractDocx(file) {
@@ -177,7 +195,7 @@ export async function readDocument(file) {
     pages,
     pagesExact: exact,
     needsOcr,
-    hash: await sha256Hex(text),
+    hash: await sha256File(file),
     ingestedAt: new Date().toISOString(),
   };
 }

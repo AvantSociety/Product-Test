@@ -46,6 +46,7 @@ import { readDocument, manifestHash, ACCEPTED_EXTENSIONS } from './lib/documents
 import {
   extractCitations,
   formatCitation,
+  formatLocator,
   parseEventDate,
   formatEventDate,
   buildUserCitation,
@@ -807,7 +808,7 @@ export default function App() {
     // approval no longer describes what would go out.
     setApproval(null);
   }, [selectedForReview.join('|'), JSON.stringify(privilege), confirmedRelated.join('|'),
-      confirmedCollections.join('|')]);
+      confirmedCollections.join('|'), JSON.stringify(relevanceCriteria)]);
 
   // Deep Analysis: real per-document date extraction driving real progress.
   useEffect(() => {
@@ -997,9 +998,12 @@ export default function App() {
       }
     });
 
+    const screening = screeningActive
+      ? Object.fromEntries(Object.entries(relevanceResults).map(([name, r]) => [name, r.category]))
+      : {};
     const report = computeIntegrityReport(
       selectedDocs, citations, privilege, assignments,
-      new Set(confirmedRelated), confirmedCollections.includes(collectionKey)
+      new Set(confirmedRelated), confirmedCollections.includes(collectionKey), screening
     );
     const sha = await manifestHash(selectedDocs.map(d => d.hash));
 
@@ -1109,7 +1113,7 @@ export default function App() {
     setPendingSelection(null);
     setPendingTags([]);
     window.getSelection()?.removeAllRanges();
-    appendAudit('Added citation', `${selectedDocSource} line ${citation.line}`);
+    appendAudit('Added citation', `${selectedDocSource}, ${formatLocator(citation)}`);
   };
 
   const updateCitationTags = (citationId, updater) => {
@@ -1136,7 +1140,7 @@ export default function App() {
       const remaining = activeCitations.filter(c => c.id !== citationId);
       setSelectedFinding(remaining[0] ? remaining[0].id : 0);
     }
-    appendAudit('Removed citation', `${selectedDocSource} line ${target?.line ?? '?'}`);
+    appendAudit('Removed citation', `${selectedDocSource}, ${target ? formatLocator(target) : '?'}`);
   };
 
   const handleCopyCitation = () => {
@@ -2835,13 +2839,19 @@ export default function App() {
                                       <p className={`text-[10px] leading-relaxed mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                         {defect.cure}
                                       </p>
-                                      {defect.code === 'unrelated' && (
+                                      {defect.dismissible && (
                                         <>
-                                          <p className="text-[10px] font-mono text-slate-500 mt-1">
-                                            Shares {(item.affinity * 100).toFixed(1)}% of its vocabulary with its closest
-                                            neighbour{item.nearest ? ` (${item.nearest})` : ''} — the rest of this set
-                                            averages {(integrityReport.cohesion.setCohesion * 100).toFixed(1)}%.
-                                          </p>
+                                          {defect.code === 'unrelated' ? (
+                                            <p className="text-[10px] font-mono text-slate-500 mt-1">
+                                              Shares {(item.affinity * 100).toFixed(1)}% of its vocabulary with its closest
+                                              neighbour{item.nearest ? ` (${item.nearest})` : ''} — the rest of this set
+                                              averages {(integrityReport.cohesion.setCohesion * 100).toFixed(1)}%.
+                                            </p>
+                                          ) : (
+                                            <p className="text-[10px] font-mono text-slate-500 mt-1">
+                                              {relevanceResults[item.name]?.reason || RELEVANCE_CATEGORIES.none.blurb}
+                                            </p>
+                                          )}
                                           <button
                                             onClick={() => confirmDocumentRelated(item.name, item.hash)}
                                             className="mt-2 px-2.5 py-1.5 text-[10px] font-bold rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-all inline-flex items-center gap-1.5"
@@ -3190,7 +3200,7 @@ export default function App() {
                         >
                           <div className="flex justify-between items-center mb-1.5 gap-2">
                             <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 truncate">
-                              {batesAssignments[item.source] || 'Bates pending'} &middot; Line {item.line}
+                              {batesAssignments[item.source] || 'Bates pending'} &middot; {formatLocator(item)}
                             </span>
                             <span className="flex items-center gap-1 shrink-0">
                               {notes[`${item.source}::${item.id}`] && (
@@ -3562,7 +3572,7 @@ export default function App() {
                           <div className="flex items-center justify-between gap-2 mb-1.5">
                             {citation ? (
                               <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 truncate">
-                                {batesAssignments[citation.source] || 'Bates pending'} &middot; Line {citation.line}
+                                {batesAssignments[citation.source] || 'Bates pending'} &middot; {formatLocator(citation)}
                               </span>
                             ) : (
                               <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
