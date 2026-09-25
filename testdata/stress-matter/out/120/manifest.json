@@ -1,0 +1,2583 @@
+{
+ "matter": "Tallis Development Group v. Brightwater Builders",
+ "batesPrefix": "BWB",
+ "criteria": {
+  "parties": "Tallis, Brightwater, Keystone, Lindqvist Rowe, Whitcomb, Oyelaran, Haldane, Wierzbicki, Carranza",
+  "terms": "Harpeth Ridge, Change Order 14, ductwork, liquidated damages, substantial completion, retainage",
+  "from": "2024-03-01",
+  "to": "2025-12-31"
+ },
+ "size": 120,
+ "seed": 20260924,
+ "documents": [
+  {
+   "file": "2024-03-15 Prime Contract - Tallis-Brightwater (executed).pdf",
+   "fmt": "pdf",
+   "type": "AGREEMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "March 15, 2024",
+     "2024-03-15",
+     "Contract executed"
+    ],
+    [
+     "June 30, 2025",
+     "2025-06-30",
+     "Contractual Substantial Completion date"
+    ]
+   ],
+   "passages": [
+    "not later than June 30, 2025",
+    "Two Thousand Five Hundred Dollars ($2,500.00) for each calendar day",
+    "within twenty-one (21) days after the occurrence of the event"
+   ],
+   "facts": "Contract sum $14,850,000.00. Substantial Completion due June 30, 2025 (s.3.3). Liquidated damages $2,500/day (s.3.4). Retainage 5% (s.5.2). Time claims must be noticed within 21 days or are waived (s.15.1.2).",
+   "hot": true,
+   "planted": true,
+   "text": "STANDARD FORM OF AGREEMENT BETWEEN OWNER AND CONTRACTOR\n(Stipulated Sum)\n\nThis Agreement is entered into as of March 15, 2024, by and between TALLIS DEVELOPMENT GROUP, LLC, a Tennessee limited liability company (\"Owner\"), and BRIGHTWATER BUILDERS, INC., a Tennessee corporation (\"Contractor\"), for the following Project:\n\nHarpeth Ridge Medical Office Building, 1200 Harpeth Ridge Parkway, Franklin, Tennessee. Four-story medical office building of approximately 62,000 gross square feet, including an imaging suite on Level 1.\n\nThe Architect is Lindqvist Rowe Architects, PLLC, Nashville, Tennessee.\n\nARTICLE 1  THE CONTRACT DOCUMENTS\n1.1 The Contract Documents consist of this Agreement, the General Conditions (AIA A201-2017 as modified), the Drawings and Specifications listed in Exhibit A, Addenda 1 through 3, and Modifications issued after execution of this Agreement.\n\nARTICLE 2  THE WORK\n2.1 The Contractor shall fully execute the Work described in the Contract Documents, except as specifically indicated in the Contract Documents to be the responsibility of others.\n\nARTICLE 3  DATE OF COMMENCEMENT AND SUBSTANTIAL COMPLETION\n3.1 The date of commencement of the Work shall be the date stated in a notice to proceed issued by the Owner.\n3.2 The Contract Time shall be measured from the date of commencement.\n3.3 The Contractor shall achieve Substantial Completion of the entire Work not later than June 30, 2025, subject to adjustments of the Contract Time as provided in the Contract Documents.\n3.4 Liquidated Damages. The Owner and Contractor agree that the Owner will suffer damages if Substantial Completion is not achieved by the date in Section 3.3. The Contractor shall pay the Owner, as liquidated damages and not as a penalty, Two Thousand Five Hundred Dollars ($2,500.00) for each calendar day after that date until Substantial Completion is achieved. The Owner may deduct liquidated damages from any sums otherwise due the Contractor, including retainage.\n\nARTICLE 4  CONTRACT SUM\n4.1 The Owner shall pay the Contractor the Contract Sum of Fourteen Million Eight Hundred Fifty Thousand Dollars ($14,850,000.00), subject to additions and deductions as provided in the Contract Documents.\n\nARTICLE 5  PAYMENTS\n5.1 Progress payments shall be made monthly on the Contractor's Application for Payment, certified by the Architect.\n5.2 Retainage. The Owner shall withhold retainage of five percent (5%) of each progress payment. Retainage shall be released upon Substantial Completion, less any amount the Owner is entitled to withhold under the Contract Documents, including liquidated damages.\n\nARTICLE 15  CLAIMS AND DISPUTES (modifying A201-2017 Article 15)\n15.1.2 Time Limits on Claims. Claims by the Contractor for an increase in the Contract Time must be initiated by written notice to the Owner and the Architect within twenty-one (21) days after the occurrence of the event giving rise to the Claim. Claims not initiated within that period are waived.\n15.1.6 Claims for Additional Time. The Contractor shall support any Claim for additional time with a time impact analysis showing the effect of the event on the critical path.\n15.4 Disputes not resolved by mediation shall be decided by litigation in the Circuit Court for Williamson County, Tennessee.\n\nARTICLE 16  MISCELLANEOUS\n16.1 This Agreement is governed by the law of the State of Tennessee.\n\nEXECUTED as of the date first written above.\n\nOWNER: TALLIS DEVELOPMENT GROUP, LLC\nBy: Dana Whitcomb, Vice President, Development\n\nCONTRACTOR: BRIGHTWATER BUILDERS, INC.\nBy: Gregory Tate, President\n"
+  },
+  {
+   "file": "2024-04-01 Notice to Proceed - Harpeth Ridge.pdf",
+   "fmt": "pdf",
+   "type": "LETTER",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "April 1, 2024",
+     "2024-04-01",
+     "Notice to Proceed; date of commencement"
+    ]
+   ],
+   "facts": "Date of commencement is April 1, 2024.",
+   "tool_note": "Letter mentions \"the Agreement\" and \"hereby\", so a keyword classifier may label it AGREEMENT. The true type is a letter.",
+   "planted": true,
+   "text": "TALLIS DEVELOPMENT GROUP, LLC\n410 Cool Springs Boulevard, Suite 300\nFranklin, Tennessee 37067\n\nApril 1, 2024\n\nMr. Marcus Oyelaran\nProject Manager\nBrightwater Builders, Inc.\n2250 Nolensville Pike\nNashville, Tennessee 37211\n\nRe: Notice to Proceed - Harpeth Ridge Medical Office Building\n\nDear Mr. Oyelaran:\n\nTallis Development Group hereby issues this Notice to Proceed under the Agreement dated March 15, 2024. The date of commencement of the Work is April 1, 2024. Please mobilize and begin work in accordance with the approved baseline schedule.\n\nSubstantial Completion remains required by June 30, 2025.\n\nSincerely,\n\nDana Whitcomb\nVice President, Development\nTallis Development Group, LLC\n\ncc: Evelyn Rowe, AIA, Lindqvist Rowe Architects\n"
+  },
+  {
+   "file": "2024-04-22 Subcontract - Brightwater-Keystone HVAC.docx",
+   "fmt": "docx",
+   "type": "AGREEMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "April 22, 2024",
+     "2024-04-22",
+     "Subcontract executed"
+    ]
+   ],
+   "passages": [
+    "galvanized steel, 20 gauge minimum, as specified",
+    "including any liquidated damages assessed by the Owner that are attributable to Subcontractor"
+   ],
+   "facts": "Subcontract $2,196,000.00. Supply trunks must be 20 gauge minimum; no substitution without Architect approval (s.3). Keystone indemnifies Brightwater and bears liquidated damages it causes (ss.4-5).",
+   "hot": true,
+   "planted": true,
+   "text": "SUBCONTRACT AGREEMENT\n\nThis Subcontract is entered into on April 22, 2024 between Brightwater Builders, Inc. (\"Contractor\") and Keystone Mechanical Services, LLC (\"Subcontractor\").\n\nProject: Harpeth Ridge Medical Office Building, Franklin, Tennessee (Contractor Job No. 24-117).\n\n1. Scope. Subcontractor shall furnish and install the complete HVAC system, including all supply, return and exhaust ductwork, in accordance with Drawings M-201 through M-404 and Specification Section 23 31 13 (Metal Ducts).\n\n2. Subcontract Price. The Subcontract Price is Two Million One Hundred Ninety-Six Thousand Dollars ($2,196,000.00).\n\n3. Materials. Supply trunk ductwork serving Levels 2 through 4 shall be galvanized steel, 20 gauge minimum, as specified. No substitution of materials or gauge shall be made without a written substitution request approved by the Architect.\n\n4. Schedule. Subcontractor shall perform its work in accordance with the Contractor's project schedule and shall be liable to the Contractor for delay it causes, including any liquidated damages assessed by the Owner that are attributable to Subcontractor.\n\n5. Indemnification. To the fullest extent permitted by law, Subcontractor shall indemnify and hold harmless the Contractor from all claims, damages, losses and expenses arising out of the performance of Subcontractor's work, including the cost of removing and replacing nonconforming work.\n\n6. Retainage. Contractor shall retain ten percent (10%) of each progress payment until final completion of Subcontractor's work.\n\nExecuted:\n\nBRIGHTWATER BUILDERS, INC.          KEYSTONE MECHANICAL SERVICES, LLC\nBy: Marcus Oyelaran                 By: Tomasz Wierzbicki, Project Manager\n"
+  },
+  {
+   "file": "2024-11-08 Change Order 14 - MRI Suite Redesign (signed scan).pdf",
+   "fmt": "pdf_scan",
+   "type": "AGREEMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "integrity": "needs_ocr",
+   "facts": "Scanned image of the signed Change Order 14 with no text layer. The same terms are in the unsigned Word draft of Change Order 14.",
+   "tool_note": "No text layer. The tool should hold it back as \"Scanned image with no text layer\" and cannot screen, date or cite it.",
+   "planted": true,
+   "text": ""
+  },
+  {
+   "file": "2024-11-08 Change Order 14 - MRI Suite Redesign (draft).docx",
+   "fmt": "docx",
+   "type": "AGREEMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "November 8, 2024",
+     "2024-11-08",
+     "Change Order 14 issued"
+    ]
+   ],
+   "passages": [
+    "increased by Two Hundred Eighty-Six Thousand Four Hundred Dollars ($286,400.00)",
+    "Time impact to be determined"
+   ],
+   "facts": "Change Order 14 adds $286,400.00 and grants no time. Brightwater had to request time within 21 days, so by November 29, 2024.",
+   "hot": true,
+   "planted": true,
+   "text": "CHANGE ORDER No. 14\n\nProject: Harpeth Ridge Medical Office Building, Franklin, Tennessee\nDate: November 8, 2024\nOwner: Tallis Development Group, LLC\nContractor: Brightwater Builders, Inc.\nArchitect: Lindqvist Rowe Architects, PLLC\n\nThe Contract is changed as follows:\n\nRedesign of the Level 1 imaging suite to accommodate a 3T MRI in place of the 1.5T unit shown on the original drawings, per Architect's Supplemental Instructions ASI-022 and ASI-023, including revised RF shielding, a quench pipe route to the roof, structural reinforcement of the slab at grid lines B-3 through C-5, and a dedicated chilled water loop.\n\nChange in Contract Sum: The Contract Sum is increased by Two Hundred Eighty-Six Thousand Four Hundred Dollars ($286,400.00).\nOriginal Contract Sum: $14,850,000.00\nNet change by previous Change Orders: $412,905.00\nContract Sum including this Change Order: $15,549,305.00\n\nChange in Contract Time: Time impact to be determined. Contractor shall submit any request for adjustment of the Contract Time in accordance with Section 15.1.2 of the Agreement.\n\nNOT VALID UNTIL SIGNED BY THE OWNER, CONTRACTOR AND ARCHITECT.\n"
+  },
+  {
+   "file": "2024-12-19 Oyelaran to Haldane - CO 14 notice window.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "November 29",
+     null,
+     "Notice deadline, written without a year, so the tool cannot place it on the chronology"
+    ]
+   ],
+   "passages": [
+    "We blew the 21-day window on Change Order 14."
+   ],
+   "facts": "Brightwater's own PM admits the notice under s.15.1.2 was late. This hurts our client but is not privileged: no lawyer is involved. It must be produced.",
+   "judgment": "Harmful to the client but not privileged. Produce it. Withholding it would be improper.",
+   "tool_note": "The email's sent date is in RFC format (19 Dec 2024), which the date pattern does not read. November 29 has no year, so neither date reaches the chronology.",
+   "hot": true,
+   "planted": true,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Thu, 19 Dec 2024 17:48:02 -0600\nSubject: CO 14 time\n\nRick,\n\nWe blew the 21-day window on Change Order 14. It went out November 8, so the notice was due November 29 and nobody sent it. I need the time impact analysis from you by tomorrow and we will send the extension request anyway.\n\nThe MRI shielding and the slab reinforcement pushed the Level 1 interiors at least 41 days. Tallis knows it. Let's just get it on paper.\n\nMarcus\n"
+  },
+  {
+   "file": "2024-12-20 Brightwater Request for Time Extension - CO 14.pdf",
+   "fmt": "pdf",
+   "type": "LETTER",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "December 20, 2024",
+     "2024-12-20",
+     "Extension request sent, 42 days after Change Order 14"
+    ],
+    [
+     "November 8, 2024",
+     "2024-11-08",
+     "Change Order 14 issued"
+    ],
+    [
+     "11/25/2024",
+     "2024-11-25",
+     "Level 1 interiors became critical"
+    ],
+    [
+     "June 30, 2025",
+     "2025-06-30",
+     "Original Substantial Completion date"
+    ],
+    [
+     "August 10, 2025",
+     "2025-08-10",
+     "Requested adjusted Substantial Completion date"
+    ]
+   ],
+   "passages": [
+    "extension of the Contract Time of forty-one (41) calendar days"
+   ],
+   "facts": "The request for 41 days was sent December 20, 2024, which is 42 days after Change Order 14 and 21 days past the deadline.",
+   "hot": true,
+   "planted": true,
+   "text": "BRIGHTWATER BUILDERS, INC.\n2250 Nolensville Pike, Nashville, Tennessee 37211\n\nDecember 20, 2024\n\nMs. Dana Whitcomb\nVice President, Development\nTallis Development Group, LLC\n\nMs. Evelyn Rowe, AIA\nLindqvist Rowe Architects, PLLC\n\nRe: Harpeth Ridge Medical Office Building - Request for Extension of Contract Time, Change Order 14\n\nDear Ms. Whitcomb and Ms. Rowe:\n\nBrightwater Builders requests an extension of the Contract Time of forty-one (41) calendar days arising from Change Order 14 (Level 1 imaging suite redesign), issued November 8, 2024.\n\nThe redesign required RF shielding revisions, slab reinforcement between grid lines B-3 and C-5, and a new quench pipe route. The enclosed time impact analysis shows the Level 1 interiors path became critical on 11/25/2024 and that the redesigned work added 41 calendar days to that path. We request that the date of Substantial Completion be adjusted from June 30, 2025 to August 10, 2025.\n\nSincerely,\n\nMarcus Oyelaran\nProject Manager\nBrightwater Builders, Inc.\n\nEnclosure: Time Impact Analysis TIA-03\n"
+  },
+  {
+   "file": "2025-01-10 Lindqvist Rowe - extension request untimely.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "December 20, 2024",
+     "2024-12-20",
+     "Extension request"
+    ],
+    [
+     "November 8, 2024",
+     "2024-11-08",
+     "Change Order 14 issued"
+    ],
+    [
+     "June 30, 2025",
+     "2025-06-30",
+     "Substantial Completion date unchanged"
+    ]
+   ],
+   "passages": [
+    "beyond the 21-day period in Section 15.1.2 of the Agreement"
+   ],
+   "facts": "The Architect rejected the extension as untimely, not on its merits.",
+   "hot": true,
+   "planted": true,
+   "text": "From: Evelyn Rowe <erowe@lindqvistrowe.com>\nTo: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nCc: Dana Whitcomb <dwhitcomb@tallisdev.com>\nDate: Fri, 10 Jan 2025 10:15:37 -0600\nSubject: RE: Harpeth Ridge - Request for Extension, CO 14\n\nMarcus,\n\nWe have reviewed Brightwater's request dated December 20, 2024 for a 41-day extension of the Contract Time.\n\nThe request was received 42 days after issuance of Change Order 14 on November 8, 2024, beyond the 21-day period in Section 15.1.2 of the Agreement. On the Owner's instruction we are unable to recommend any adjustment to the Contract Time. The date of Substantial Completion remains June 30, 2025.\n\nThis is without prejudice to the merits of the time impact analysis, which we have not evaluated.\n\nEvelyn Rowe, AIA\nPrincipal, Lindqvist Rowe Architects, PLLC\n"
+  },
+  {
+   "file": "2025-01-28 RFI-087 - Substitution request 22 ga supply trunks.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "01/28/2025",
+     "2025-01-28",
+     "RFI-087 submitted"
+    ],
+    [
+     "01/31/2025",
+     "2025-01-31",
+     "Architect rejects the 22 ga substitution"
+    ]
+   ],
+   "passages": [
+    "REJECTED. The substitution is not accepted."
+   ],
+   "facts": "Keystone asked to use 22 gauge. The Architect rejected it on January 31, 2025, three days before Keystone installed it anyway.",
+   "tool_note": "Contains neither email headers nor letter conventions, so the tool may label it REPORT or DOCUMENT. Both are acceptable.",
+   "hot": true,
+   "planted": true,
+   "text": "REQUEST FOR INFORMATION\nRFI No. 087\n\nProject: Harpeth Ridge Medical Office Building\nDate Submitted: 01/28/2025\nFrom: Tomasz Wierzbicki, Keystone Mechanical Services, LLC (via Brightwater Builders)\nTo: Lindqvist Rowe Architects, PLLC\nSpecification Section: 23 31 13 - Metal Ducts\nDrawing Reference: M-301, M-302 (Level 3)\n\nQuestion:\n20 gauge galvanized coil for the Level 3 supply trunks is backordered approximately six weeks from our supplier. Keystone requests approval to substitute 22 gauge galvanized with additional transverse reinforcement at 48 inches on center. Please advise.\n\nResponse (Lindqvist Rowe Architects, 01/31/2025):\nREJECTED. The substitution is not accepted. Supply trunks serving Levels 2 through 4 carry static pressures up to 4 inches w.c. and must be 20 gauge minimum per Specification 23 31 13, Table 2. Provide specified material. Coordinate schedule impact through the Contractor.\n\nEvelyn Rowe, AIA\n"
+  },
+  {
+   "file": "2025-02-03 Carranza to Haldane - L3 supply trunks.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "possible",
+   "designation": "produce",
+   "passages": [
+    "We ran 22 gauge on the Level 3 supply trunks today because the 20 gauge is still backordered six weeks."
+   ],
+   "facts": "Keystone's foreman tells Brightwater's superintendent in writing that 22 gauge was installed, after the Architect's rejection on January 31, 2025. This supports Brightwater's claim against Keystone. It also shows Brightwater knew on the day.",
+   "tool_note": "FINDING: one of the two most important documents in the case screens only POSSIBLE. It names parties but uses none of the key terms (\"supply trunks\" and \"22 gauge\", not \"ductwork\"). Keyword screening under-ranks it; the attorney has to catch it. Also, the sent date is only in the RFC header and the body says \"today\", so the chronology gets no date from this email. A real reviewer would date it February 3, 2025.",
+   "hot": true,
+   "planted": true,
+   "text": "From: Luis Carranza <lcarranza@keystonemech.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Mon, 3 Feb 2025 16:42:10 -0600\nSubject: L3 supply trunks\n\nRick - heads up. We ran 22 gauge on the Level 3 supply trunks today because the 20 gauge is still backordered six weeks. Tomasz said keep moving and we would swap it after inspection if anybody made an issue of it. East wing is hung, west wing tomorrow.\n\nLuis Carranza\nForeman, Keystone Mechanical\n"
+  },
+  {
+   "file": "2025-02-03 Haldane to Carranza - RE L3 supply trunks.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "possible",
+   "designation": "produce",
+   "passages": [
+    "Don't hold up the ceiling grid on 3."
+   ],
+   "facts": "Brightwater's superintendent did not stop the nonconforming installation. This is harmful to the client and must be produced.",
+   "judgment": "Harmful to the client but not privileged. Produce it.",
+   "tool_note": "Screens only POSSIBLE: parties, no key term. The body is short, so it may appear under \"Very short documents\". It is a complete email, not a failed export.",
+   "hot": true,
+   "planted": true,
+   "text": "From: Rick Haldane <rhaldane@brightwaterbuilders.com>\nTo: Luis Carranza <lcarranza@keystonemech.com>\nDate: Mon, 3 Feb 2025 18:05:51 -0600\nSubject: RE: L3 supply trunks\n\nUnderstood. Don't hold up the ceiling grid on 3. Get me a substitution submittal on the gauge so we have paper on it.\n\nRick\n"
+  },
+  {
+   "file": "2025-02-18 Text messages - Carranza to Haldane.txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "none",
+   "designation": "produce",
+   "dates": [
+    [
+     "2/18/25",
+     "2025-02-18",
+     "Level 3 ductwork closed up"
+    ]
+   ],
+   "facts": "A short text-message export. It names Carranza only as \"Luis\", so it hits no listed party.",
+   "tool_note": "Under 200 characters: expect the \"Very short documents\" advisory. It hits no party and no key term exactly (\"duct\" is not \"ductwork\"), so screening may show NO MATCH. That is a known limit of exact keyword screening, and the reason every result is a queue for a human.",
+   "planted": true,
+   "text": "2/18/25 3:12 PM  Luis: duct on 3 closed up. cx pressure test tmrw 8am\n"
+  },
+  {
+   "file": "2025-02-19 Meridian Cx - Duct pressure test report Level 3.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "February 19, 2025",
+     "2025-02-19",
+     "Level 3 ductwork fails the pressure test"
+    ]
+   ],
+   "passages": [
+    "This corresponds to 22 gauge galvanized.",
+    "The Level 3 supply ductwork does not conform to the Contract Documents."
+   ],
+   "facts": "An independent test confirms 22 gauge (0.0336 in.) against the required 20 gauge (0.0396 in.), with leakage of 11.8 against 6.0 CFM allowed.",
+   "hot": true,
+   "planted": true,
+   "text": "MERIDIAN COMMISSIONING GROUP\nIndependent Commissioning Authority\n\nDUCT LEAKAGE AND PRESSURE TEST REPORT\nProject: Harpeth Ridge Medical Office Building\nTest Date: February 19, 2025\nArea: Level 3, supply trunks SA-3E and SA-3W\nWitnessed by: Rick Haldane (Brightwater Builders), Luis Carranza (Keystone Mechanical)\n\nResult: FAIL\n\n1. Test pressure 4.0 in. w.c. Leakage measured at 11.8 CFM per 100 sq ft against an allowable 6.0 CFM per 100 sq ft (SMACNA Seal Class A).\n2. Visible deflection (oil-canning) of the trunk walls on both runs at test pressure.\n3. Gauge verified by micrometer at six locations: 0.0336 in. average thickness. This corresponds to 22 gauge galvanized. Specification 23 31 13 requires 20 gauge minimum (0.0396 in.).\n\nConclusion: The Level 3 supply ductwork does not conform to the Contract Documents. Removal and replacement with specified material is recommended before ceilings are closed.\n\nHannah Brook, PE\nCommissioning Authority\n"
+  },
+  {
+   "file": "2025-02-19 Site sign-in sheet (scan).pdf",
+   "fmt": "pdf_scan",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "integrity": "needs_ocr",
+   "facts": "Scanned sign-in sheet with no text layer.",
+   "tool_note": "Expect the \"Scanned image with no text layer\" hold.",
+   "planted": true,
+   "text": ""
+  },
+  {
+   "file": "2025-02-20 Voicemail transcript - Whitcomb.txt",
+   "fmt": "empty",
+   "type": "DOCUMENT",
+   "relevance": "none",
+   "designation": "produce",
+   "integrity": "empty",
+   "facts": "A voicemail transcription that exported as an empty file.",
+   "tool_note": "Expect the \"No readable text\" hold. Re-export from the phone system.",
+   "planted": true,
+   "text": ""
+  },
+  {
+   "file": "2025-02-21 Whitcomb - Notice of Defective Work.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "February 19, 2025",
+     "2025-02-19",
+     "Commissioning report referenced"
+    ]
+   ],
+   "passages": [
+    "Brightwater is directed to remove and replace the nonconforming ductwork at no cost to the Owner."
+   ],
+   "facts": "The Owner formally rejects the Level 3 ductwork and reserves liquidated damages.",
+   "planted": true,
+   "text": "From: Dana Whitcomb <dwhitcomb@tallisdev.com>\nTo: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nCc: Evelyn Rowe <erowe@lindqvistrowe.com>\nDate: Fri, 21 Feb 2025 09:02:44 -0600\nSubject: Harpeth Ridge - Notice of Defective Work, Level 3 ductwork\n\nMarcus,\n\nTallis gives notice under Section 12.2 of the General Conditions that the Level 3 supply ductwork is defective and nonconforming, as documented in the Meridian Commissioning report dated February 19, 2025. Brightwater is directed to remove and replace the nonconforming ductwork at no cost to the Owner.\n\nTallis reserves all rights, including the right to assess liquidated damages if Substantial Completion is delayed as a result.\n\nDana Whitcomb\nVice President, Development\nTallis Development Group, LLC\n"
+  },
+  {
+   "file": "2025-02-21 Whitcomb - RE Notice of Defective Work (reply chain).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "02/28/2025",
+     "2025-02-28",
+     "Recovery schedule promised"
+    ],
+    [
+     "February 21, 2025",
+     "2025-02-21",
+     "Quoted original notice"
+    ],
+    [
+     "February 19, 2025",
+     "2025-02-19",
+     "Commissioning report referenced"
+    ]
+   ],
+   "facts": "A near-duplicate of the Notice of Defective Work: the same notice with a reply on top.",
+   "tool_note": "A near-duplicate, not an exact one. The content hash differs, so it must be ingested as its own document and must not be skipped.",
+   "planted": true,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Dana Whitcomb <dwhitcomb@tallisdev.com>\nCc: Evelyn Rowe <erowe@lindqvistrowe.com>\nDate: Fri, 21 Feb 2025 15:31:09 -0600\nSubject: RE: Harpeth Ridge - Notice of Defective Work, Level 3 ductwork\n\nDana,\n\nAcknowledged. Keystone will remove and replace the Level 3 supply trunks with 20 gauge material. Replacement coil is on order and we expect delivery the first week of March. We will provide a recovery schedule by 02/28/2025.\n\nMarcus\n\n-----Original Message-----\nFrom: Dana Whitcomb\nSent: Friday, February 21, 2025 9:02 AM\nSubject: Harpeth Ridge - Notice of Defective Work, Level 3 ductwork\n\nTallis gives notice under Section 12.2 of the General Conditions that the Level 3 supply ductwork is defective and nonconforming, as documented in the Meridian Commissioning report dated February 19, 2025. Brightwater is directed to remove and replace the nonconforming ductwork at no cost to the Owner.\n"
+  },
+  {
+   "file": "2025-02-24 Recorded interview - Luis Carranza (QA).txt",
+   "fmt": "txt",
+   "type": "TRANSCRIPT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "February 24, 2025",
+     "2025-02-24",
+     "QA interview"
+    ],
+    [
+     "February 3, 2025",
+     "2025-02-03",
+     "Level 3 trunks installed"
+    ]
+   ],
+   "passages": [
+    "Tomasz told me on the Friday before that the architect said no."
+   ],
+   "facts": "Keystone's foreman confirms the installation was deliberate and that Keystone's PM knew of the rejection. Brightwater's QA interview was not directed by counsel, so it is not work product.",
+   "judgment": "An internal QA interview not conducted at the direction of counsel is not work product. Produce it.",
+   "hot": true,
+   "planted": true,
+   "text": "BRIGHTWATER BUILDERS, INC. - QUALITY ASSURANCE\nTranscript of recorded interview of Luis Carranza, Foreman, Keystone Mechanical Services, LLC\nDate: February 24, 2025\nInterviewer: Nora Feld, Quality Assurance Manager, Brightwater Builders\nLocation: Harpeth Ridge site office\n\nQ. Mr. Carranza, what gauge was installed on the Level 3 supply trunks?\nA. Twenty-two. Everything on three was twenty-two.\n\nQ. Did you know the RFI asking to use twenty-two had been rejected?\nA. Tomasz told me on the Friday before that the architect said no. He said the coil was six weeks out and we could not sit that long.\n\nQ. Did anyone at Brightwater know?\nA. I emailed Rick the day we hung it. He said not to hold up the grid.\n\nQ. Was any substitution submittal ever sent?\nA. Not that I know of.\n\nQ. When did you start hanging the Level 3 trunks?\nA. Monday, February 3, 2025. East wing first.\n\n[End of interview. Duration 14 minutes.]\n"
+  },
+  {
+   "file": "2025-03-03 Keystone position letter - installed per submittals.docx",
+   "fmt": "docx",
+   "type": "LETTER",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "March 3, 2025",
+     "2025-03-03",
+     "Keystone position letter"
+    ]
+   ],
+   "passages": [
+    "All ductwork on the Project was installed in accordance with approved submittals"
+   ],
+   "facts": "Keystone claims it followed approved submittals. The RFI-087 rejection, the Carranza email of February 3 and the QA interview all contradict this.",
+   "hot": true,
+   "planted": true,
+   "text": "KEYSTONE MECHANICAL SERVICES, LLC\n880 Space Park North, Goodlettsville, Tennessee 37072\n\nMarch 3, 2025\n\nMr. Marcus Oyelaran\nBrightwater Builders, Inc.\n\nRe: Harpeth Ridge Medical Office Building - Level 3 Supply Ductwork\n\nDear Marcus:\n\nKeystone disputes any suggestion that it is responsible for the cost of replacing the Level 3 supply ductwork. All ductwork on the Project was installed in accordance with approved submittals and with the knowledge and acceptance of Brightwater's field staff. Keystone's supply of 20 gauge coil was delayed by a nationwide shortage beyond its control.\n\nKeystone will perform the replacement work under protest and reserves its right to payment for that work.\n\nSincerely,\n\nTomasz Wierzbicki\nProject Manager\nKeystone Mechanical Services, LLC\n"
+  },
+  {
+   "file": "2025-03-04 Ashdown Air Components - dispatch confirmation.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "04/03/2025",
+     "2025-03-04",
+     "A UK sender means 4 March 2025, written day-first"
+    ]
+   ],
+   "facts": "A UK supplier writes dates day first: 04/03/2025 is 4 March 2025. The Keystone and Harpeth Ridge references make it LIKELY.",
+   "tool_note": "KNOWN LIMITATION TO CHECK: the tool reads numeric dates month first (US), so it will place this on April 3, 2025, a month late. A correct chronology would show March 4, 2025.",
+   "planted": true,
+   "text": "From: Oliver Pennington <o.pennington@ashdownair.co.uk>\nTo: Tomasz Wierzbicki <twierzbicki@keystonemech.com>\nDate: Tue, 25 Feb 2025 11:20:03 +0000\nSubject: Order AAC-55821 - 20 gauge spiral fittings for Harpeth Ridge\n\nDear Tomasz,\n\nFurther to your call, your order AAC-55821 (20 gauge galvanised spiral fittings and couplings, 312 pieces) will be dispatched from Sheffield on 04/03/2025 by air freight, arriving Nashville within five working days.\n\nKind regards,\n\nOliver Pennington\nExport Sales, Ashdown Air Components Ltd\n"
+  },
+  {
+   "file": "2025-03-11 Keystone remediation proposal - Level 3 ductwork.pdf",
+   "fmt": "pdf",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "March 11, 2025",
+     "2025-03-11",
+     "Keystone remediation proposal"
+    ]
+   ],
+   "passages": [
+    "TOTAL                               $412,380.00"
+   ],
+   "facts": "Replacing the Level 3 ductwork costs $412,380.00 over 21 working days.",
+   "tool_note": "A proposal, not an invoice: it has no \"amount due\", \"bill to\" or \"remit to\". The tool may call it DOCUMENT or REPORT. Check the $412,380.00 figure is not split at the decimal.",
+   "hot": true,
+   "planted": true,
+   "text": "KEYSTONE MECHANICAL SERVICES, LLC\nPROPOSAL / CHANGE REQUEST KMS-CR-019\n\nDate: March 11, 2025\nTo: Brightwater Builders, Inc.\nProject: Harpeth Ridge Medical Office Building - Job 24-117\n\nScope: Remove and dispose of Level 3 supply trunks SA-3E and SA-3W (22 gauge). Furnish and install 20 gauge galvanized supply trunks with sealing to SMACNA Class A. Remove and reinstall affected ceiling grid, sprinkler drops and light fixtures. Re-test with Commissioning Authority.\n\nLabor                               $268,940.00\nMaterial (20 ga coil and fittings)   $97,210.00\nEquipment and lifts                  $18,600.00\nCeiling and trade coordination       $27,630.00\nTOTAL                               $412,380.00\n\nDuration: 21 working days from receipt of material.\nKeystone submits this proposal under protest and reserves all rights.\n"
+  },
+  {
+   "file": "2025-03-12 Oyelaran to Wierzbicki - tender of defense (cc counsel).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "April 22, 2024",
+     "2024-04-22",
+     "Subcontract date referenced"
+    ],
+    [
+     "March 3, 2025",
+     "2025-03-03",
+     "Keystone letter referenced"
+    ]
+   ],
+   "facts": "Our lawyer is copied, but this is a business communication with an adverse third party and asks for no legal advice.",
+   "judgment": "TRAP: copying counsel does not make a communication privileged. It was sent to Keystone, a third party with adverse interests. Produce it.",
+   "planted": true,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Tomasz Wierzbicki <twierzbicki@keystonemech.com>\nCc: Stephen Mabry <smabry@mabrycolquitt.com>\nDate: Wed, 12 Mar 2025 14:10:22 -0500\nSubject: Harpeth Ridge - Demand for indemnity and tender, Level 3 ductwork\n\nTomasz,\n\nUnder Sections 4 and 5 of the Subcontract dated April 22, 2024, Brightwater tenders to Keystone the defense of Tallis's claim concerning the Level 3 supply ductwork and demands indemnity for all resulting costs, including any liquidated damages assessed by Tallis that are attributable to the replacement work.\n\nKeystone is to proceed with the replacement immediately. Brightwater rejects the position in your letter of March 3, 2025.\n\nMarcus Oyelaran\nBrightwater Builders, Inc.\n"
+  },
+  {
+   "file": "2025-03-14 Oyelaran to Mabry - notice deadline question.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "withhold",
+   "basis": "Attorney-Client",
+   "description": "Email from client project manager to outside counsel requesting legal advice on contractual notice requirements and liquidated damages exposure.",
+   "dates": [
+    [
+     "December 20, 2024",
+     "2024-12-20",
+     "Extension request"
+    ],
+    [
+     "December 4, 2024",
+     "2024-12-04",
+     "OAC meeting referenced"
+    ]
+   ],
+   "facts": "A request for legal advice from the client to its outside counsel.",
+   "tool_note": "After it is withheld, it must not reach Stage 04, Stage 05 or the brief, and it must appear on the privilege log with its basis and description.",
+   "planted": true,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Stephen Mabry <smabry@mabrycolquitt.com>\nDate: Fri, 14 Mar 2025 08:37:15 -0500\nSubject: Privileged & Confidential - Harpeth Ridge time claim\n\nStephen,\n\nPrivileged and confidential. Requesting legal advice.\n\nOur extension request on Change Order 14 went out December 20, 2024, which I understand is past the 21-day notice window in Section 15.1.2. Is there any argument that the notice requirement was waived, given that Tallis's own redesign caused the delay and Dana Whitcomb acknowledged the MRI impact in the OAC meeting on December 4, 2024? What exposure do we have to liquidated damages if the time claim is barred?\n\nMarcus\n"
+  },
+  {
+   "file": "2025-03-17 Mabry to Oyelaran - advice re Section 15.1.2.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "withhold",
+   "basis": "Attorney-Client",
+   "description": "Email from outside counsel to client providing legal advice on waiver of contractual notice and liquidated damages exposure.",
+   "dates": [
+    [
+     "December 4, 2024",
+     "2024-12-04",
+     "OAC meeting referenced"
+    ],
+    [
+     "June 30, 2025",
+     "2025-06-30",
+     "Substantial Completion date"
+    ]
+   ],
+   "facts": "Outside counsel's legal advice.",
+   "planted": true,
+   "text": "From: Stephen Mabry <smabry@mabrycolquitt.com>\nTo: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nDate: Mon, 17 Mar 2025 16:55:48 -0500\nSubject: RE: Privileged & Confidential - Harpeth Ridge time claim\n\nATTORNEY-CLIENT PRIVILEGED COMMUNICATION\n\nMarcus,\n\nTennessee courts generally enforce contractual notice provisions, but an owner's actual knowledge of the delay and its conduct can support a waiver or estoppel argument. The December 4, 2024 OAC minutes are helpful if they show Tallis acknowledging the MRI impact. We should not concede the 41 days are barred. Please preserve all OAC minutes, daily reports and the TIA native files.\n\nOn exposure: if the time claim fails, liquidated damages run from June 30, 2025 at $2,500 per day.\n\nStephen Mabry\nMabry & Colquitt LLP\n"
+  },
+  {
+   "file": "2025-03-18 Oyelaran FW Mabry advice to Wierzbicki.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "March 17, 2025",
+     "2025-03-17",
+     "Counsel's advice forwarded"
+    ]
+   ],
+   "facts": "Our PM forwarded counsel's advice to Keystone, a third party whose interests are adverse. Voluntary disclosure to a third party generally waives privilege over what was disclosed.",
+   "judgment": "TRAP: the \"Privileged & Confidential\" subject line does not control. Privilege was probably waived by forwarding to Keystone. Expected call: produce it, and escalate to the supervising attorney because of the subject-matter waiver risk.",
+   "planted": true,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Tomasz Wierzbicki <twierzbicki@keystonemech.com>\nDate: Tue, 18 Mar 2025 07:12:30 -0500\nSubject: FW: RE: Privileged & Confidential - Harpeth Ridge time claim\n\nTomasz - see below from our lawyer. We think we can beat the notice issue with Tallis, so keep the Level 3 replacement moving and do not put anything in writing about the gauge.\n\n-----Forwarded message-----\nFrom: Stephen Mabry\nSent: Monday, March 17, 2025 4:55 PM\nSubject: RE: Privileged & Confidential - Harpeth Ridge time claim\n\nTennessee courts generally enforce contractual notice provisions, but an owner's actual knowledge of the delay and its conduct can support a waiver or estoppel argument. We should not concede the 41 days are barred.\n"
+  },
+  {
+   "file": "2025-04-02 Mabry memo - delay exposure analysis.docx",
+   "fmt": "docx",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "withhold",
+   "basis": "Work Product",
+   "description": "Outside counsel's memorandum prepared in anticipation of litigation analyzing delay exposure and allocation of remediation costs.",
+   "dates": [
+    [
+     "April 2, 2025",
+     "2025-04-02",
+     "Counsel memo"
+    ],
+    [
+     "December 4, 2024",
+     "2024-12-04",
+     "OAC meeting referenced"
+    ]
+   ],
+   "facts": "Counsel's mental impressions, prepared in anticipation of litigation.",
+   "planted": true,
+   "text": "MABRY & COLQUITT LLP\nPRIVILEGED AND CONFIDENTIAL - ATTORNEY WORK PRODUCT\nPREPARED IN ANTICIPATION OF LITIGATION\n\nMEMORANDUM\n\nTo: File - Brightwater Builders / Harpeth Ridge\nFrom: Stephen Mabry\nDate: April 2, 2025\nRe: Delay exposure and allocation to Keystone\n\n1. Brightwater's 41-day time claim for Change Order 14 was noticed 21 days late. Our best argument is waiver by conduct: Tallis's development VP acknowledged the MRI impact at the December 4, 2024 OAC meeting.\n\n2. If the notice defense fails, projected liquidated damages depend on the actual Substantial Completion date. At the current recovery forecast of mid-September 2025, exposure is roughly 70 to 80 days at $2,500 per day.\n\n3. The Level 3 ductwork replacement ($412,380.00 per Keystone's proposal) should be allocated to Keystone under Subcontract Sections 4 and 5. Weakness: the February 3 email shows our superintendent knew of the substitution and told Keystone not to hold up the ceiling grid.\n\n4. Recommend early mediation with Tallis and a tender to Keystone's insurer.\n"
+  },
+  {
+   "file": "2025-06-30 Oyelaran - schedule status internal.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "passages": [
+    "Roughly 41 days of the slip is the MRI redesign and roughly 30 is the Level 3 duct replacement."
+   ],
+   "facts": "Brightwater's internal split of the delay: about 41 days from Change Order 14 and about 30 from the duct replacement.",
+   "tool_note": "No date in the body in a readable format (\"Today\"), so the chronology gets nothing from it.",
+   "hot": true,
+   "planted": true,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Gregory Tate <gtate@brightwaterbuilders.com>\nCc: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Mon, 30 Jun 2025 19:20:14 -0500\nSubject: Harpeth Ridge - where we are\n\nGreg,\n\nToday was the contract substantial completion date and we are not close. Realistic forecast is the second week of September. Roughly 41 days of the slip is the MRI redesign and roughly 30 is the Level 3 duct replacement. Tallis will assess liquidated damages at $2,500 a day and take it out of retainage.\n\nMarcus\n"
+  },
+  {
+   "file": "2025-09-12 Certificate of Substantial Completion.pdf",
+   "fmt": "pdf",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "March 15, 2024",
+     "2024-03-15",
+     "Contract date"
+    ],
+    [
+     "September 12, 2025",
+     "2025-09-12",
+     "Actual Substantial Completion: 74 days after June 30, 2025"
+    ],
+    [
+     "09/12/2025",
+     "2025-09-12",
+     "Architect and contractor signatures"
+    ],
+    [
+     "09/15/2025",
+     "2025-09-15",
+     "Owner signature"
+    ]
+   ],
+   "passages": [
+    "DATE OF SUBSTANTIAL COMPLETION: September 12, 2025"
+   ],
+   "facts": "Actual Substantial Completion was September 12, 2025, which is 74 calendar days after June 30, 2025.",
+   "hot": true,
+   "planted": true,
+   "text": "CERTIFICATE OF SUBSTANTIAL COMPLETION\n\nProject: Harpeth Ridge Medical Office Building, Franklin, Tennessee\nOwner: Tallis Development Group, LLC\nContractor: Brightwater Builders, Inc.\nArchitect: Lindqvist Rowe Architects, PLLC\nContract date: March 15, 2024\n\nThe Work has been reviewed and found, to the Architect's best knowledge, information and belief, to be substantially complete. Substantial Completion is the stage in the progress of the Work when the Work is sufficiently complete in accordance with the Contract Documents so that the Owner can occupy or utilize the Work for its intended use.\n\nDATE OF SUBSTANTIAL COMPLETION: September 12, 2025\n\nA list of items to be completed or corrected (punch list) is attached. The Contractor shall complete the punch list within 45 days.\n\nARCHITECT: Evelyn Rowe, AIA          Date: 09/12/2025\nCONTRACTOR: Marcus Oyelaran          Date: 09/12/2025\nOWNER: Dana Whitcomb                 Date: 09/15/2025\n"
+  },
+  {
+   "file": "2025-09-26 Tallis - Notice of Liquidated Damages.pdf",
+   "fmt": "pdf",
+   "type": "LETTER",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "September 26, 2025",
+     "2025-09-26",
+     "Liquidated damages assessed"
+    ],
+    [
+     "June 30, 2025",
+     "2025-06-30",
+     "Required Substantial Completion"
+    ],
+    [
+     "September 12, 2025",
+     "2025-09-12",
+     "Actual Substantial Completion"
+    ]
+   ],
+   "passages": [
+    "a total of $185,000.00, which Tallis will withhold from retainage"
+   ],
+   "facts": "74 days x $2,500 = $185,000.00, withheld from $742,500.00 retainage (5% of $14,850,000).",
+   "hot": true,
+   "planted": true,
+   "text": "TALLIS DEVELOPMENT GROUP, LLC\n410 Cool Springs Boulevard, Suite 300, Franklin, Tennessee 37067\n\nSeptember 26, 2025\n\nMr. Gregory Tate, President\nBrightwater Builders, Inc.\n\nRe: Harpeth Ridge Medical Office Building - Assessment of Liquidated Damages\n\nDear Mr. Tate:\n\nSubstantial Completion was required by June 30, 2025 and was achieved on September 12, 2025, a delay of seventy-four (74) calendar days. No extension of the Contract Time was granted.\n\nUnder Section 3.4 of the Agreement, Tallis assesses liquidated damages of $2,500.00 per day for 74 days, a total of $185,000.00, which Tallis will withhold from retainage presently held in the amount of $742,500.00.\n\nTallis further reserves its claim for the cost of its consultants' time associated with the Level 3 ductwork.\n\nSincerely,\n\nDana Whitcomb\nVice President, Development\n"
+  },
+  {
+   "file": "2025-10-06 Ekwueme to Mabry - settlement authority.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "withhold",
+   "basis": "Attorney-Client",
+   "description": "Email from client CFO to outside counsel requesting legal advice on mediation strategy and settlement authority.",
+   "dates": [
+    [
+     "October 21, 2025",
+     "2025-10-21",
+     "Mediation date"
+    ]
+   ],
+   "facts": "A request for legal advice on settlement authority. Privileged.",
+   "planted": true,
+   "text": "From: Janet Ekwueme <jekwueme@brightwaterbuilders.com>\nTo: Stephen Mabry <smabry@mabrycolquitt.com>\nCc: Gregory Tate <gtate@brightwaterbuilders.com>\nDate: Mon, 6 Oct 2025 12:03:40 -0500\nSubject: Privileged - Harpeth Ridge mediation authority\n\nStephen,\n\nPrivileged and confidential, for the purpose of obtaining your advice before the mediation on October 21, 2025.\n\nGreg and I have discussed authority. We would accept a release of retainage less $92,500.00, half of the liquidated damages assessed, and we want your view on whether to condition any deal on Tallis dropping the consultant-cost claim. Please also advise whether to bring Keystone into the mediation.\n\nJanet Ekwueme\nChief Financial Officer, Brightwater Builders, Inc.\n"
+  },
+  {
+   "file": "2025-02-07 Keystone certified payroll WE 02-07-2025.csv",
+   "fmt": "csv",
+   "type": "LEDGER",
+   "relevance": "strong",
+   "designation": "redact",
+   "basis": "Other",
+   "description": "Certified payroll produced with employee Social Security numbers redacted (personal identifying information).",
+   "dates": [
+    [
+     "02/07/2025",
+     "2025-02-07",
+     "Week ending, repeated on each of 6 rows"
+    ]
+   ],
+   "facts": "Proves Keystone's sheet-metal crew was on the Harpeth Ridge job the week the 22 gauge went up. Contains six workers' SSNs.",
+   "judgment": "Produce with the SSN column redacted. Basis \"Other\", with a description.",
+   "tool_note": "The chronology will count 6 dated events (one per row), all 2/7/2025. That is correct behaviour but noisy.",
+   "planted": true,
+   "text": "Employee,SSN,Classification,Hours Mon,Hours Tue,Hours Wed,Hours Thu,Hours Fri,Rate,Gross,Project,Week Ending\nLuis Carranza,412-55-8830,Sheet Metal Foreman,10,10,10,10,8,$41.50,$1992.00,Harpeth Ridge,02/07/2025\nAndre Whitfield,408-71-2294,Sheet Metal Journeyman,10,10,10,10,8,$36.25,$1740.00,Harpeth Ridge,02/07/2025\nMaria Delacroix,229-60-1175,Sheet Metal Journeyman,10,10,10,10,8,$36.25,$1740.00,Harpeth Ridge,02/07/2025\nDevon Pruitt,413-02-6658,Apprentice 3rd Yr,10,10,10,10,8,$24.80,$1190.40,Harpeth Ridge,02/07/2025\nSamuel Otieno,587-44-0912,Apprentice 2nd Yr,10,10,10,10,8,$21.60,$1036.80,Harpeth Ridge,02/07/2025\nKyle Brandt,409-38-7741,Laborer,10,10,10,10,8,$19.75,$948.00,Harpeth Ridge,02/07/2025\n"
+  },
+  {
+   "file": "2025-10-15 Pay Application No. 18 with wire instructions.pdf",
+   "fmt": "pdf",
+   "type": "INVOICE",
+   "relevance": "strong",
+   "designation": "redact",
+   "basis": "Other",
+   "description": "Pay application produced with bank routing and account numbers redacted (confidential financial account information).",
+   "dates": [
+    [
+     "09/30/2025",
+     "2025-09-30",
+     "Period end"
+    ],
+    [
+     "10/15/2025",
+     "2025-10-15",
+     "Architect certification"
+    ]
+   ],
+   "passages": [
+    "5. Retainage (5%)                                    $777,465.25"
+   ],
+   "facts": "Retainage held at $777,465.25 on the adjusted contract sum. It contains bank account and routing numbers.",
+   "judgment": "Produce with the wire block redacted. Basis \"Other\", with a description.",
+   "tool_note": "A pay application has no \"invoice\" or \"amount due\" wording. It reads \"CURRENT PAYMENT DUE\", so the tool may not label it INVOICE. Note what it shows.",
+   "planted": true,
+   "text": "APPLICATION AND CERTIFICATE FOR PAYMENT\nApplication No. 18          Period To: 09/30/2025\nProject: Harpeth Ridge Medical Office Building\nTo Owner: Tallis Development Group, LLC\nFrom Contractor: Brightwater Builders, Inc.\n\n1. Original Contract Sum                          $14,850,000.00\n2. Net change by Change Orders                       $699,305.00\n3. Contract Sum to date                           $15,549,305.00\n4. Total completed and stored to date             $15,549,305.00\n5. Retainage (5%)                                    $777,465.25\n6. Total earned less retainage                    $14,771,839.75\n7. Less previous certificates for payment         $14,628,112.50\n8. CURRENT PAYMENT DUE                               $143,727.25\n\nREMITTANCE - WIRE INSTRUCTIONS\nBank: First Cumberland Bank, Nashville, TN\nABA Routing No.: 064000017\nAccount Name: Brightwater Builders, Inc. - Operating\nAccount No.: 7730041189256\n\nCertified by Architect: Evelyn Rowe, AIA, Lindqvist Rowe Architects, 10/15/2025\n"
+  },
+  {
+   "file": "Schedule - Harpeth Ridge baseline vs actual (P6 export).csv",
+   "fmt": "csv",
+   "type": "LEDGER",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "2025-06-30",
+     "2025-06-30",
+     "Baseline Substantial Completion"
+    ],
+    [
+     "2025-09-12",
+     "2025-09-12",
+     "Actual Substantial Completion"
+    ],
+    [
+     "2025-03-10",
+     "2025-03-10",
+     "Duct remove and replace starts"
+    ],
+    [
+     "2025-04-08",
+     "2025-04-08",
+     "Duct remove and replace finishes"
+    ]
+   ],
+   "facts": "The schedule shows Level 1 imaging rough-in slipped from a 12/20/2024 finish to 2/28/2025, the Level 3 duct replacement ran 3/10/2025 to 4/8/2025, and Substantial Completion moved from 2025-06-30 to 2025-09-12.",
+   "tool_note": "ISO dates. The chronology should gain 34 dated events from this file (4 date columns x 9 rows, less the 2 blank baseline cells for the replacement activity).",
+   "planted": true,
+   "text": "Activity ID,Activity Name,Baseline Start,Baseline Finish,Actual Start,Actual Finish,Responsible\nA1000,Notice to Proceed,2024-04-01,2024-04-01,2024-04-01,2024-04-01,Tallis\nA1200,Foundations,2024-04-15,2024-06-14,2024-04-16,2024-06-21,Brightwater\nA2000,Structural steel erection,2024-06-17,2024-08-30,2024-06-24,2024-09-06,Brightwater\nA3100,Level 1 imaging suite rough-in,2024-10-14,2024-12-20,2024-11-25,2025-02-28,Brightwater\nA3400,Level 3 supply ductwork,2025-01-20,2025-02-21,2025-02-03,2025-02-14,Keystone\nA3410,Level 3 ductwork remove and replace,,,2025-03-10,2025-04-08,Keystone\nA5000,Ceilings Level 3,2025-02-24,2025-03-21,2025-04-10,2025-05-09,Brightwater\nA8000,Commissioning and TAB,2025-05-19,2025-06-20,2025-07-28,2025-08-29,Keystone\nA9000,Substantial Completion,2025-06-30,2025-06-30,2025-09-12,2025-09-12,Brightwater\n"
+  },
+  {
+   "file": "Project directory - Harpeth Ridge.json",
+   "fmt": "json",
+   "type": "DATA",
+   "relevance": "strong",
+   "designation": "produce",
+   "facts": "A contact directory with no dates.",
+   "tool_note": "No date: expect the \"No date found\" advisory. It is still production-ready.",
+   "planted": true,
+   "text": "{\n  \"project\": \"Harpeth Ridge Medical Office Building\",\n  \"job_number\": \"24-117\",\n  \"contacts\": [\n    {\"name\": \"Dana Whitcomb\", \"company\": \"Tallis Development Group, LLC\", \"role\": \"Owner's Representative\", \"email\": \"dwhitcomb@tallisdev.com\"},\n    {\"name\": \"Evelyn Rowe\", \"company\": \"Lindqvist Rowe Architects, PLLC\", \"role\": \"Architect of Record\", \"email\": \"erowe@lindqvistrowe.com\"},\n    {\"name\": \"Marcus Oyelaran\", \"company\": \"Brightwater Builders, Inc.\", \"role\": \"Project Manager\", \"email\": \"moyelaran@brightwaterbuilders.com\"},\n    {\"name\": \"Rick Haldane\", \"company\": \"Brightwater Builders, Inc.\", \"role\": \"Superintendent\", \"email\": \"rhaldane@brightwaterbuilders.com\"},\n    {\"name\": \"Tomasz Wierzbicki\", \"company\": \"Keystone Mechanical Services, LLC\", \"role\": \"HVAC Project Manager\", \"email\": \"twierzbicki@keystonemech.com\"},\n    {\"name\": \"Luis Carranza\", \"company\": \"Keystone Mechanical Services, LLC\", \"role\": \"Sheet Metal Foreman\", \"email\": \"lcarranza@keystonemech.com\"},\n    {\"name\": \"Hannah Brook\", \"company\": \"Meridian Commissioning Group\", \"role\": \"Commissioning Authority\", \"email\": \"hbrook@meridiancx.com\"}\n  ]\n}\n"
+  },
+  {
+   "file": "Punch list - Level 3 (walk with Architect).md",
+   "fmt": "md",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "facts": "An undated punch list for Level 3.",
+   "tool_note": "No date: expect the \"No date found\" advisory. The title names Harpeth Ridge and the table names Brightwater and Keystone, so screening shows LIKELY. With no dates, the relevant-period test does not apply.",
+   "planted": true,
+   "text": "# Harpeth Ridge MOB - Level 3 Punch List\n\nWalked with Evelyn Rowe (Lindqvist Rowe) and Rick Haldane (Brightwater).\n\n| Item | Location | Description | Responsible |\n|---|---|---|---|\n| 3-001 | Rm 312 | Ceiling tile stained at supply diffuser | Brightwater |\n| 3-002 | Corridor 3E | Access panel missing at fire damper | Keystone |\n| 3-003 | Rm 318 | Diffuser not balanced, low airflow | Keystone |\n| 3-004 | Rm 322 | Paint touch-up at door frame | Brightwater |\n| 3-005 | Mech 3W | Duct insulation torn at elbow | Keystone |\n| 3-006 | Rm 330 | Thermostat not labeled | Keystone |\n"
+  },
+  {
+   "file": "Keystone delay notice (legacy export, Windows-1252).txt",
+   "fmt": "cp1252",
+   "type": "LETTER",
+   "relevance": "strong",
+   "designation": "produce",
+   "integrity": "corrupt",
+   "facts": "An export in Windows-1252 whose curly quotes and dashes don't survive a UTF-8 read. Keystone gave written notice of the coil delay on January 24, 2025.",
+   "tool_note": "Expect the \"Corrupted character encoding\" hold. Re-export as UTF-8.",
+   "planted": true,
+   "text": "KEYSTONE MECHANICAL SERVICES, LLC \u2013 NOTICE OF DELAY\n\nDate: January 24, 2025\nTo: Brightwater Builders, Inc. \u2013 Harpeth Ridge (Job 24-117)\n\nKeystone gives notice that delivery of 20 gauge galvanized coil for the Level 3 supply ductwork has been delayed by the mill. Our supplier\u2019s revised date is \u201cearly March.\u201d Keystone requests that Brightwater advise whether the Architect will accept an alternate gauge.\n\nTomasz Wierzbicki \u2013 Project Manager\n"
+  },
+  {
+   "file": "2025-01-15 Daily Field Report No. 196 (date typo).txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "01/15/2025",
+     "2025-01-15",
+     "Report date"
+    ],
+    [
+     "02/30/2025",
+     null,
+     "IMPOSSIBLE DATE: February has no 30th. It must NOT appear on the chronology."
+    ]
+   ],
+   "facts": "A routine daily report containing a typo date that cannot exist.",
+   "tool_note": "Check that 02/30/2025 is rejected and not rolled over to March 2, 2025. Exactly 1 dated event is expected from this file.",
+   "planted": true,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 196                     Date: 01/15/2025\nSuperintendent: Rick Haldane\nWeather: 29 F, clear, wind N 8 mph. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 7\nKeystone Mechanical ......... 9\nCumberland Electric ......... 8\nVolunteer Drywall ........... 12\n\nWORK PERFORMED\n- Keystone Mechanical hanging main supply ductwork, Level 2 west wing.\n- Drywall hanging Level 2 corridors.\n- Electrical rough-in Level 3.\n\nINSPECTIONS\n- Level 2 above-ceiling inspection requested. Next inspection scheduled 02/30/2025 per county portal.\n\nDELAYS / ISSUES\n- Keystone reports 20 ga coil for Level 3 still on backorder.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "2022-08-09 Prequalification questionnaire - Tallis Belle Meade.pdf",
+   "fmt": "pdf",
+   "responsive": "Attorney call",
+   "type": "DOCUMENT",
+   "relevance": "out_of_period",
+   "designation": "produce",
+   "dates": [
+    [
+     "August 9, 2022",
+     "2022-08-09",
+     "Prequalification date (outside the period)"
+    ],
+    [
+     "06/30/2021",
+     "2021-06-30",
+     "Prior project completion (outside the period)"
+    ],
+    [
+     "08/09/2022",
+     "2022-08-09",
+     "Certification (outside the period)"
+    ]
+   ],
+   "facts": "A 2022 prequalification for a different Tallis project. It names the parties and uses \"liquidated damages\" and \"retainage\", but every date is before the period.",
+   "judgment": "Arguably relevant background: Brightwater represented it had never been assessed liquidated damages. The attorney decides. The tool should only flag it as OUT OF PERIOD, not exclude it.",
+   "planted": true,
+   "text": "CONTRACTOR PREQUALIFICATION QUESTIONNAIRE\nOwner: Tallis Development Group, LLC\nProject: Belle Meade Surgical Pavilion\nSubmitted by: Brightwater Builders, Inc.\nDate: August 9, 2022\n\n1. Years in business under current name: 23\n2. Bonding capacity: single project $40,000,000; aggregate $120,000,000\n3. Largest healthcare project completed in last five years: Rivergate Outpatient Center, $22.4 million, completed 06/30/2021\n4. Has the firm been assessed liquidated damages in the last five years? No.\n5. Typical retainage terms accepted: 5% reducing to 2.5% at 50% completion.\n6. Safety: EMR 0.71 (2021), 0.74 (2020)\n\nCertified true and correct: Gregory Tate, President, on 08/09/2022.\n"
+  },
+  {
+   "file": "2024-12-11 Brightwater holiday party invitation.eml",
+   "fmt": "eml",
+   "responsive": "No",
+   "type": "EMAIL",
+   "relevance": "possible",
+   "designation": "produce",
+   "dates": [
+    [
+     "December 20, 2024",
+     "2024-12-20",
+     "Party date"
+    ],
+    [
+     "December 13, 2024",
+     "2024-12-13",
+     "RSVP date"
+    ]
+   ],
+   "facts": "Not responsive in substance. It names the client only.",
+   "judgment": "Screening shows POSSIBLE (names a party, no key term). An attorney would likely deselect it as non-responsive. It shows why a party match alone is not relevance.",
+   "tool_note": "The party date (December 20, 2024) lands on the chronology next to the real December 20 extension request. That is correct extraction, but it adds noise to the chronology.",
+   "planted": true,
+   "text": "From: Brightwater Builders HR <hr@brightwaterbuilders.com>\nTo: All Staff <allstaff@brightwaterbuilders.com>\nDate: Wed, 11 Dec 2024 09:00:00 -0600\nSubject: You're invited - Brightwater Holiday Party\n\nJoin us Friday, December 20, 2024 at 6:30 PM at the Hermitage Hotel ballroom to celebrate another great year at Brightwater. Spouses and partners welcome. RSVP to HR by December 13, 2024.\n"
+  },
+  {
+   "file": "Manufacturer data sheet - galvanized duct gauges.pdf",
+   "fmt": "pdf",
+   "type": "DOCUMENT",
+   "relevance": "possible",
+   "designation": "produce",
+   "facts": "A generic industry data sheet. It confirms that 4 in. w.c. ductwork needs 20 gauge (0.0396 in.) and that 0.0336 in. is 22 gauge.",
+   "tool_note": "It hits the key term \"ductwork\" but names no party, so screening shows POSSIBLE. No date: expect the \"No date found\" advisory.",
+   "planted": true,
+   "text": "GALVANIZED STEEL DUCTWORK - GAUGE SELECTION GUIDE\nPublication DS-114, Rev. C\n\nRectangular ductwork, galvanized G60 coating. Minimum gauge by duct width and static pressure class:\n\nDuct width 31-54 in., 2 in. w.c. class: 24 gauge (0.0276 in.)\nDuct width 31-54 in., 3 in. w.c. class: 22 gauge (0.0336 in.)\nDuct width 31-54 in., 4 in. w.c. class: 20 gauge (0.0396 in.)\nDuct width 55-84 in., 4 in. w.c. class: 18 gauge (0.0516 in.)\n\nReinforcement spacing per SMACNA HVAC Duct Construction Standards. Consult the project specification, which governs where more stringent.\n"
+  },
+  {
+   "file": "2025-05-05 Nashville construction market newsletter.eml",
+   "fmt": "eml",
+   "responsive": "No",
+   "type": "EMAIL",
+   "relevance": "none",
+   "designation": "produce",
+   "dates": [
+    [
+     "June 12, 2025",
+     "2025-06-12",
+     "Golf scramble (irrelevant)"
+    ]
+   ],
+   "facts": "A trade newsletter. No party, no key term, not responsive.",
+   "judgment": "Screening shows NO MATCH. An attorney would deselect it. It is general construction vocabulary, so the cohesion check may or may not treat it as foreign. Record what happens.",
+   "planted": true,
+   "text": "From: Middle Tennessee Builders Exchange <news@mtbuildersexchange.org>\nTo: members@mtbuildersexchange.org\nDate: Mon, 5 May 2025 06:00:00 -0500\nSubject: Market Watch - May 2025\n\nSpring bid activity across the region rose eleven percent over last year, led by multifamily and data center work in Rutherford and Wilson counties. Steel mill lead times have eased to roughly eight weeks. Our annual golf scramble is June 12, 2025 at Hermitage Golf Course; foursomes are filling quickly.\n"
+  },
+  {
+   "file": "Hollis v. Crane Property - demand letter re security deposit.docx",
+   "fmt": "docx",
+   "responsive": "No - other client",
+   "type": "LETTER",
+   "relevance": "none",
+   "designation": "produce",
+   "integrity": "unrelated",
+   "dates": [
+    [
+     "February 11, 2025",
+     "2025-02-11",
+     "Other client"
+    ],
+    [
+     "December 31, 2024",
+     "2024-12-31",
+     "Other client"
+    ]
+   ],
+   "facts": "A letter from another client's matter, misfiled into this collection.",
+   "judgment": "INTRUDER: this must not be produced. Producing another client's file is a confidentiality breach. Deselect it and remove it from the collection.",
+   "tool_note": "Expect NO MATCH at screening and \"Does not appear to belong to this matter\" at the readiness check.",
+   "planted": true,
+   "text": "MABRY & COLQUITT LLP\n\nFebruary 11, 2025\n\nCrane Property Management\n1717 West End Avenue\nNashville, Tennessee 37203\n\nRe: Tenant Beverly Hollis, Unit 4B, Sylvan Heights Apartments\n\nDear Property Manager:\n\nThis firm represents Beverly Hollis, your former tenant. Ms. Hollis vacated Unit 4B on December 31, 2024 and provided a forwarding address. More than thirty days have passed and you have neither returned her security deposit of $1,850.00 nor provided an itemized statement of deductions.\n\nPlease return the full deposit within ten days. Our client is prepared to pursue statutory remedies, including her attorney's fees, if the deposit is not returned.\n\nVery truly yours,\n\nCaroline Voss\nMabry & Colquitt LLP\n"
+  },
+  {
+   "file": "Estate of Margaret Pruett - inventory of assets.pdf",
+   "fmt": "pdf",
+   "responsive": "No - other client",
+   "type": "DOCUMENT",
+   "relevance": "none",
+   "designation": "produce",
+   "integrity": "unrelated",
+   "dates": [
+    [
+     "October 17, 2024",
+     "2024-10-17",
+     "Other client"
+    ],
+    [
+     "03/01/2026",
+     "2026-03-01",
+     "Other client"
+    ]
+   ],
+   "facts": "A probate inventory from another client's matter, misfiled.",
+   "judgment": "INTRUDER: this must not be produced.",
+   "tool_note": "Expect NO MATCH at screening and \"Does not appear to belong to this matter\" at the readiness check.",
+   "planted": true,
+   "text": "IN THE PROBATE COURT FOR DAVIDSON COUNTY, TENNESSEE\nIN RE: ESTATE OF MARGARET ANN PRUETT, Deceased\nNo. 24P-0932\n\nINVENTORY OF ASSETS\n\nThe undersigned Personal Representative submits the following inventory of the assets of the decedent as of the date of death, October 17, 2024:\n\n1. Residence at 3310 Woodmont Boulevard, Nashville (appraised)      $612,000.00\n2. Checking account, Pinnacle Savings                                $18,442.19\n3. Certificate of deposit, maturing 03/01/2026                       $50,000.00\n4. 2019 Buick Enclave                                                $17,900.00\n5. Household furnishings and jewelry                                 $9,250.00\n\nTotal                                                                 $707,592.19\n\nRespectfully submitted, Thomas Pruett, Personal Representative\n"
+  },
+  {
+   "file": "2024-12-04 OAC Meeting Minutes No. 35.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "December 4, 2024",
+     "2024-12-04",
+     "OAC meeting 35"
+    ],
+    [
+     "11/25/2024",
+     "2024-11-25",
+     "Shielding vendor mobilized"
+    ],
+    [
+     "June 30, 2025",
+     "2025-06-30",
+     "Substantial Completion forecast at risk"
+    ],
+    [
+     "December 11, 2024",
+     "2024-12-11",
+     "Next meeting"
+    ]
+   ],
+   "passages": [
+    "D. Whitcomb acknowledged that the MRI redesign \"will push the Level 1 interiors\""
+   ],
+   "facts": "The Owner's representative acknowledged the Change Order 14 time impact on December 4, 2024. This is Brightwater's best evidence of waiver or actual knowledge.",
+   "tool_note": "The key sentence starts \"D. Whitcomb\". Check the splitter keeps the initial and does not cut the sentence at \"D.\"",
+   "hot": true,
+   "planted": true,
+   "text": "HARPETH RIDGE MEDICAL OFFICE BUILDING\nOWNER-ARCHITECT-CONTRACTOR MEETING MINUTES - MEETING No. 35\nDate: December 4, 2024    Location: Site office\n\nAttendees: Dana Whitcomb (Tallis), Evelyn Rowe (Lindqvist Rowe), Marcus Oyelaran and Rick Haldane (Brightwater), Tomasz Wierzbicki (Keystone)\n\n35.1 Change Order 14 - MRI suite. Shielding vendor mobilized 11/25/2024. Slab reinforcement at B-3 to C-5 complete. D. Whitcomb acknowledged that the MRI redesign \"will push the Level 1 interiors\" and asked Brightwater to quantify the time impact. M. Oyelaran to provide a time impact analysis.\n35.2 Level 3 ductwork - Keystone reports 20 gauge coil lead time is extending. T. Wierzbicki to confirm the delivery date.\n35.3 Schedule - Brightwater reports Substantial Completion forecast of June 30, 2025 is at risk pending Change Order 14 analysis.\n\nNext meeting: December 11, 2024.\n"
+  },
+  {
+   "file": "2025-02-26 OAC Meeting Minutes No. 46.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "February 26, 2025",
+     "2025-02-26",
+     "OAC meeting 46"
+    ],
+    [
+     "June 30, 2025",
+     "2025-06-30",
+     "Substantial Completion date"
+    ],
+    [
+     "January 10, 2025",
+     "2025-01-10",
+     "Architect rejection referenced"
+    ]
+   ],
+   "facts": "The replacement plan is agreed; Tallis states it will assess liquidated damages.",
+   "planted": true,
+   "text": "HARPETH RIDGE MEDICAL OFFICE BUILDING\nOWNER-ARCHITECT-CONTRACTOR MEETING MINUTES - MEETING No. 46\nDate: February 26, 2025\n\nAttendees: Dana Whitcomb (Tallis), Evelyn Rowe (Lindqvist Rowe), Marcus Oyelaran (Brightwater), Tomasz Wierzbicki (Keystone), Hannah Brook (Meridian Cx)\n\n46.1 Level 3 ductwork - Keystone to remove and replace supply trunks SA-3E and SA-3W with 20 gauge. Material expected first week of March. Duration approximately 21 working days. Ceilings on Level 3 on hold.\n46.2 Liquidated damages - D. Whitcomb stated Tallis will hold Brightwater to the June 30, 2025 date and will assess liquidated damages for any delay.\n46.3 Change Order 14 - Brightwater's time request remains rejected as untimely per the Architect's letter of January 10, 2025. Brightwater reserves its position.\n"
+  },
+  {
+   "file": "2025-04-09 Meridian Cx - retest Level 3 PASS.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "possible",
+   "designation": "produce",
+   "dates": [
+    [
+     "April 9, 2025",
+     "2025-04-09",
+     "Replacement ductwork passes the retest"
+    ]
+   ],
+   "facts": "The replacement passed on April 9, 2025, so the duct remediation took from February 19 to April 9, 2025.",
+   "tool_note": "Names no listed party, only \"Harpeth Ridge\", so screening shows POSSIBLE. \"Hannah Brook\" and \"Meridian\" are not in the party list.",
+   "planted": true,
+   "text": "MERIDIAN COMMISSIONING GROUP\nDUCT LEAKAGE AND PRESSURE TEST REPORT - RETEST\n\nProject: Harpeth Ridge Medical Office Building\nTest Date: April 9, 2025\nArea: Level 3, supply trunks SA-3E and SA-3W (replaced)\n\nResult: PASS\nLeakage 4.1 CFM per 100 sq ft at 4.0 in. w.c. (allowable 6.0). Gauge verified 0.0398 in. average (20 gauge). No visible deflection.\n\nHannah Brook, PE\n"
+  },
+  {
+   "file": "2025-10-01 Keystone invoice K-2025-114 - Level 3 replacement (under protest).pdf",
+   "fmt": "pdf",
+   "type": "INVOICE",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "October 1, 2025",
+     "2025-10-01",
+     "Keystone bills the replacement"
+    ],
+    [
+     "March 10, 2025",
+     "2025-03-10",
+     "Replacement starts"
+    ],
+    [
+     "April 8, 2025",
+     "2025-04-08",
+     "Replacement ends"
+    ]
+   ],
+   "passages": [
+    "Amount Due: $412,380.00"
+   ],
+   "facts": "Keystone bills Brightwater $412,380.00 for its own rework, under protest.",
+   "planted": true,
+   "text": "KEYSTONE MECHANICAL SERVICES, LLC\nINVOICE No. K-2025-114\n\nBill To: Brightwater Builders, Inc., 2250 Nolensville Pike, Nashville, TN 37211\nProject: Harpeth Ridge Medical Office Building - Job 24-117\nInvoice Date: October 1, 2025      Terms: Net 30\n\nDescription: Level 3 supply ductwork removal and replacement per KMS-CR-019, performed under protest March 10, 2025 through April 8, 2025.\n\nAmount Due: $412,380.00\n\nRemit To: Keystone Mechanical Services, LLC, 880 Space Park North, Goodlettsville, TN 37072\n"
+  },
+  {
+   "file": "2025-09-29 Oyelaran to Whitcomb - dispute of LD assessment.eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "dates": [
+    [
+     "December 4, 2024",
+     "2024-12-04",
+     "OAC meeting 35 referenced"
+    ]
+   ],
+   "passages": [
+    "At least 41 of the 74 days resulted from Change Order 14"
+   ],
+   "facts": "Brightwater's position: actual knowledge and no prejudice.",
+   "planted": true,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Dana Whitcomb <dwhitcomb@tallisdev.com>\nDate: Mon, 29 Sep 2025 10:44:19 -0500\nSubject: RE: Harpeth Ridge - Assessment of Liquidated Damages\n\nDana,\n\nBrightwater disputes the assessment of $185,000.00 in liquidated damages. At least 41 of the 74 days resulted from Change Order 14, which Tallis directed and which you acknowledged at OAC Meeting No. 35 on December 4, 2024 would push the Level 1 interiors. Tallis had actual knowledge of the delay and was not prejudiced by the timing of our written request.\n\nWe request release of retainage in full.\n\nMarcus Oyelaran\n"
+  },
+  {
+   "file": "Daily Field Report 2024-04-10 No. 8.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "04/10/2024",
+     "2024-04-10",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 8                     Date: 04/10/2024\nSuperintendent: Rick Haldane\nWeather: 69 F, clear. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 6\nMusic City Concrete ......... 5\nTri-Star Plumbing ........... 4\n\nWORK PERFORMED\n- Mass excavation and haul-off, building pad.\n- Erosion control inspection and repairs.\n- Underground storm drainage, north side.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2024-05-10 No. 30.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "05/10/2024",
+     "2024-05-10",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 30                     Date: 05/10/2024\nSuperintendent: Rick Haldane\nWeather: 79 F, overcast. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 4\nMusic City Concrete ......... 12\nTri-Star Plumbing ........... 6\n\nWORK PERFORMED\n- Foundation walls at elevator pit.\n- Underslab plumbing rough-in.\n- Vapor barrier and slab-on-grade prep.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2024-07-16 No. 75.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "07/16/2024",
+     "2024-07-16",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 75                     Date: 07/16/2024\nSuperintendent: Rick Haldane\nWeather: 81 F, light rain. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 7\nMusic City Concrete ......... 4\nCumberland Electric ......... 2\n\nWORK PERFORMED\n- Metal deck installation.\n- Shear stud welding.\n- Crane picks for roof steel.\n\nDELAYS / ISSUES\n- Rain; exterior work stopped at 1:30 PM. Interior work continued.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2024-09-26 No. 126.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "09/26/2024",
+     "2024-09-26",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 126                     Date: 09/26/2024\nSuperintendent: Rick Haldane\nWeather: 79 F, partly cloudy. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 8\nKeystone Mechanical ......... 7\nCumberland Electric ......... 5\nTri-Star Plumbing ........... 5\n\nWORK PERFORMED\n- Exterior wall framing and sheathing.\n- Mechanical rough-in Level 1.\n- Roofing membrane.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2024-10-21 No. 143.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "10/21/2024",
+     "2024-10-21",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 143                     Date: 10/21/2024\nSuperintendent: Rick Haldane\nWeather: 63 F, partly cloudy. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 4\nKeystone Mechanical ......... 4\nCumberland Electric ......... 8\nTri-Star Plumbing ........... 4\n\nWORK PERFORMED\n- Electrical rough-in Level 1.\n- Roofing membrane.\n- Exterior wall framing and sheathing.\n\nDELAYS / ISSUES\n- Inspector rescheduled to next day.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2024-12-02 No. 171.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "12/02/2024",
+     "2024-12-02",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 171                     Date: 12/02/2024\nSuperintendent: Rick Haldane\nWeather: 34 F, clear. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 4\nKeystone Mechanical ......... 8\nCumberland Electric ......... 9\nVolunteer Drywall ........... 7\n\nWORK PERFORMED\n- Interior framing Level 2.\n- Main supply ductwork Level 2.\n- Window installation.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2024-12-10 No. 177.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "12/10/2024",
+     "2024-12-10",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 177                     Date: 12/10/2024\nSuperintendent: Rick Haldane\nWeather: 45 F, windy. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 5\nKeystone Mechanical ......... 8\nCumberland Electric ......... 6\nVolunteer Drywall ........... 11\n\nWORK PERFORMED\n- Window installation.\n- Main supply ductwork Level 2.\n- Slab reinforcement at imaging suite.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2024-12-30 No. 189.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "12/30/2024",
+     "2024-12-30",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 189                     Date: 12/30/2024\nSuperintendent: Rick Haldane\nWeather: 33 F, windy. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 8\nKeystone Mechanical ......... 11\nCumberland Electric ......... 7\nVolunteer Drywall ........... 9\n\nWORK PERFORMED\n- Main supply ductwork Level 2.\n- Interior framing Level 2.\n- Slab reinforcement at imaging suite.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-02-03 No. 213.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "02/03/2025",
+     "2025-02-03",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report. Records 22 gauge on hand the day Level 3 ductwork went up.",
+   "hot": true,
+   "planted": true,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 213                     Date: 02/03/2025\nSuperintendent: Rick Haldane\nWeather: 34 F, overcast. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 4\nKeystone Mechanical ......... 8\nCumberland Electric ......... 8\nVolunteer Drywall ........... 12\n\nWORK PERFORMED\n- Keystone Mechanical hanging Level 3 supply ductwork, east wing. Keystone foreman advises material on hand is 22 gauge; 20 gauge coil still on backorder.\n- Drywall hanging Level 2 corridors.\n- Electrical rough-in Level 3.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-02-13 No. 221.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "02/13/2025",
+     "2025-02-13",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 221                     Date: 02/13/2025\nSuperintendent: Rick Haldane\nWeather: 34 F, clear. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 8\nKeystone Mechanical ......... 12\nCumberland Electric ......... 6\nVolunteer Drywall ........... 10\n\nWORK PERFORMED\n- Electrical rough-in Level 3.\n- Supply ductwork Level 3.\n- Fire sprinkler mains Level 3.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-02-25 No. 229.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "02/25/2025",
+     "2025-02-25",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 229                     Date: 02/25/2025\nSuperintendent: Rick Haldane\nWeather: 36 F, clear. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 6\nKeystone Mechanical ......... 12\nCumberland Electric ......... 7\nVolunteer Drywall ........... 8\n\nWORK PERFORMED\n- Supply ductwork Level 3.\n- Electrical rough-in Level 3.\n- Fire sprinkler mains Level 3.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-05-05 No. 278.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "05/05/2025",
+     "2025-05-05",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 278                     Date: 05/05/2025\nSuperintendent: Rick Haldane\nWeather: 55 F, overcast. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 7\nKeystone Mechanical ......... 8\nVolunteer Drywall ........... 6\nCumberland Electric ......... 8\n\nWORK PERFORMED\n- Painting Level 3 and 4.\n- Rooftop unit start-up.\n- Flooring Level 1 and 2.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-05-06 No. 279.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "05/06/2025",
+     "2025-05-06",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 279                     Date: 05/06/2025\nSuperintendent: Rick Haldane\nWeather: 70 F, partly cloudy. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 7\nKeystone Mechanical ......... 5\nVolunteer Drywall ........... 9\nCumberland Electric ......... 7\n\nWORK PERFORMED\n- Flooring Level 1 and 2.\n- Casework installation.\n- Rooftop unit start-up.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-05-09 No. 282.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "05/09/2025",
+     "2025-05-09",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 282                     Date: 05/09/2025\nSuperintendent: Rick Haldane\nWeather: 75 F, light rain. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 5\nKeystone Mechanical ......... 5\nVolunteer Drywall ........... 7\nCumberland Electric ......... 8\n\nWORK PERFORMED\n- Rooftop unit start-up.\n- Ceiling grid Level 3.\n- Flooring Level 1 and 2.\n\nDELAYS / ISSUES\n- Rain; exterior work stopped at 1:30 PM. Interior work continued.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-05-20 No. 289.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "05/20/2025",
+     "2025-05-20",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 289                     Date: 05/20/2025\nSuperintendent: Rick Haldane\nWeather: 68 F, clear. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 6\nKeystone Mechanical ......... 7\nVolunteer Drywall ........... 9\nCumberland Electric ......... 7\n\nWORK PERFORMED\n- Flooring Level 1 and 2.\n- Ceiling grid Level 3.\n- Painting Level 3 and 4.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-05-28 No. 294.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "05/28/2025",
+     "2025-05-28",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 294                     Date: 05/28/2025\nSuperintendent: Rick Haldane\nWeather: 55 F, partly cloudy. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 8\nKeystone Mechanical ......... 9\nVolunteer Drywall ........... 7\nCumberland Electric ......... 5\n\nWORK PERFORMED\n- Rooftop unit start-up.\n- Casework installation.\n- Flooring Level 1 and 2.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-07-14 No. 326.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "07/14/2025",
+     "2025-07-14",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 326                     Date: 07/14/2025\nSuperintendent: Rick Haldane\nWeather: 89 F, overcast. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 7\nKeystone Mechanical ......... 3\nCumberland Electric ......... 3\n\nWORK PERFORMED\n- Commissioning functional testing.\n- Site paving and striping.\n- Final cleaning.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-07-28 No. 336.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "07/28/2025",
+     "2025-07-28",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 336                     Date: 07/28/2025\nSuperintendent: Rick Haldane\nWeather: 82 F, light rain. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 8\nKeystone Mechanical ......... 4\nCumberland Electric ......... 2\n\nWORK PERFORMED\n- Final cleaning.\n- Commissioning functional testing.\n- Test and balance.\n\nDELAYS / ISSUES\n- Rain; exterior work stopped at 1:30 PM. Interior work continued.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-08-04 No. 341.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "08/04/2025",
+     "2025-08-04",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 341                     Date: 08/04/2025\nSuperintendent: Rick Haldane\nWeather: 76 F, partly cloudy. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 6\nKeystone Mechanical ......... 4\nCumberland Electric ......... 2\n\nWORK PERFORMED\n- Site paving and striping.\n- Final cleaning.\n- Commissioning functional testing.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-09-03 No. 362.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "09/03/2025",
+     "2025-09-03",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 362                     Date: 09/03/2025\nSuperintendent: Rick Haldane\nWeather: 80 F, light rain. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 6\nKeystone Mechanical ......... 6\nCumberland Electric ......... 3\n\nWORK PERFORMED\n- Commissioning functional testing.\n- Site paving and striping.\n- Punch list Level 1 and 2.\n\nDELAYS / ISSUES\n- Rain; exterior work stopped at 1:30 PM. Interior work continued.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "Daily Field Report 2025-09-22 No. 375.txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "09/22/2025",
+     "2025-09-22",
+     "Report date"
+    ]
+   ],
+   "facts": "Routine daily field report.",
+   "hot": false,
+   "planted": false,
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 375                     Date: 09/22/2025\nSuperintendent: Rick Haldane\nWeather: 84 F, clear. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 8\nKeystone Mechanical ......... 3\nCumberland Electric ......... 5\n\nWORK PERFORMED\n- Test and balance.\n- Punch list Level 1 and 2.\n- Final cleaning.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  },
+  {
+   "file": "OAC Meeting Minutes No. 6 - 2024-05-08.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "OAC minutes",
+   "dates": [
+    [
+     "May 8, 2024",
+     "2024-05-08",
+     "OAC meeting 6"
+    ],
+    [
+     "May 15, 2024",
+     "2024-05-15",
+     "Next meeting"
+    ]
+   ],
+   "facts": "Routine weekly meeting minutes.",
+   "tool_note": "Names parties and \"Harpeth Ridge\" only in the header. \"Harpeth Ridge\" is a key term, so screening should show LIKELY.",
+   "planted": false,
+   "text": "HARPETH RIDGE MEDICAL OFFICE BUILDING\nOWNER-ARCHITECT-CONTRACTOR MEETING MINUTES - MEETING No. 6\nDate: May 8, 2024    Location: Site office\n\nAttendees: Dana Whitcomb (Tallis), Evelyn Rowe (Lindqvist Rowe), Marcus Oyelaran and Rick Haldane (Brightwater)\n\n6.1 Safety - No recordable incidents this week. Toolbox talk topic: hot work permits.\n6.2 Schedule - Brightwater reviewed the three-week look-ahead. Current focus: foundation walls at elevator pit.\n6.3 RFIs - 15 open. Architect to respond to the oldest three by next meeting.\n6.4 Submittals - 2 in review. No long-lead items at risk this week.\n6.5 Owner items - Tallis to confirm tenant signage package.\n\nNext meeting: May 15, 2024.\n"
+  },
+  {
+   "file": "OAC Meeting Minutes No. 22 - 2024-08-28.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "OAC minutes",
+   "dates": [
+    [
+     "August 28, 2024",
+     "2024-08-28",
+     "OAC meeting 22"
+    ],
+    [
+     "September 4, 2024",
+     "2024-09-04",
+     "Next meeting"
+    ]
+   ],
+   "facts": "Routine weekly meeting minutes.",
+   "tool_note": "Names parties and \"Harpeth Ridge\" only in the header. \"Harpeth Ridge\" is a key term, so screening should show LIKELY.",
+   "planted": false,
+   "text": "HARPETH RIDGE MEDICAL OFFICE BUILDING\nOWNER-ARCHITECT-CONTRACTOR MEETING MINUTES - MEETING No. 22\nDate: August 28, 2024    Location: Site office\n\nAttendees: Dana Whitcomb (Tallis), Evelyn Rowe (Lindqvist Rowe), Marcus Oyelaran and Rick Haldane (Brightwater)\n\n22.1 Safety - No recordable incidents this week. Toolbox talk topic: ladder safety.\n22.2 Schedule - Brightwater reviewed the three-week look-ahead. Current focus: crane picks for roof steel.\n22.3 RFIs - 6 open. Architect to respond to the oldest three by next meeting.\n22.4 Submittals - 12 in review. No long-lead items at risk this week.\n22.5 Owner items - Tallis to confirm tenant signage package.\n\nNext meeting: September 4, 2024.\n"
+  },
+  {
+   "file": "OAC Meeting Minutes No. 45 - 2025-02-19.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "OAC minutes",
+   "dates": [
+    [
+     "February 19, 2025",
+     "2025-02-19",
+     "OAC meeting 45"
+    ],
+    [
+     "February 26, 2025",
+     "2025-02-26",
+     "Next meeting"
+    ]
+   ],
+   "facts": "Routine weekly meeting minutes.",
+   "tool_note": "Names parties and \"Harpeth Ridge\" only in the header. \"Harpeth Ridge\" is a key term, so screening should show LIKELY.",
+   "planted": false,
+   "text": "HARPETH RIDGE MEDICAL OFFICE BUILDING\nOWNER-ARCHITECT-CONTRACTOR MEETING MINUTES - MEETING No. 45\nDate: February 19, 2025    Location: Site office\n\nAttendees: Dana Whitcomb (Tallis), Evelyn Rowe (Lindqvist Rowe), Marcus Oyelaran and Rick Haldane (Brightwater)\n\n45.1 Safety - No recordable incidents this week. Toolbox talk topic: heat illness.\n45.2 Schedule - Brightwater reviewed the three-week look-ahead. Current focus: drywall hanging level 2.\n45.3 RFIs - 6 open. Architect to respond to the oldest three by next meeting.\n45.4 Submittals - 13 in review. No long-lead items at risk this week.\n45.5 Owner items - Tallis leasing to schedule a walkthrough.\n\nNext meeting: February 26, 2025.\n"
+  },
+  {
+   "file": "OAC Meeting Minutes No. 61 - 2025-06-11.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "OAC minutes",
+   "dates": [
+    [
+     "June 11, 2025",
+     "2025-06-11",
+     "OAC meeting 61"
+    ],
+    [
+     "June 18, 2025",
+     "2025-06-18",
+     "Next meeting"
+    ]
+   ],
+   "facts": "Routine weekly meeting minutes.",
+   "tool_note": "Names parties and \"Harpeth Ridge\" only in the header. \"Harpeth Ridge\" is a key term, so screening should show LIKELY.",
+   "planted": false,
+   "text": "HARPETH RIDGE MEDICAL OFFICE BUILDING\nOWNER-ARCHITECT-CONTRACTOR MEETING MINUTES - MEETING No. 61\nDate: June 11, 2025    Location: Site office\n\nAttendees: Dana Whitcomb (Tallis), Evelyn Rowe (Lindqvist Rowe), Marcus Oyelaran and Rick Haldane (Brightwater)\n\n61.1 Safety - No recordable incidents this week. Toolbox talk topic: heat illness.\n61.2 Schedule - Brightwater reviewed the three-week look-ahead. Current focus: rooftop unit start-up.\n61.3 RFIs - 18 open. Architect to respond to the oldest three by next meeting.\n61.4 Submittals - 11 in review. No long-lead items at risk this week.\n61.5 Owner items - Tallis to confirm low-voltage vendor.\n\nNext meeting: June 18, 2025.\n"
+  },
+  {
+   "file": "OAC Meeting Minutes No. 65 - 2025-07-09.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "OAC minutes",
+   "dates": [
+    [
+     "July 9, 2025",
+     "2025-07-09",
+     "OAC meeting 65"
+    ],
+    [
+     "July 16, 2025",
+     "2025-07-16",
+     "Next meeting"
+    ]
+   ],
+   "facts": "Routine weekly meeting minutes.",
+   "tool_note": "Names parties and \"Harpeth Ridge\" only in the header. \"Harpeth Ridge\" is a key term, so screening should show LIKELY.",
+   "planted": false,
+   "text": "HARPETH RIDGE MEDICAL OFFICE BUILDING\nOWNER-ARCHITECT-CONTRACTOR MEETING MINUTES - MEETING No. 65\nDate: July 9, 2025    Location: Site office\n\nAttendees: Dana Whitcomb (Tallis), Evelyn Rowe (Lindqvist Rowe), Marcus Oyelaran and Rick Haldane (Brightwater)\n\n65.1 Safety - No recordable incidents this week. Toolbox talk topic: ladder safety.\n65.2 Schedule - Brightwater reviewed the three-week look-ahead. Current focus: test and balance.\n65.3 RFIs - 18 open. Architect to respond to the oldest three by next meeting.\n65.4 Submittals - 4 in review. No long-lead items at risk this week.\n65.5 Owner items - Tallis leasing to schedule a walkthrough.\n\nNext meeting: July 16, 2025.\n"
+  },
+  {
+   "file": "RFI-001 Architectural - 2024-06-05.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "RFI",
+   "dates": [
+    [
+     "06/05/2024",
+     "2024-06-05",
+     "RFI submitted"
+    ],
+    [
+     "06/09/2024",
+     "2024-06-09",
+     "RFI answered"
+    ]
+   ],
+   "facts": "Routine request for information.",
+   "planted": false,
+   "text": "REQUEST FOR INFORMATION\nRFI No. 001\n\nProject: Harpeth Ridge Medical Office Building\nDate Submitted: 06/05/2024\nFrom: Marcus Oyelaran, Brightwater Builders, Inc.\nTo: Lindqvist Rowe Architects, PLLC\nDiscipline: Architectural\n\nQuestion:\nDoor 214 hardware set shows a closer on a pair with a coordinator not scheduled. Please advise.\n\nResponse (Lindqvist Rowe Architects, 06/09/2024):\nAccepted. Proceed as proposed; no change in Contract Sum or Time.\n\nEvelyn Rowe, AIA\n"
+  },
+  {
+   "file": "RFI-002 Electrical - 2024-11-13.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "RFI",
+   "dates": [
+    [
+     "11/13/2024",
+     "2024-11-13",
+     "RFI submitted"
+    ],
+    [
+     "11/20/2024",
+     "2024-11-20",
+     "RFI answered"
+    ]
+   ],
+   "facts": "Routine request for information.",
+   "planted": false,
+   "text": "REQUEST FOR INFORMATION\nRFI No. 002\n\nProject: Harpeth Ridge Medical Office Building\nDate Submitted: 11/13/2024\nFrom: Marcus Oyelaran, Brightwater Builders, Inc.\nTo: Lindqvist Rowe Architects, PLLC\nDiscipline: Electrical\n\nQuestion:\nPanel LP-2B location conflicts with the fire damper access on Level 2. Can the panel shift 24 inches east?\n\nResponse (Lindqvist Rowe Architects, 11/20/2024):\nAccepted. Proceed as proposed; no change in Contract Sum or Time.\n\nEvelyn Rowe, AIA\n"
+  },
+  {
+   "file": "RFI-003 Plumbing - 2024-11-15.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "RFI",
+   "dates": [
+    [
+     "11/15/2024",
+     "2024-11-15",
+     "RFI submitted"
+    ],
+    [
+     "11/18/2024",
+     "2024-11-18",
+     "RFI answered"
+    ]
+   ],
+   "facts": "Routine request for information.",
+   "planted": false,
+   "text": "REQUEST FOR INFORMATION\nRFI No. 003\n\nProject: Harpeth Ridge Medical Office Building\nDate Submitted: 11/15/2024\nFrom: Marcus Oyelaran, Brightwater Builders, Inc.\nTo: Lindqvist Rowe Architects, PLLC\nDiscipline: Plumbing\n\nQuestion:\nMedical gas zone valve box elevation not dimensioned in Corridor 1C. Please provide mounting height.\n\nResponse (Lindqvist Rowe Architects, 11/18/2024):\nProvide as specified. Contractor to coordinate.\n\nEvelyn Rowe, AIA\n"
+  },
+  {
+   "file": "RFI-004 Civil - 2025-01-13.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "RFI",
+   "dates": [
+    [
+     "01/13/2025",
+     "2025-01-13",
+     "RFI submitted"
+    ],
+    [
+     "01/18/2025",
+     "2025-01-18",
+     "RFI answered"
+    ]
+   ],
+   "facts": "Routine request for information.",
+   "planted": false,
+   "text": "REQUEST FOR INFORMATION\nRFI No. 004\n\nProject: Harpeth Ridge Medical Office Building\nDate Submitted: 01/13/2025\nFrom: Marcus Oyelaran, Brightwater Builders, Inc.\nTo: Lindqvist Rowe Architects, PLLC\nDiscipline: Civil\n\nQuestion:\nStorm structure SS-4 invert shown two different elevations on C-201 and C-301. Please confirm.\n\nResponse (Lindqvist Rowe Architects, 01/18/2025):\nSee attached sketch SK-004. Coordinate in the field with affected trades.\n\nEvelyn Rowe, AIA\n"
+  },
+  {
+   "file": "RFI-005 Fire Protection - 2025-04-01.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "RFI",
+   "dates": [
+    [
+     "04/01/2025",
+     "2025-04-01",
+     "RFI submitted"
+    ],
+    [
+     "04/04/2025",
+     "2025-04-04",
+     "RFI answered"
+    ]
+   ],
+   "facts": "Routine request for information.",
+   "planted": false,
+   "text": "REQUEST FOR INFORMATION\nRFI No. 005\n\nProject: Harpeth Ridge Medical Office Building\nDate Submitted: 04/01/2025\nFrom: Marcus Oyelaran, Brightwater Builders, Inc.\nTo: Lindqvist Rowe Architects, PLLC\nDiscipline: Fire Protection\n\nQuestion:\nSprinkler main routing conflicts with the Level 2 supply duct at grid D-4. Request coordination direction.\n\nResponse (Lindqvist Rowe Architects, 04/04/2025):\nConfirmed as drawn on the architectural sheets; structural governs where noted.\n\nEvelyn Rowe, AIA\n"
+  },
+  {
+   "file": "RFI-006 Architectural - 2025-04-07.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "RFI",
+   "dates": [
+    [
+     "04/07/2025",
+     "2025-04-07",
+     "RFI submitted"
+    ],
+    [
+     "04/12/2025",
+     "2025-04-12",
+     "RFI answered"
+    ]
+   ],
+   "facts": "Routine request for information.",
+   "planted": false,
+   "text": "REQUEST FOR INFORMATION\nRFI No. 006\n\nProject: Harpeth Ridge Medical Office Building\nDate Submitted: 04/07/2025\nFrom: Marcus Oyelaran, Brightwater Builders, Inc.\nTo: Lindqvist Rowe Architects, PLLC\nDiscipline: Architectural\n\nQuestion:\nExterior sealant color not selected for the metal panel system. Please provide selection.\n\nResponse (Lindqvist Rowe Architects, 04/12/2025):\nSee attached sketch SK-006. Coordinate in the field with affected trades.\n\nEvelyn Rowe, AIA\n"
+  },
+  {
+   "file": "RFI-007 Structural - 2025-08-06.pdf",
+   "fmt": "pdf",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "RFI",
+   "dates": [
+    [
+     "08/06/2025",
+     "2025-08-06",
+     "RFI submitted"
+    ],
+    [
+     "08/13/2025",
+     "2025-08-13",
+     "RFI answered"
+    ]
+   ],
+   "facts": "Routine request for information.",
+   "planted": false,
+   "text": "REQUEST FOR INFORMATION\nRFI No. 007\n\nProject: Harpeth Ridge Medical Office Building\nDate Submitted: 08/06/2025\nFrom: Marcus Oyelaran, Brightwater Builders, Inc.\nTo: Lindqvist Rowe Architects, PLLC\nDiscipline: Structural\n\nQuestion:\nRoof opening for RTU-3 is 6 inches smaller than the unit curb submitted. Please confirm framing revision.\n\nResponse (Lindqvist Rowe Architects, 08/13/2025):\nConfirmed as drawn on the architectural sheets; structural governs where noted.\n\nEvelyn Rowe, AIA\n"
+  },
+  {
+   "file": "Pay Application No. 01 - period to 2024-04-30.pdf",
+   "fmt": "pdf",
+   "type": "INVOICE",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "pay application",
+   "dates": [
+    [
+     "04/30/2024",
+     "2024-04-30",
+     "Period end"
+    ],
+    [
+     "05/09/2024",
+     "2024-05-09",
+     "Certified"
+    ]
+   ],
+   "facts": "Routine pay application. Retainage to date $32,980.00.",
+   "planted": false,
+   "text": "APPLICATION AND CERTIFICATE FOR PAYMENT\nApplication No. 1          Period To: 04/30/2024\nProject: Harpeth Ridge Medical Office Building\nTo Owner: Tallis Development Group, LLC\nFrom Contractor: Brightwater Builders, Inc.\n\n1. Contract Sum to date                     $14,850,000.00\n2. Total completed and stored to date       $659,599.96\n3. Retainage (5%)                           $32,980.00\n4. Total earned less retainage              $626,619.96\n5. Less previous certificates for payment   $0.00\n6. CURRENT PAYMENT DUE                      $626,619.96\n\nCertified by Architect: Evelyn Rowe, AIA, Lindqvist Rowe Architects, 05/09/2024\n"
+  },
+  {
+   "file": "Pay Application No. 02 - period to 2024-05-31.pdf",
+   "fmt": "pdf",
+   "type": "INVOICE",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "pay application",
+   "dates": [
+    [
+     "05/31/2024",
+     "2024-05-31",
+     "Period end"
+    ],
+    [
+     "06/08/2024",
+     "2024-06-08",
+     "Certified"
+    ]
+   ],
+   "facts": "Routine pay application. Retainage to date $65,996.93.",
+   "planted": false,
+   "text": "APPLICATION AND CERTIFICATE FOR PAYMENT\nApplication No. 2          Period To: 05/31/2024\nProject: Harpeth Ridge Medical Office Building\nTo Owner: Tallis Development Group, LLC\nFrom Contractor: Brightwater Builders, Inc.\n\n1. Contract Sum to date                     $14,850,000.00\n2. Total completed and stored to date       $1,319,938.56\n3. Retainage (5%)                           $65,996.93\n4. Total earned less retainage              $1,253,941.63\n5. Less previous certificates for payment   $478,029.13\n6. CURRENT PAYMENT DUE                      $775,912.50\n\nCertified by Architect: Evelyn Rowe, AIA, Lindqvist Rowe Architects, 06/08/2024\n"
+  },
+  {
+   "file": "Pay Application No. 03 - period to 2024-06-30.pdf",
+   "fmt": "pdf",
+   "type": "INVOICE",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "pay application",
+   "dates": [
+    [
+     "06/30/2024",
+     "2024-06-30",
+     "Period end"
+    ],
+    [
+     "07/09/2024",
+     "2024-07-09",
+     "Certified"
+    ]
+   ],
+   "facts": "Routine pay application. Retainage to date $96,149.21.",
+   "planted": false,
+   "text": "APPLICATION AND CERTIFICATE FOR PAYMENT\nApplication No. 3          Period To: 06/30/2024\nProject: Harpeth Ridge Medical Office Building\nTo Owner: Tallis Development Group, LLC\nFrom Contractor: Brightwater Builders, Inc.\n\n1. Contract Sum to date                     $14,850,000.00\n2. Total completed and stored to date       $1,922,984.13\n3. Retainage (5%)                           $96,149.21\n4. Total earned less retainage              $1,826,834.92\n5. Less previous certificates for payment   $1,050,922.43\n6. CURRENT PAYMENT DUE                      $775,912.49\n\nCertified by Architect: Evelyn Rowe, AIA, Lindqvist Rowe Architects, 07/09/2024\n"
+  },
+  {
+   "file": "Submittal 001 - 05 12 00 Structural steel shop drawings.docx",
+   "fmt": "docx",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "submittal",
+   "dates": [
+    [
+     "April 16, 2024",
+     "2024-04-16",
+     "Submittal sent"
+    ],
+    [
+     "April 25, 2024",
+     "2024-04-25",
+     "Returned"
+    ]
+   ],
+   "passages": [],
+   "facts": "Routine submittal transmittal.",
+   "hot": false,
+   "tool_note": "Mentions \"Harpeth Ridge\" (a term) and Lindqvist Rowe (a party), so screening should show LIKELY.",
+   "planted": false,
+   "text": "SUBMITTAL TRANSMITTAL No. 001\n\nProject: Harpeth Ridge Medical Office Building, Job 24-117\nFrom: Brightwater Builders, Inc. (Marcus Oyelaran)\nTo: Lindqvist Rowe Architects, PLLC\nSpecification Section: 05 12 00 - Structural steel shop drawings\nDate Sent: April 16, 2024\n\nArchitect's Action (April 25, 2024):\nAPPROVED AS NOTED. See reviewer comments on sheets 3 and 7.\n\nReviewed by Evelyn Rowe, AIA. Review is for general conformance with the design concept only; the Contractor remains responsible for dimensions, quantities and coordination.\n"
+  },
+  {
+   "file": "Submittal 002 - 07 54 00 TPO roofing system.docx",
+   "fmt": "docx",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "submittal",
+   "dates": [
+    [
+     "April 26, 2024",
+     "2024-04-26",
+     "Submittal sent"
+    ],
+    [
+     "May 5, 2024",
+     "2024-05-05",
+     "Returned"
+    ]
+   ],
+   "passages": [],
+   "facts": "Routine submittal transmittal.",
+   "hot": false,
+   "tool_note": "Mentions \"Harpeth Ridge\" (a term) and Lindqvist Rowe (a party), so screening should show LIKELY.",
+   "planted": false,
+   "text": "SUBMITTAL TRANSMITTAL No. 002\n\nProject: Harpeth Ridge Medical Office Building, Job 24-117\nFrom: Brightwater Builders, Inc. (Marcus Oyelaran)\nTo: Lindqvist Rowe Architects, PLLC\nSpecification Section: 07 54 00 - TPO roofing system\nDate Sent: April 26, 2024\n\nArchitect's Action (May 5, 2024):\nAPPROVED.\n\nReviewed by Evelyn Rowe, AIA. Review is for general conformance with the design concept only; the Contractor remains responsible for dimensions, quantities and coordination.\n"
+  },
+  {
+   "file": "Submittal 003 - 08 44 13 Glazed aluminum curtain wall.docx",
+   "fmt": "docx",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "submittal",
+   "dates": [
+    [
+     "July 8, 2024",
+     "2024-07-08",
+     "Submittal sent"
+    ],
+    [
+     "July 15, 2024",
+     "2024-07-15",
+     "Returned"
+    ]
+   ],
+   "passages": [],
+   "facts": "Routine submittal transmittal.",
+   "hot": false,
+   "tool_note": "Mentions \"Harpeth Ridge\" (a term) and Lindqvist Rowe (a party), so screening should show LIKELY.",
+   "planted": false,
+   "text": "SUBMITTAL TRANSMITTAL No. 003\n\nProject: Harpeth Ridge Medical Office Building, Job 24-117\nFrom: Brightwater Builders, Inc. (Marcus Oyelaran)\nTo: Lindqvist Rowe Architects, PLLC\nSpecification Section: 08 44 13 - Glazed aluminum curtain wall\nDate Sent: July 8, 2024\n\nArchitect's Action (July 15, 2024):\nAPPROVED AS NOTED. See reviewer comments on sheets 3 and 7.\n\nReviewed by Evelyn Rowe, AIA. Review is for general conformance with the design concept only; the Contractor remains responsible for dimensions, quantities and coordination.\n"
+  },
+  {
+   "file": "Submittal 004 - 09 29 00 Gypsum board assemblies.docx",
+   "fmt": "docx",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "submittal",
+   "dates": [
+    [
+     "January 3, 2025",
+     "2025-01-03",
+     "Submittal sent"
+    ],
+    [
+     "January 16, 2025",
+     "2025-01-16",
+     "Returned"
+    ]
+   ],
+   "passages": [],
+   "facts": "Routine submittal transmittal.",
+   "hot": false,
+   "tool_note": "Mentions \"Harpeth Ridge\" (a term) and Lindqvist Rowe (a party), so screening should show LIKELY.",
+   "planted": false,
+   "text": "SUBMITTAL TRANSMITTAL No. 004\n\nProject: Harpeth Ridge Medical Office Building, Job 24-117\nFrom: Brightwater Builders, Inc. (Marcus Oyelaran)\nTo: Lindqvist Rowe Architects, PLLC\nSpecification Section: 09 29 00 - Gypsum board assemblies\nDate Sent: January 3, 2025\n\nArchitect's Action (January 16, 2025):\nAPPROVED AS NOTED. See reviewer comments on sheets 3 and 7.\n\nReviewed by Evelyn Rowe, AIA. Review is for general conformance with the design concept only; the Contractor remains responsible for dimensions, quantities and coordination.\n"
+  },
+  {
+   "file": "Submittal 005 - 23 31 13 Metal ducts.docx",
+   "fmt": "docx",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "submittal",
+   "dates": [
+    [
+     "February 13, 2025",
+     "2025-02-13",
+     "Submittal sent"
+    ],
+    [
+     "February 24, 2025",
+     "2025-02-24",
+     "Returned"
+    ]
+   ],
+   "passages": [
+    "Supply trunks serving Levels 2 through 4 shall be 20 gauge minimum as specified"
+   ],
+   "facts": "The approved duct submittal requires 20 gauge supply trunks on Levels 2-4. Keystone's later claim that it \"installed per approved submittals\" is false.",
+   "hot": true,
+   "tool_note": null,
+   "planted": true,
+   "text": "SUBMITTAL TRANSMITTAL No. 005\n\nProject: Harpeth Ridge Medical Office Building, Job 24-117\nFrom: Brightwater Builders, Inc. (Marcus Oyelaran)\nTo: Lindqvist Rowe Architects, PLLC\nSpecification Section: 23 31 13 - Metal ducts\nDate Sent: February 13, 2025\n\nArchitect's Action (February 24, 2025):\nAPPROVED AS NOTED. Supply trunks serving Levels 2 through 4 shall be 20 gauge minimum as specified; 22 gauge shown for branch ducts only is acceptable.\n\nReviewed by Evelyn Rowe, AIA. Review is for general conformance with the design concept only; the Contractor remains responsible for dimensions, quantities and coordination.\n"
+  },
+  {
+   "file": "2024-04-08 Haddad to Haldane - Concrete pour 04-09-2024 (0000).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "April 9, 2024",
+     "2024-04-09",
+     "Date mentioned in body"
+    ],
+    [
+     "04/09/2024",
+     "2024-04-09",
+     "Date in subject"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Omar Haddad <ohaddad@musiccityconcrete.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Mon, 8 Apr 2024 10:41:10 -0500\nSubject: Harpeth Ridge - Concrete pour 04/09/2024\n\nRick,\n\nConfirming the grid lines C-D pour for April 9, 2024 at 6:30 AM. Pump truck booked, testing lab notified. Weather looks fine, we will call it by 5 AM if not.\n\nThanks,\nOmar Haddad\nMusic City Concrete\n"
+  },
+  {
+   "file": "2024-04-16 Haldane to Holloway - Inspection request - grid lines A-B (0001).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "April 22, 2024",
+     "2024-04-22",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Rick Haldane <rhaldane@brightwaterbuilders.com>\nTo: Jess Holloway <jholloway@cumberlandelectric.com>\nDate: Tue, 16 Apr 2024 17:46:10 -0500\nSubject: Harpeth Ridge - Inspection request - grid lines A-B\n\nJess,\n\nCounty inspector is booked for the grid lines A-B rough-in on April 22, 2024. Please have your foreman walk it with me at 7:30 so we are not scrambling.\n\nThanks,\nRick Haldane\nBrightwater Builders\n"
+  },
+  {
+   "file": "2024-05-03 Tanaka to Haldane - Delivery window 05-08-2024 (0002).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "May 8, 2024",
+     "2024-05-08",
+     "Date mentioned in body"
+    ],
+    [
+     "05/08/2024",
+     "2024-05-08",
+     "Date in subject"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Ray Tanaka <rtanaka@volunteerdrywall.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Fri, 3 May 2024 13:28:41 -0500\nSubject: Harpeth Ridge - Delivery window 05/08/2024\n\nRick,\n\nDrywall board for grid lines C-D arrives May 8, 2024 between 7 and 9 AM. We need the hoist from 7:15. Please confirm the laydown area stays open.\n\nThanks,\nRay Tanaka\nVolunteer Drywall\n"
+  },
+  {
+   "file": "2024-05-09 Oyelaran to Rowe - RFI follow-up (0003).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "May 13, 2024",
+     "2024-05-13",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Evelyn Rowe <erowe@lindqvistrowe.com>\nDate: Thu, 9 May 2024 11:16:25 -0500\nSubject: Harpeth Ridge - RFI follow-up\n\nEvelyn,\n\nEvelyn, following up on the open RFIs for the elevator pit. Two are holding work in the field. Can we get responses by May 13, 2024?\n\nThanks,\nMarcus Oyelaran\nBrightwater Builders\n"
+  },
+  {
+   "file": "2024-06-07 Haldane to Wierzbicki - Look-ahead schedule (0004).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "June 9, 2024",
+     "2024-06-09",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Rick Haldane <rhaldane@brightwaterbuilders.com>\nTo: Tomasz Wierzbicki <twierzbicki@keystonemech.com>\nDate: Fri, 7 Jun 2024 09:00:50 -0500\nSubject: Harpeth Ridge - Look-ahead schedule\n\nTomasz,\n\nTomasz, updated three-week look-ahead attached. Your crew is shown in grid lines A-B starting June 9, 2024. Let me know today if manpower is a problem.\n\nThanks,\nRick Haldane\nBrightwater Builders\n"
+  },
+  {
+   "file": "2024-06-24 Linwood to Haldane - Plumbing rough-in the building pad (0005).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "June 27, 2024",
+     "2024-06-27",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Beth Linwood <blinwood@tristarplumbing.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Mon, 24 Jun 2024 15:15:55 -0500\nSubject: Harpeth Ridge - Plumbing rough-in the building pad\n\nRick,\n\nRough-in in the building pad will be ready for inspection June 27, 2024. We had one sleeve miss at grid C-2 which we will core and firestop.\n\nThanks,\nBeth Linwood\nTri-Star Plumbing\n"
+  },
+  {
+   "file": "2024-09-23 Feld to Haldane - Safety walk 09-27-2024 (0006).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "September 27, 2024",
+     "2024-09-27",
+     "Date mentioned in body"
+    ],
+    [
+     "09/27/2024",
+     "2024-09-27",
+     "Date in subject"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Nora Feld <nfeld@brightwaterbuilders.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Mon, 23 Sep 2024 06:18:25 -0500\nSubject: Harpeth Ridge - Safety walk 09/27/2024\n\nRick,\n\nSafety walk findings for the north stair on September 27, 2024: two open floor penetrations uncovered, one ladder not tied off. Please correct before noon.\n\nThanks,\nNora Feld\nBrightwater Builders\n"
+  },
+  {
+   "file": "2024-09-30 Whitcomb to Oyelaran - Owner walkthrough (0007).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "October 6, 2024",
+     "2024-10-06",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Dana Whitcomb <dwhitcomb@tallisdev.com>\nTo: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nDate: Mon, 30 Sep 2024 11:03:52 -0500\nSubject: Harpeth Ridge - Owner walkthrough\n\nMarcus,\n\nMarcus, the Tallis leasing team would like to walk the imaging suite on October 6, 2024. Hard hats and vests for four people, please.\n\nThanks,\nDana Whitcomb\nTallis Development Group\n"
+  },
+  {
+   "file": "2024-10-01 Oyelaran to Rowe - Submittal status (0008).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "October 3, 2024",
+     "2024-10-03",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Evelyn Rowe <erowe@lindqvistrowe.com>\nDate: Tue, 1 Oct 2024 08:57:49 -0500\nSubject: Harpeth Ridge - Submittal status\n\nEvelyn,\n\nEvelyn, we are still waiting on the Level 3 submittal returned October 3, 2024. Lead times on that material are running long.\n\nThanks,\nMarcus Oyelaran\nBrightwater Builders\n"
+  },
+  {
+   "file": "2024-10-07 Haddad to Haldane - Concrete pour 10-11-2024 (0009).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "October 11, 2024",
+     "2024-10-11",
+     "Date mentioned in body"
+    ],
+    [
+     "10/11/2024",
+     "2024-10-11",
+     "Date in subject"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Omar Haddad <ohaddad@musiccityconcrete.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Mon, 7 Oct 2024 09:50:58 -0500\nSubject: Harpeth Ridge - Concrete pour 10/11/2024\n\nRick,\n\nConfirming the Level 3 pour for October 11, 2024 at 6:30 AM. Pump truck booked, testing lab notified. Weather looks fine, we will call it by 5 AM if not.\n\nThanks,\nOmar Haddad\nMusic City Concrete\n"
+  },
+  {
+   "file": "2024-10-14 Haldane to Holloway - Inspection request - Level 3 (0010).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "October 20, 2024",
+     "2024-10-20",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Rick Haldane <rhaldane@brightwaterbuilders.com>\nTo: Jess Holloway <jholloway@cumberlandelectric.com>\nDate: Mon, 14 Oct 2024 11:19:49 -0500\nSubject: Harpeth Ridge - Inspection request - Level 3\n\nJess,\n\nCounty inspector is booked for the Level 3 rough-in on October 20, 2024. Please have your foreman walk it with me at 7:30 so we are not scrambling.\n\nThanks,\nRick Haldane\nBrightwater Builders\n"
+  },
+  {
+   "file": "2024-12-31 Tanaka to Haldane - Delivery window 01-04-2025 (0011).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "January 4, 2025",
+     "2025-01-04",
+     "Date mentioned in body"
+    ],
+    [
+     "01/04/2025",
+     "2025-01-04",
+     "Date in subject"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Ray Tanaka <rtanaka@volunteerdrywall.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Tue, 31 Dec 2024 18:39:17 -0600\nSubject: Harpeth Ridge - Delivery window 01/04/2025\n\nRick,\n\nDrywall board for Level 1 arrives January 4, 2025 between 7 and 9 AM. We need the hoist from 7:15. Please confirm the laydown area stays open.\n\nThanks,\nRay Tanaka\nVolunteer Drywall\n"
+  },
+  {
+   "file": "2025-02-03 Oyelaran to Rowe - RFI follow-up (0012).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "February 5, 2025",
+     "2025-02-05",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Evelyn Rowe <erowe@lindqvistrowe.com>\nDate: Mon, 3 Feb 2025 07:00:44 -0600\nSubject: Harpeth Ridge - RFI follow-up\n\nEvelyn,\n\nEvelyn, following up on the open RFIs for Level 3. Two are holding work in the field. Can we get responses by February 5, 2025?\n\nThanks,\nMarcus Oyelaran\nBrightwater Builders\n"
+  },
+  {
+   "file": "2025-03-14 Haldane to Wierzbicki - Look-ahead schedule (0013).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "March 19, 2025",
+     "2025-03-19",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Rick Haldane <rhaldane@brightwaterbuilders.com>\nTo: Tomasz Wierzbicki <twierzbicki@keystonemech.com>\nDate: Fri, 14 Mar 2025 15:45:47 -0500\nSubject: Harpeth Ridge - Look-ahead schedule\n\nTomasz,\n\nTomasz, updated three-week look-ahead attached. Your crew is shown in Level 1 starting March 19, 2025. Let me know today if manpower is a problem.\n\nThanks,\nRick Haldane\nBrightwater Builders\n"
+  },
+  {
+   "file": "2025-03-18 Linwood to Haldane - Plumbing rough-in Level 4 (0014).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "March 24, 2025",
+     "2025-03-24",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Beth Linwood <blinwood@tristarplumbing.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Tue, 18 Mar 2025 13:25:20 -0500\nSubject: Harpeth Ridge - Plumbing rough-in Level 4\n\nRick,\n\nRough-in in Level 4 will be ready for inspection March 24, 2025. We had one sleeve miss at grid C-2 which we will core and firestop.\n\nThanks,\nBeth Linwood\nTri-Star Plumbing\n"
+  },
+  {
+   "file": "2025-05-06 Feld to Haldane - Safety walk 05-11-2025 (0015).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "May 11, 2025",
+     "2025-05-11",
+     "Date mentioned in body"
+    ],
+    [
+     "05/11/2025",
+     "2025-05-11",
+     "Date in subject"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Nora Feld <nfeld@brightwaterbuilders.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Tue, 6 May 2025 07:56:41 -0500\nSubject: Harpeth Ridge - Safety walk 05/11/2025\n\nRick,\n\nSafety walk findings for the imaging suite on May 11, 2025: two open floor penetrations uncovered, one ladder not tied off. Please correct before noon.\n\nThanks,\nNora Feld\nBrightwater Builders\n"
+  },
+  {
+   "file": "2025-05-07 Whitcomb to Oyelaran - Owner walkthrough (0016).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "May 12, 2025",
+     "2025-05-12",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Dana Whitcomb <dwhitcomb@tallisdev.com>\nTo: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nDate: Wed, 7 May 2025 07:42:42 -0500\nSubject: Harpeth Ridge - Owner walkthrough\n\nMarcus,\n\nMarcus, the Tallis leasing team would like to walk the imaging suite on May 12, 2025. Hard hats and vests for four people, please.\n\nThanks,\nDana Whitcomb\nTallis Development Group\n"
+  },
+  {
+   "file": "2025-06-06 Oyelaran to Rowe - Submittal status (0017).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "June 8, 2025",
+     "2025-06-08",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Marcus Oyelaran <moyelaran@brightwaterbuilders.com>\nTo: Evelyn Rowe <erowe@lindqvistrowe.com>\nDate: Fri, 6 Jun 2025 06:44:49 -0500\nSubject: Harpeth Ridge - Submittal status\n\nEvelyn,\n\nEvelyn, we are still waiting on the the imaging suite submittal returned June 8, 2025. Lead times on that material are running long.\n\nThanks,\nMarcus Oyelaran\nBrightwater Builders\n"
+  },
+  {
+   "file": "2025-07-15 Haddad to Haldane - Concrete pour 07-19-2025 (0018).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "July 19, 2025",
+     "2025-07-19",
+     "Date mentioned in body"
+    ],
+    [
+     "07/19/2025",
+     "2025-07-19",
+     "Date in subject"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Omar Haddad <ohaddad@musiccityconcrete.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Tue, 15 Jul 2025 08:21:13 -0500\nSubject: Harpeth Ridge - Concrete pour 07/19/2025\n\nRick,\n\nConfirming the the roof pour for July 19, 2025 at 6:30 AM. Pump truck booked, testing lab notified. Weather looks fine, we will call it by 5 AM if not.\n\nThanks,\nOmar Haddad\nMusic City Concrete\n"
+  },
+  {
+   "file": "2025-08-11 Haldane to Holloway - Inspection request - the north stair (0019).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "August 15, 2025",
+     "2025-08-15",
+     "Date mentioned in body"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Rick Haldane <rhaldane@brightwaterbuilders.com>\nTo: Jess Holloway <jholloway@cumberlandelectric.com>\nDate: Mon, 11 Aug 2025 16:24:37 -0500\nSubject: Harpeth Ridge - Inspection request - the north stair\n\nJess,\n\nCounty inspector is booked for the the north stair rough-in on August 15, 2025. Please have your foreman walk it with me at 7:30 so we are not scrambling.\n\nThanks,\nRick Haldane\nBrightwater Builders\n"
+  },
+  {
+   "file": "2025-09-15 Tanaka to Haldane - Delivery window 09-18-2025 (0020).eml",
+   "fmt": "eml",
+   "type": "EMAIL",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "routine email",
+   "dates": [
+    [
+     "September 18, 2025",
+     "2025-09-18",
+     "Date mentioned in body"
+    ],
+    [
+     "09/18/2025",
+     "2025-09-18",
+     "Date in subject"
+    ]
+   ],
+   "facts": "Routine project coordination email.",
+   "planted": false,
+   "text": "From: Ray Tanaka <rtanaka@volunteerdrywall.com>\nTo: Rick Haldane <rhaldane@brightwaterbuilders.com>\nDate: Mon, 15 Sep 2025 15:29:05 -0500\nSubject: Harpeth Ridge - Delivery window 09/18/2025\n\nRick,\n\nDrywall board for Level 3 arrives September 18, 2025 between 7 and 9 AM. We need the hoist from 7:15. Please confirm the laydown area stays open.\n\nThanks,\nRay Tanaka\nVolunteer Drywall\n"
+  },
+  {
+   "file": "Delivery Ticket 2024-04-05 Cumberland (0000).txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "delivery ticket",
+   "dates": [
+    [
+     "04/05/2024",
+     "2024-04-05",
+     "Delivery date"
+    ]
+   ],
+   "facts": "Routine delivery ticket.",
+   "tool_note": "Mentions Brightwater and \"Harpeth Ridge\", so screening should show LIKELY.",
+   "planted": false,
+   "text": "DELIVERY TICKET  No. 973412\nVendor: Cumberland Building Materials\nShip To: Brightwater Builders - Harpeth Ridge MOB, 1200 Harpeth Ridge Parkway, Franklin TN\nDelivery Date: 04/05/2024\nMaterial: #5 rebar, 18 tons\nReceived in good condition, counted and checked against packing list. Shortages or damage noted below.\nExceptions: 2 pieces damaged, credit requested.\nReceived by: N. Feld\n"
+  },
+  {
+   "file": "Delivery Ticket 2024-05-08 Mid-South (0001).txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "delivery ticket",
+   "dates": [
+    [
+     "05/08/2024",
+     "2024-05-08",
+     "Delivery date"
+    ]
+   ],
+   "facts": "Routine delivery ticket.",
+   "tool_note": "Mentions Brightwater and \"Harpeth Ridge\", so screening should show LIKELY.",
+   "planted": false,
+   "text": "DELIVERY TICKET  No. 239866\nVendor: Mid-South Mechanical Supply\nShip To: Brightwater Builders - Harpeth Ridge MOB, 1200 Harpeth Ridge Parkway, Franklin TN\nDelivery Date: 05/08/2024\nMaterial: Wide-flange steel, 42 pieces\nReceived in good condition, counted and checked against packing list. Shortages or damage noted below.\nExceptions: Short 1 bundle, balance to follow.\nReceived by: R. Haldane\n"
+  },
+  {
+   "file": "Delivery Ticket 2024-06-26 Nashville (0002).txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "delivery ticket",
+   "dates": [
+    [
+     "06/26/2024",
+     "2024-06-26",
+     "Delivery date"
+    ]
+   ],
+   "facts": "Routine delivery ticket.",
+   "tool_note": "Mentions Brightwater and \"Harpeth Ridge\", so screening should show LIKELY.",
+   "planted": false,
+   "text": "DELIVERY TICKET  No. 272523\nVendor: Nashville Steel Supply\nShip To: Brightwater Builders - Harpeth Ridge MOB, 1200 Harpeth Ridge Parkway, Franklin TN\nDelivery Date: 06/26/2024\nMaterial: Metal deck, 36 bundles\nReceived in good condition, counted and checked against packing list. Shortages or damage noted below.\nExceptions: 2 pieces damaged, credit requested.\nReceived by: R. Haldane\n"
+  },
+  {
+   "file": "Delivery Ticket 2024-08-12 Volunteer (0003).txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "delivery ticket",
+   "dates": [
+    [
+     "08/12/2024",
+     "2024-08-12",
+     "Delivery date"
+    ]
+   ],
+   "facts": "Routine delivery ticket.",
+   "tool_note": "Mentions Brightwater and \"Harpeth Ridge\", so screening should show LIKELY.",
+   "planted": false,
+   "text": "DELIVERY TICKET  No. 594447\nVendor: Volunteer Lumber and Board\nShip To: Brightwater Builders - Harpeth Ridge MOB, 1200 Harpeth Ridge Parkway, Franklin TN\nDelivery Date: 08/12/2024\nMaterial: Gypsum board 5/8 in. type X, 620 sheets\nReceived in good condition, counted and checked against packing list. Shortages or damage noted below.\nExceptions: Short 1 bundle, balance to follow.\nReceived by: N. Feld\n"
+  },
+  {
+   "file": "Delivery Ticket 2025-01-09 Middle (0004).txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "delivery ticket",
+   "dates": [
+    [
+     "01/09/2025",
+     "2025-01-09",
+     "Delivery date"
+    ]
+   ],
+   "facts": "Routine delivery ticket.",
+   "tool_note": "Mentions Brightwater and \"Harpeth Ridge\", so screening should show LIKELY.",
+   "planted": false,
+   "text": "DELIVERY TICKET  No. 966731\nVendor: Middle Tennessee Ready Mix\nShip To: Brightwater Builders - Harpeth Ridge MOB, 1200 Harpeth Ridge Parkway, Franklin TN\nDelivery Date: 01/09/2025\nMaterial: Galvanized spiral duct 12 in., 480 LF\nReceived in good condition, counted and checked against packing list. Shortages or damage noted below.\nExceptions: None.\nReceived by: site laborer (initials illegible)\n"
+  },
+  {
+   "file": "Delivery Ticket 2025-02-18 Middle (0005).txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "delivery ticket",
+   "dates": [
+    [
+     "02/18/2025",
+     "2025-02-18",
+     "Delivery date"
+    ]
+   ],
+   "facts": "Routine delivery ticket.",
+   "tool_note": "Mentions Brightwater and \"Harpeth Ridge\", so screening should show LIKELY.",
+   "planted": false,
+   "text": "DELIVERY TICKET  No. 468584\nVendor: Middle Tennessee Ready Mix\nShip To: Brightwater Builders - Harpeth Ridge MOB, 1200 Harpeth Ridge Parkway, Franklin TN\nDelivery Date: 02/18/2025\nMaterial: Copper type L, 900 LF\nReceived in good condition, counted and checked against packing list. Shortages or damage noted below.\nExceptions: 2 pieces damaged, credit requested.\nReceived by: site laborer (initials illegible)\n"
+  },
+  {
+   "file": "Delivery Ticket 2025-05-02 Mid-South (0006).txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "delivery ticket",
+   "dates": [
+    [
+     "05/02/2025",
+     "2025-05-02",
+     "Delivery date"
+    ]
+   ],
+   "facts": "Routine delivery ticket.",
+   "tool_note": "Mentions Brightwater and \"Harpeth Ridge\", so screening should show LIKELY.",
+   "planted": false,
+   "text": "DELIVERY TICKET  No. 899963\nVendor: Mid-South Mechanical Supply\nShip To: Brightwater Builders - Harpeth Ridge MOB, 1200 Harpeth Ridge Parkway, Franklin TN\nDelivery Date: 05/02/2025\nMaterial: EMT conduit 3/4 in., 2,400 LF\nReceived in good condition, counted and checked against packing list. Shortages or damage noted below.\nExceptions: 2 pieces damaged, credit requested.\nReceived by: N. Feld\n"
+  },
+  {
+   "file": "Delivery Ticket 2025-06-12 Nashville (0007).txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "delivery ticket",
+   "dates": [
+    [
+     "06/12/2025",
+     "2025-06-12",
+     "Delivery date"
+    ]
+   ],
+   "facts": "Routine delivery ticket.",
+   "tool_note": "Mentions Brightwater and \"Harpeth Ridge\", so screening should show LIKELY.",
+   "planted": false,
+   "text": "DELIVERY TICKET  No. 693903\nVendor: Nashville Steel Supply\nShip To: Brightwater Builders - Harpeth Ridge MOB, 1200 Harpeth Ridge Parkway, Franklin TN\nDelivery Date: 06/12/2025\nMaterial: Ceiling tile 2x2, 180 cartons\nReceived in good condition, counted and checked against packing list. Shortages or damage noted below.\nExceptions: Short 1 bundle, balance to follow.\nReceived by: N. Feld\n"
+  },
+  {
+   "file": "Delivery Ticket 2025-06-19 Nashville (0008).txt",
+   "fmt": "txt",
+   "type": "DOCUMENT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "delivery ticket",
+   "dates": [
+    [
+     "06/19/2025",
+     "2025-06-19",
+     "Delivery date"
+    ]
+   ],
+   "facts": "Routine delivery ticket.",
+   "tool_note": "Mentions Brightwater and \"Harpeth Ridge\", so screening should show LIKELY.",
+   "planted": false,
+   "text": "DELIVERY TICKET  No. 281028\nVendor: Nashville Steel Supply\nShip To: Brightwater Builders - Harpeth Ridge MOB, 1200 Harpeth Ridge Parkway, Franklin TN\nDelivery Date: 06/19/2025\nMaterial: Roofing membrane, 62 rolls\nReceived in good condition, counted and checked against packing list. Shortages or damage noted below.\nExceptions: None.\nReceived by: N. Feld\n"
+  },
+  {
+   "file": "Daily report 02-03-2025 (copy from superintendent laptop).txt",
+   "fmt": "txt",
+   "type": "REPORT",
+   "relevance": "strong",
+   "designation": "produce",
+   "kind": "daily report",
+   "dates": [
+    [
+     "02/03/2025",
+     "2025-02-03",
+     "Report date"
+    ]
+   ],
+   "facts": "Byte-for-byte copy of the February 3, 2025 daily report under a different file name.",
+   "hot": false,
+   "planted": true,
+   "integrity": "duplicate",
+   "tool_note": "Expect it to be skipped at upload as \"already ingested\". Only one copy may enter the matter. Duplicate of: Daily Field Report 2025-02-03 No. 213.txt",
+   "text": "BRIGHTWATER BUILDERS, INC.\nDAILY FIELD REPORT\n\nProject: Harpeth Ridge Medical Office Building - Job No. 24-117\nReport No. 213                     Date: 02/03/2025\nSuperintendent: Rick Haldane\nWeather: 34 F, overcast. Work day: Yes\n\nMANPOWER\nBrightwater Builders ........ 4\nKeystone Mechanical ......... 8\nCumberland Electric ......... 8\nVolunteer Drywall ........... 12\n\nWORK PERFORMED\n- Keystone Mechanical hanging Level 3 supply ductwork, east wing. Keystone foreman advises material on hand is 22 gauge; 20 gauge coil still on backorder.\n- Drywall hanging Level 2 corridors.\n- Electrical rough-in Level 3.\n\nDELAYS / ISSUES\n- None reported.\n\nRick Haldane, Superintendent\n"
+  }
+ ]
+}
