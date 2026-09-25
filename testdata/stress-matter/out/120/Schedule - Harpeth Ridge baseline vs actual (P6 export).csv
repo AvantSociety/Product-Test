@@ -1,0 +1,10 @@
+Activity ID,Activity Name,Baseline Start,Baseline Finish,Actual Start,Actual Finish,Responsible
+A1000,Notice to Proceed,2024-04-01,2024-04-01,2024-04-01,2024-04-01,Tallis
+A1200,Foundations,2024-04-15,2024-06-14,2024-04-16,2024-06-21,Brightwater
+A2000,Structural steel erection,2024-06-17,2024-08-30,2024-06-24,2024-09-06,Brightwater
+A3100,Level 1 imaging suite rough-in,2024-10-14,2024-12-20,2024-11-25,2025-02-28,Brightwater
+A3400,Level 3 supply ductwork,2025-01-20,2025-02-21,2025-02-03,2025-02-14,Keystone
+A3410,Level 3 ductwork remove and replace,,,2025-03-10,2025-04-08,Keystone
+A5000,Ceilings Level 3,2025-02-24,2025-03-21,2025-04-10,2025-05-09,Brightwater
+A8000,Commissioning and TAB,2025-05-19,2025-06-20,2025-07-28,2025-08-29,Keystone
+A9000,Substantial Completion,2025-06-30,2025-06-30,2025-09-12,2025-09-12,Brightwater

@@ -76,6 +76,16 @@ const DEFECTS = {
     // confidentiality breach, not merely a quality problem.
     dismissible: true,
   },
+  no_connection: {
+    label: 'Names no party or key term of this matter',
+    cure: 'Screening found nothing connecting this document to the matter. If it belongs here, confirm it and it will be released for production.',
+    // The vocabulary test above misses a document that shares boilerplate
+    // with the set: a letter on the firm's own letterhead for another client
+    // reads as related because it shares the firm's name with the privileged
+    // emails. The screening criteria describe the matter itself, so a
+    // readable document that matches none of them is held for a human look.
+    dismissible: true,
+  },
 };
 
 /**
@@ -85,6 +95,8 @@ const DEFECTS = {
  * @param citations  extracted citations keyed by document name (advisory only)
  * @param privilege  designations keyed by document name
  * @param bates      assigned Bates numbers keyed by document name
+ * @param screening  relevance category keyed by document name, when the
+ *                   matter has screening criteria
  */
 export function computeIntegrityReport(
   files,
@@ -92,7 +104,8 @@ export function computeIntegrityReport(
   privilege = {},
   bates = {},
   confirmedRelated = new Set(),
-  collectionConfirmed = false
+  collectionConfirmed = false,
+  screening = {}
 ) {
   if (!files || files.length === 0) return null;
   const total = files.length;
@@ -154,7 +167,16 @@ export function computeIntegrityReport(
 
     if (collided.has(file.name)) defects.push('bates_collision');
 
-    if (unrelatedNames.has(file.name)) defects.push('unrelated');
+    if (unrelatedNames.has(file.name)) {
+      defects.push('unrelated');
+    } else if (
+      screening[file.name] === 'none'
+      && content.trim()
+      && !file.needsOcr
+      && !confirmedRelated.has(file.hash)
+    ) {
+      defects.push('no_connection');
+    }
 
     if (defects.length > 0) {
       exceptions.push({
