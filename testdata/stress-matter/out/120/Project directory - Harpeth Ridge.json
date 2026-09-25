@@ -1,0 +1,13 @@
+{
+  "project": "Harpeth Ridge Medical Office Building",
+  "job_number": "24-117",
+  "contacts": [
+    {"name": "Dana Whitcomb", "company": "Tallis Development Group, LLC", "role": "Owner's Representative", "email": "dwhitcomb@tallisdev.com"},
+    {"name": "Evelyn Rowe", "company": "Lindqvist Rowe Architects, PLLC", "role": "Architect of Record", "email": "erowe@lindqvistrowe.com"},
+    {"name": "Marcus Oyelaran", "company": "Brightwater Builders, Inc.", "role": "Project Manager", "email": "moyelaran@brightwaterbuilders.com"},
+    {"name": "Rick Haldane", "company": "Brightwater Builders, Inc.", "role": "Superintendent", "email": "rhaldane@brightwaterbuilders.com"},
+    {"name": "Tomasz Wierzbicki", "company": "Keystone Mechanical Services, LLC", "role": "HVAC Project Manager", "email": "twierzbicki@keystonemech.com"},
+    {"name": "Luis Carranza", "company": "Keystone Mechanical Services, LLC", "role": "Sheet Metal Foreman", "email": "lcarranza@keystonemech.com"},
+    {"name": "Hannah Brook", "company": "Meridian Commissioning Group", "role": "Commissioning Authority", "email": "hbrook@meridiancx.com"}
+  ]
+}

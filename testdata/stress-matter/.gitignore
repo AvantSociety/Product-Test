@@ -1,0 +1,7 @@
+# Generated collections are reproducible from generate.py. Only the 120-file
+# core set and its answer key are kept in the repository.
+out/*
+!out/120/
+out/120/results.json
+out/120/failure.png
+__pycache__/
