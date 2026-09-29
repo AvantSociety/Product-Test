@@ -618,6 +618,8 @@ export default function App() {
   }), [criteriaParties, criteriaTerms, criteriaFrom, criteriaTo]);
 
   const screeningActive = hasCriteria(relevanceCriteria);
+  // What citation scoring needs from the criteria: the listed parties.
+  const citationCriteria = useMemo(() => ({ parties: relevanceCriteria.parties }), [relevanceCriteria.parties]);
 
   const { results: relevanceResults, counts: relevanceCounts } = useMemo(
     () => screenDocuments(documents, relevanceCriteria),
@@ -1000,7 +1002,9 @@ export default function App() {
 
   // The one ingest path. Uploads and sample matters both come through here, so
   // a sample is processed exactly as a real document would be.
-  const ingestFiles = async (files) => {
+  // Extraction scores against the matter's listed parties, so it takes the
+  // criteria in force (or, for a sample, the criteria it is about to set).
+  const ingestFiles = async (files, criteria = citationCriteria) => {
     setIsUploading(true);
     setUploadProgress(0);
     setUploadNotices([]);
@@ -1044,7 +1048,7 @@ export default function App() {
       setDocuments(prev => [...prev, ...accepted]);
       setCitations(prev => {
         const next = { ...prev };
-        accepted.forEach(doc => { next[doc.name] = extractCitations(doc.content, doc.name); });
+        accepted.forEach(doc => { next[doc.name] = extractCitations(doc.content, doc.name, criteria); });
         return next;
       });
       setPrivilege(prev => {
@@ -1289,6 +1293,7 @@ export default function App() {
       offset: pendingSelection.offset,
       fileName: selectedDocSource,
       tags: pendingTags,
+      criteria: citationCriteria,
     });
     setCitations(prev => {
       const next = [...(prev[selectedDocSource] || []), citation];
@@ -1392,8 +1397,10 @@ export default function App() {
         ].filter(Boolean).join('\n');
       }),
     ].join('\n');
+    // Inserting citations is assembly, not review: only text counsel types
+    // marks the draft as edited, which is what the work-product header and
+    // the Stage 09 item rest on.
     setMemoText(prev => (prev === DEFAULT_MEMO ? block : `${prev.trimEnd()}\n\n${block}`));
-    setMemoEdited(true);
     appendAudit('Inserted tagged citations into the brief', `${tag} (${matching.length})`);
   };
 
@@ -1446,7 +1453,7 @@ export default function App() {
         tone: 'emerald',
         title: 'Citation Digest',
         blurb: 'Every record citation, grouped by document, with its locator and any note you attached.',
-        build: () => buildBrief({ caseTitle, memoText, citations: allProducibleCitations, bates: batesAssignments, notes, approval, flagged }),
+        build: () => buildBrief({ caseTitle, memoText, citations: allProducibleCitations, bates: batesAssignments, notes, approval, reviewed: memoEdited, flagged }),
       },
       {
         key: 'privilege',
@@ -1483,7 +1490,8 @@ export default function App() {
     ];
   };
 
-  const handleReanalyze = () => {
+  // Re-extracts every document's citations against the given criteria.
+  const reextractCitations = (criteria, reason) => {
                       // Re-extract from current document contents, without
                       // discarding the attorney's work. Citations counsel wrote
                       // are kept verbatim; tags and notes are re-attached by
@@ -1496,7 +1504,7 @@ export default function App() {
                         const prior = citations[d.name] || [];
                         const anchorOf = c => `${c.offset}::${c.excerpt}`;
                         const priorByAnchor = new Map(prior.map(c => [anchorOf(c), c]));
-                        const fresh = extractCitations(d.content, d.name).map(c => {
+                        const fresh = extractCitations(d.content, d.name, criteria).map(c => {
                           const match = priorByAnchor.get(anchorOf(c));
                           if (match && match.id !== c.id) {
                             noteRemap[`${d.name}::${match.id}`] = `${d.name}::${c.id}`;
@@ -1514,9 +1522,13 @@ export default function App() {
                         });
                         return next;
                       });
-                      appendAudit('Re-extracted citations', `${documents.length} documents`, 'system');
-                      handleStepChange(4);
+                      appendAudit(reason, `${documents.length} documents`, 'system');
                     };
+
+  const handleReanalyze = () => {
+    reextractCitations(citationCriteria, 'Re-extracted citations');
+    handleStepChange(4);
+  };
 
   // Verified only while the drawer is open: recomputing every hash on each
   // keystroke elsewhere would be wasted work on a long matter.
@@ -1569,7 +1581,7 @@ export default function App() {
     setLoadingSample(id);
     try {
       const files = await loadSampleFiles(id);
-      const accepted = await ingestFiles(files);
+      const accepted = await ingestFiles(files, { parties: parseCriteriaList(sample.criteria.parties) });
       const names = accepted.map(d => d.name);
       setCaseTitle(sample.title);
       setBatesPrefix(sample.batesPrefix);
@@ -2423,8 +2435,15 @@ export default function App() {
                         placeholder="Acme Holdings, Jane Doe, Meridian Partners"
                         value={criteriaParties}
                         onChange={(e) => setCriteriaParties(e.target.value)}
-                        {...editProps('criteriaParties', criteriaParties, (before, after) =>
-                          appendAudit('Changed screening criteria: parties', `"${before}" → "${after}"`))}
+                        {...editProps('criteriaParties', criteriaParties, (before, after) => {
+                          appendAudit('Changed screening criteria: parties', `"${before}" → "${after}"`);
+                          // Citation scoring counts only listed parties, so the
+                          // citations are re-extracted against the new list.
+                          if (documents.length > 0) {
+                            reextractCitations({ parties: parseCriteriaList(after) },
+                              'Re-extracted citations for the changed party list');
+                          }
+                        })}
                         className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                           isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}

@@ -209,7 +209,7 @@ export function buildProductionIndex({ caseTitle, documents, privilege, bates, f
 }
 
 /** The citation digest, built from the citations actually extracted. */
-export function buildBrief({ caseTitle, memoText, citations, bates, notes, approval, flagged = false }) {
+export function buildBrief({ caseTitle, memoText, citations, bates, notes, approval, reviewed = false, flagged = false }) {
   const body = citations
     .map((c, i) => {
       const cite = formatCitation(c, bates[c.source]);
@@ -223,7 +223,11 @@ export function buildBrief({ caseTitle, memoText, citations, bates, notes, appro
     .join('\n\n');
 
   const content = [
-    `PRIVILEGED & CONFIDENTIAL — ATTORNEY WORK PRODUCT`,
+    // Work product only once counsel has written in it; a generated or
+    // assembled draft says what it is.
+    reviewed
+      ? `PRIVILEGED & CONFIDENTIAL — ATTORNEY WORK PRODUCT`
+      : `DRAFT SCAFFOLD — NOT YET REVIEWED OR EDITED BY COUNSEL`,
     ``,
     `${IMPRINT.firm.toUpperCase()} — ${IMPRINT.line}`,
     ``,

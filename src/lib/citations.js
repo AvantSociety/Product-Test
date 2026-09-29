@@ -87,7 +87,9 @@ export function formatEventDate(time) {
 }
 
 const MONEY_PATTERN = /\$\s?[\d,]+(?:\.\d{2})?\b/;
-const PARTY_PATTERN = /\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/;
+// Used only when counsel has listed no parties: two capitalised words read as
+// a proper name, which is all this pattern can honestly claim.
+const PROPER_NAME_PATTERN = /\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/;
 const OPERATIVE_PATTERN =
   /\b(wire|transfer|account|unauthorized|denied|confirmed|executed|breach|alleged|pursuant|agreement|contract|deposition|payment|receipt|authorization|liability|terminate|indemnif\w*|warrant\w*)\b/i;
 
@@ -95,8 +97,53 @@ export const SIGNAL_LABELS = {
   date: 'date',
   money: 'amount',
   party: 'named party',
+  proper_name: 'proper name',
   operative: 'operative term',
 };
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function wordPattern(needle) {
+  return new RegExp(`(?<![\\w])${escapeRegExp(needle)}(?![\\w])`, 'i');
+}
+
+/**
+ * Initials a document defines for a listed party, as chat exports and
+ * transcripts do: "Sharon Willis (SW)". A message headed "SW to DO" then names
+ * that party even though the surname never appears on the line.
+ */
+function partyAliases(content, parties) {
+  const aliases = new Map();
+  const re = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+\(([A-Z]{2,4})\)/g;
+  let m;
+  while ((m = re.exec(content)) !== null) {
+    const party = parties.find(p => wordPattern(p).test(m[1]));
+    if (party) aliases.set(m[2], party);
+  }
+  return aliases;
+}
+
+/**
+ * Prepares the matter's screening criteria for matching. With parties listed,
+ * the "named party" signal means one of those parties and nothing else.
+ */
+function prepareCriteria(criteria = {}, content = '') {
+  const parties = (criteria.parties || []).map(p => p.trim()).filter(Boolean);
+  const aliases = parties.length ? partyAliases(content, parties) : new Map();
+  return {
+    parties: parties.map(p => ({ name: p, re: wordPattern(p) })),
+    aliases: [...aliases].map(([initials, party]) => ({ party, re: new RegExp(`\\b${initials}\\b`) })),
+  };
+}
+
+/** Distinct listed parties a passage names, directly or by defined initials. */
+function partiesNamed(text, prepared) {
+  const named = new Set(prepared.parties.filter(p => p.re.test(text)).map(p => p.name));
+  prepared.aliases.forEach(a => { if (a.re.test(text)) named.add(a.party); });
+  return named;
+}
 
 /** One citation per ~40 pages of text, floored at 3 and capped at 25. */
 function citationBudget(text) {
@@ -115,6 +162,8 @@ const ABBREVIATIONS = new Set([
   'cir', 'ct', 'dist', 'div', 'app', 'rev', 'supp', 'stat', 'reg', 'rul',
   'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec',
   'approx', 'est', 'dept', 'univ', 'assn', 'bros', 'etc', 'e.g', 'i.e',
+  // Times of day: "6:24 a.m. — SW to DO" is one message, not two fragments.
+  'a.m', 'p.m',
 ]);
 
 /**
@@ -149,10 +198,10 @@ function endsSentence(text, index) {
 
 /**
  * Email and similar headers are routing metadata, never the substance of a
- * document. Citing a From: line displaces a real finding, so the header block
- * is skipped for extraction while remaining visible in the viewer.
+ * document. Citing a From: line displaces a real finding, so header blocks
+ * are skipped for extraction while remaining visible in the viewer.
  */
-const HEADER_LINE = /^\s*(from|to|cc|bcc|subject|date|sent|reply-to|message-id|importance|attachments?)\s*:/i;
+const HEADER_LINE = /^\s*(from|to|cc|bcc|subject|re|date|sent|reply-to|message-id|importance|attachments?)\s*:/i;
 
 export function headerBlockLength(text) {
   const lines = text.split(/\n/);
@@ -173,33 +222,143 @@ export function headerBlockLength(text) {
   return sawHeader ? Math.min(consumed, text.length) : 0;
 }
 
-/**
- * Splits into sentences while tracking each sentence's start offset in the
- * source text, so highlights can be anchored precisely. Also records the
- * sentence's ordinal on its line, which is what makes two citations from the
- * same paragraph distinguishable in a brief.
- */
-function sentencesWithOffsets(text, startAt = 0) {
-  const out = [];
-  let cursor = startAt;
-  let index = startAt;
+// Lines that are never the substance of a document. Each is excluded from
+// scoring but stays visible, and selectable, in the viewer.
+const REPLY_BOUNDARY = /^\s*(?:-{2,}\s*(?:original|forwarded)\s+message\s*-{2,}|on\b.{3,200}\bwrote:)\s*$/i;
+const QUOTED_LINE = /^\s*>/;
+const EXPORT_METADATA = /^\s*(device|participants|exported(?:\s+(?:by|on|at|from))?|export\s+date|conversation(?:\s+id)?|chat\s+id|thread\s+id|custodian|message\s+count|backup\s+date)\s*:/i;
+const EXECUTION_CLAUSE = /^\s*in\s+witness\s+where(?:of|as)\b/i;
+const EXHIBIT_HEADING = /^\s*(exhibit|schedule|annex|appendix|attachment)\b/i;
+const SIGNATURE_FIELD = /^\s*(by|name|title|its|signature|signed|print(?:ed)?\s+name|date)\s*:|^\s*\/s\/|^\s*_{4,}/i;
+const SIGNATURE_ANCHOR = /^\s*(by|name|title|its|signature|signed|print(?:ed)?\s+name)\s*:|^\s*\/s\/|^\s*_{4,}/i;
+const VALEDICTION = /^\s*(sincerely|regards|best regards|kind regards|warm regards|respectfully(?: submitted)?|very truly yours|yours truly|yours sincerely|thanks|thank you|best|cheers)[,.!]?\s*$/i;
+const DISCLAIMER = /confidentiality notice|intended (?:only |solely )?for the (?:sole )?(?:use of the )?(?:individual|addressee|named|person|recipient)|if you (?:are not the intended recipient|have received this (?:e-?mail|message|communication|transmission) in error)|(?:this|the information (?:contained )?in this) (?:e-?mail|message|communication|transmission)(?: and any (?:attachments?|files transmitted with it))? (?:is|are|may be|contains?|may contain) (?:confidential|privileged)/i;
 
-  const push = (end) => {
-    const raw = text.slice(cursor, end);
+/**
+ * Marks which lines take no part in scoring: header blocks wherever they
+ * occur, reply-chain markers and quoted text, export metadata, execution
+ * clauses and the signature page after them, signature blocks and
+ * confidentiality disclaimers.
+ *
+ * A reply-chain marker is a boundary, not a cut. The earlier message beneath
+ * it is often the only copy in the collection, so its routing header and any
+ * ">" quoted lines are dropped while its own body stays citable.
+ */
+export function excludedLines(text) {
+  const lines = text.split('\n');
+  const out = new Array(lines.length).fill(false);
+  const blank = i => lines[i].trim() === '';
+  const paragraphEnd = i => { let j = i; while (j < lines.length && !blank(j)) j += 1; return j; };
+  const paragraphStart = i => { let j = i; while (j > 0 && !blank(j - 1)) j -= 1; return j; };
+
+  // Header blocks: the opening block, any block straight after a reply
+  // boundary, and any run of two or more header lines anywhere else.
+  const headerRun = (i) => { let j = i; while (j < lines.length && HEADER_LINE.test(lines[j])) j += 1; return j; };
+  for (let i = 0; i < lines.length; i++) {
+    if (!HEADER_LINE.test(lines[i])) continue;
+    const end = headerRun(i);
+    const atTop = lines.slice(0, i).every(l => l.trim() === '');
+    const afterBoundary = i > 0 && REPLY_BOUNDARY.test(lines[i - 1]);
+    if (atTop || afterBoundary || end - i >= 2) for (let k = i; k < end; k++) out[k] = true;
+    i = end - 1;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (REPLY_BOUNDARY.test(line) || QUOTED_LINE.test(line) || EXPORT_METADATA.test(line)) out[i] = true;
+
+    // The execution clause and the signature page after it, up to any exhibit.
+    if (EXECUTION_CLAUSE.test(line)) {
+      let j = paragraphStart(i);
+      while (j < lines.length && !EXHIBIT_HEADING.test(lines[j])) { out[j] = true; j += 1; }
+      i = j - 1;
+      continue;
+    }
+
+    // "By: / Name: / Title: / Date:" runs, anchored by at least one field
+    // that only a signature block uses.
+    if (SIGNATURE_FIELD.test(line)) {
+      let j = i;
+      while (j < lines.length && SIGNATURE_FIELD.test(lines[j])) j += 1;
+      if (lines.slice(i, j).some(l => SIGNATURE_ANCHOR.test(l))) {
+        for (let k = i; k < j; k++) out[k] = true;
+        i = j - 1;
+      }
+      continue;
+    }
+
+    // A sign-off and the name, title and contact lines under it.
+    if (VALEDICTION.test(line)) {
+      const end = Math.min(paragraphEnd(i), i + 7);
+      for (let k = i; k < end; k++) out[k] = true;
+      continue;
+    }
+
+    if (DISCLAIMER.test(line)) {
+      for (let k = paragraphStart(i); k < paragraphEnd(i); k++) out[k] = true;
+    }
+  }
+  return out;
+}
+
+// A chat or text-message export line: "8/12/2025 5:48 a.m. — MR to DO: ...".
+const CHAT_LINE = /^\s*(\d{1,2}\/\d{1,2}\/\d{2,4}),?\s+\d{1,2}:\d{2}(?:\s*[ap]\.?m\.?)?\s*[—–-]+\s*([A-Za-z]{1,4})\s+to\s+([A-Za-z]{1,4})\s*:/i;
+
+/**
+ * Splits into citable passages while tracking each one's start offset in the
+ * source text, so highlights can be anchored precisely. Prose is split into
+ * sentences. A chat message is one passage, and a reply joins the message it
+ * answers: "Understood." cited alone says nothing, but cited with the message
+ * it answers it is the approval it records.
+ */
+function passagesWithOffsets(text, excluded) {
+  const out = [];
+  const add = (start, end) => {
+    const raw = text.slice(start, end);
     const leading = raw.length - raw.trimStart().length;
     const trimmed = raw.trim();
-    if (trimmed.length > 40) out.push({ text: trimmed, offset: cursor + leading });
-    cursor = end;
+    if (trimmed.length > 40) out.push({ text: trimmed, offset: start + leading });
   };
 
-  while (index < text.length) {
-    const ch = text[index];
-    if (ch === '\n') { push(index + 1); }
-    else if (ch === '!' || ch === '?') { push(index + 1); }
-    else if (ch === '.' && endsSentence(text, index)) { push(index + 1); }
-    index += 1;
-  }
-  push(text.length);
+  let lineStart = 0;
+  let lastChat = null;
+  const lines = text.split('\n');
+  lines.forEach((line, n) => {
+    const start = lineStart;
+    const end = start + line.length;
+    lineStart = end + 1;
+    if (excluded[n]) { lastChat = null; return; }
+
+    const chat = line.match(CHAT_LINE);
+    if (chat) {
+      const [, date, from, to] = chat;
+      const answers = lastChat && lastChat.date === date
+        && lastChat.from.toLowerCase() === to.toLowerCase()
+        && lastChat.to.toLowerCase() === from.toLowerCase()
+        && !lastChat.joined;
+      if (answers) {
+        const prior = out[out.length - 1];
+        prior.text = text.slice(prior.offset, end).trim();
+        lastChat = { date, from, to, joined: true };
+      } else {
+        const before = out.length;
+        add(start, end);
+        lastChat = out.length > before ? { date, from, to, joined: false } : null;
+      }
+      return;
+    }
+    if (line.trim() !== '') lastChat = null;
+
+    let cursor = start;
+    for (let i = start; i < end; i++) {
+      const ch = text[i];
+      if (ch === '!' || ch === '?' || (ch === '.' && endsSentence(text, i))) {
+        add(cursor, i + 1);
+        cursor = i + 1;
+      }
+    }
+    add(cursor, end);
+  });
   return out;
 }
 
@@ -208,17 +367,33 @@ function sentencesWithOffsets(text, startAt = 0) {
  * they are reported the same way whether the extractor surfaced the passage or
  * the attorney selected it by hand.
  */
-export function detectSignals(text) {
+export function detectSignals(text, criteria = {}, content = text) {
+  return scorePassage(text, prepareCriteria(criteria, content)).signals;
+}
+
+/**
+ * Scores one passage. With parties listed, "named party" means one of them,
+ * and a passage naming two of them (a communication between the parties,
+ * say) outranks one naming a single party.
+ */
+function scorePassage(text, prepared) {
   const signals = [];
-  if (DATE_PATTERN.test(text)) signals.push('date');
-  if (MONEY_PATTERN.test(text)) signals.push('money');
-  if (PARTY_PATTERN.test(text)) signals.push('party');
-  if (OPERATIVE_PATTERN.test(text)) signals.push('operative');
-  return signals;
+  let score = 0;
+  if (DATE_PATTERN.test(text)) { signals.push('date'); score += 3; }
+  if (MONEY_PATTERN.test(text)) { signals.push('money'); score += 3; }
+  if (prepared.parties.length) {
+    const named = partiesNamed(text, prepared);
+    if (named.size > 0) { signals.push('party'); score += 2 + Math.min(named.size - 1, 1); }
+  } else if (PROPER_NAME_PATTERN.test(text)) {
+    signals.push('proper_name'); score += 2;
+  }
+  if (OPERATIVE_PATTERN.test(text)) { signals.push('operative'); score += 2; }
+  score += Math.min(text.length / 100, 1.5);
+  return { signals, score };
 }
 
 /** Builds a citation from a passage the attorney selected in the viewer. */
-export function buildUserCitation({ id, content, excerpt, offset, fileName, tags = [] }) {
+export function buildUserCitation({ id, content, excerpt, offset, fileName, tags = [], criteria = {} }) {
   const span = lineSpan(content, offset, excerpt.length);
   return {
     id,
@@ -229,29 +404,27 @@ export function buildUserCitation({ id, content, excerpt, offset, fileName, tags
     finding: excerpt.length > 150 ? `${excerpt.slice(0, 150)}…` : excerpt,
     excerpt,
     offset,
-    signals: detectSignals(excerpt),
+    signals: detectSignals(excerpt, criteria, content),
     source: fileName,
     origin: 'user',
     tags,
   };
 }
 
-export function extractCitations(content, fileName) {
+/**
+ * @param criteria the matter's screening criteria, { parties }. With parties
+ *                 listed, only they count as named parties; with none, two
+ *                 capitalised words count as a proper name.
+ */
+export function extractCitations(content, fileName, criteria = {}) {
   if (!content || !content.trim()) return [];
 
-  // Routing headers are skipped so a From: line cannot displace a real finding.
-  const bodyStart = headerBlockLength(content);
-
-  const scored = sentencesWithOffsets(content, bodyStart).map((s, i) => {
-    const signals = [];
-    let score = 0;
-    if (DATE_PATTERN.test(s.text)) { signals.push('date'); score += 3; }
-    if (MONEY_PATTERN.test(s.text)) { signals.push('money'); score += 3; }
-    if (PARTY_PATTERN.test(s.text)) { signals.push('party'); score += 2; }
-    if (OPERATIVE_PATTERN.test(s.text)) { signals.push('operative'); score += 2; }
-    score += Math.min(s.text.length / 100, 1.5);
-    return { ...s, index: i, score, signals };
-  });
+  // Routing headers, signature blocks, disclaimers, quoted text and export
+  // metadata are skipped so none of them can displace a real finding.
+  const prepared = prepareCriteria(criteria, content);
+  const scored = passagesWithOffsets(content, excludedLines(content)).map((s, i) => (
+    { ...s, index: i, ...scorePassage(s.text, prepared) }
+  ));
 
   // Only passages that carry at least one real signal are worth citing.
   const candidates = scored.filter(s => s.signals.length > 0);

@@ -180,9 +180,15 @@ for (const d of designations) {
 // Every document left out of the production set must be marked Not Responsive
 // with a reason; one simply left unselected is held by the check as unaccounted.
 results.notResponsive = [];
+// Found in one pass over the page: probing 2,000 rows one locator at a time
+// took longer than the rest of the run.
+const unaccounted = new Set(await page.evaluate(() => [...document.querySelectorAll('div.rounded-xl.border')]
+  .filter(row => [...row.querySelectorAll('span')].some(s => s.textContent.trim() === 'UNACCOUNTED'))
+  .map(row => row.querySelector('span.font-mono.text-xs.font-bold')?.textContent.trim())
+  .filter(Boolean)));
 for (const d of manifest.documents) {
+  if (!unaccounted.has(d.file)) continue;
   const row = rowFor(d.file);
-  if (!(await row.count()) || !/UNACCOUNTED/.test(await row.innerText())) continue;
   const reason = `Outside the production set (screened ${results.rows[d.file]?.screen || 'out'}`
     + `${String(d.responsive || '').startsWith('No') ? `; responsive: ${d.responsive}` : ''})`;
   await row.getByRole('button', { name: 'Not Responsive…' }).click();
