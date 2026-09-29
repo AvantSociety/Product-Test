@@ -131,7 +131,7 @@ export function byteLabel(content) {
 }
 
 /** FRCP 26(b)(5) privilege log — what was withheld, on what basis, and why. */
-export function buildPrivilegeLog({ caseTitle, documents, privilege, bates }) {
+export function buildPrivilegeLog({ caseTitle, documents, privilege, bates, flagged = false }) {
   const withheld = documents.filter(d => privilege[d.name]?.status !== 'produce');
   const rows = [
     ['Bates', 'Document', 'Date Ingested', 'Disposition', 'Basis', 'Description'],
@@ -153,6 +153,7 @@ export function buildPrivilegeLog({ caseTitle, documents, privilege, bates }) {
     `PRIVILEGE LOG`,
     `${caseTitle}`,
     `Prepared under FRCP 26(b)(5)`,
+    ...(flagged ? [SENIOR_REVIEW_LINE] : []),
     `Generated ${new Date().toLocaleString()}`,
     ``,
     '='.repeat(64),
@@ -171,7 +172,7 @@ export function buildPrivilegeLog({ caseTitle, documents, privilege, bates }) {
   return {
     filename: `${slug(caseTitle)}-privilege-log.csv`,
     mime: 'text/csv',
-    content: `${imprintHeader('Privilege Log', caseTitle)}Prepared under FRCP 26(b)(5)\r\n\r\n${toCsv(rows)}`,
+    content: `${imprintHeader('Privilege Log', caseTitle, flagged)}Prepared under FRCP 26(b)(5)\r\n\r\n${toCsv(rows)}`,
     printable,
     pdfFilename: `${slug(caseTitle)}-privilege-log.pdf`,
     caption: `Privilege Log — ${caseTitle}`,
@@ -179,8 +180,8 @@ export function buildPrivilegeLog({ caseTitle, documents, privilege, bates }) {
   };
 }
 
-/** The index that accompanies a production: what was produced, at what Bates range. */
-export function buildProductionIndex({ caseTitle, documents, privilege, bates }) {
+/** The index that accompanies a production: what was produced, under which Bates numbers. */
+export function buildProductionIndex({ caseTitle, documents, privilege, bates, flagged = false }) {
   // Everything going out: produced whole or produced with redactions. A
   // redacted document is still Bates-stamped and served, so leaving it off
   // the index would put pages in opposing counsel's hands that the index
@@ -202,13 +203,13 @@ export function buildProductionIndex({ caseTitle, documents, privilege, bates })
   return {
     filename: `${slug(caseTitle)}-production-index.csv`,
     mime: 'text/csv',
-    content: `${imprintHeader('Production Index', caseTitle)}\r\n${toCsv(rows)}`,
+    content: `${imprintHeader('Production Index', caseTitle, flagged)}\r\n${toCsv(rows)}`,
     count: produced.length,
   };
 }
 
-/** The strategic brief, built from the citations actually extracted. */
-export function buildBrief({ caseTitle, memoText, citations, bates, notes, approval }) {
+/** The citation digest, built from the citations actually extracted. */
+export function buildBrief({ caseTitle, memoText, citations, bates, notes, approval, flagged = false }) {
   const body = citations
     .map((c, i) => {
       const cite = formatCitation(c, bates[c.source]);
@@ -227,7 +228,8 @@ export function buildBrief({ caseTitle, memoText, citations, bates, notes, appro
     `${IMPRINT.firm.toUpperCase()} — ${IMPRINT.line}`,
     ``,
     `${caseTitle}`,
-    `Strategic Evaluation`,
+    `Citation Digest`,
+    ...(flagged ? [SENIOR_REVIEW_LINE] : []),
     `Generated ${new Date().toLocaleString()}`,
     approval?.by
       ? `Approved for packaging by ${approval.by} on ${new Date(approval.at).toLocaleString()}`
@@ -244,11 +246,11 @@ export function buildBrief({ caseTitle, memoText, citations, bates, notes, appro
   ].join('\n');
 
   return {
-    filename: `${slug(caseTitle)}-strategic-brief.txt`,
+    filename: `${slug(caseTitle)}-citation-digest.txt`,
     mime: 'text/plain',
     content,
     printable: content,
-    pdfFilename: `${slug(caseTitle)}-strategic-brief.pdf`,
+    pdfFilename: `${slug(caseTitle)}-citation-digest.pdf`,
     caption: `Privileged & Confidential — ${caseTitle}`,
     count: citations.length,
   };
@@ -259,7 +261,7 @@ export function buildBrief({ caseTitle, memoText, citations, bates, notes, appro
  * This is the artifact that lets a firm show its production was complete as to
  * what was producible, and account for what was not.
  */
-export function buildExceptionsReport({ caseTitle, exceptions }) {
+export function buildExceptionsReport({ caseTitle, exceptions, flagged = false }) {
   const rows = [
     ['Bates', 'Document', 'Defect', 'Required Action'],
     ...exceptions.flatMap(item =>
@@ -274,14 +276,14 @@ export function buildExceptionsReport({ caseTitle, exceptions }) {
   return {
     filename: `${slug(caseTitle)}-exceptions-report.csv`,
     mime: 'text/csv',
-    content: `${imprintHeader('Exceptions Report', caseTitle)}`
+    content: `${imprintHeader('Exceptions Report', caseTitle, flagged)}`
       + `Documents held back from production pending the actions below.\r\n\r\n${toCsv(rows)}`,
     count: exceptions.length,
   };
 }
 
 /** Append-only custody and activity log. */
-export function buildAuditLog({ caseTitle, auditLog }) {
+export function buildAuditLog({ caseTitle, auditLog, flagged = false }) {
   const rows = [
     ['Timestamp', 'Actor', 'Action', 'Target'],
     ...auditLog.map(e => [e.ts, e.actor, e.action, e.target || '']),
@@ -289,14 +291,19 @@ export function buildAuditLog({ caseTitle, auditLog }) {
   return {
     filename: `${slug(caseTitle)}-audit-log.csv`,
     mime: 'text/csv',
-    content: `${imprintHeader('Review Ledger', caseTitle)}Append-only. Entries are never edited or removed.\r\n\r\n${toCsv(rows)}`,
+    content: `${imprintHeader('Review Ledger', caseTitle, flagged)}Append-only. Entries are never edited or removed.\r\n\r\n${toCsv(rows)}`,
     count: auditLog.length,
   };
 }
 
+/** Printed at the head of every deliverable while the matter is flagged in Stage 07. */
+export const SENIOR_REVIEW_LINE = 'Flagged for senior counsel review';
+
 /** The standing header every generated artifact carries. */
-function imprintHeader(docType, caseTitle) {
-  return `${IMPRINT.firm} — ${docType}\r\n${caseTitle}\r\nGenerated ${new Date().toLocaleString()}\r\n`;
+function imprintHeader(docType, caseTitle, flagged = false) {
+  return `${IMPRINT.firm} — ${docType}\r\n${caseTitle}\r\n`
+    + (flagged ? `${SENIOR_REVIEW_LINE}\r\n` : '')
+    + `Generated ${new Date().toLocaleString()}\r\n`;
 }
 
 function slug(text) {

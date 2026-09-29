@@ -236,10 +236,10 @@ const STEPS = [
   { id: 0, title: 'Orientation Hub', actor: 'System', icon: Sparkles, description: 'Quick framework orientation and landing' },
   { id: 1, title: 'Discovery Ingest', actor: 'Source', icon: FolderDown, description: 'Upload and index client documents' },
   { id: 2, title: 'Review & Designate', actor: 'Attorney', icon: EyeOff, description: 'Privilege review and production selection' },
-  { id: 3, title: 'Integrity Check', actor: 'System', icon: CheckCircle2, description: 'Bates sequencing & manifest validation' },
-  { id: 4, title: 'Deep Analysis', actor: 'Processor', icon: Cpu, description: 'Cross-document chronological matching' },
+  { id: 3, title: 'Integrity Check', actor: 'System', icon: CheckCircle2, description: 'Bates assignment and production readiness' },
+  { id: 4, title: 'Deep Analysis', actor: 'Processor', icon: Cpu, description: 'Case chronology from document dates' },
   { id: 5, title: 'Citation Matrix', actor: 'Trust Layer', icon: ShieldCheck, description: 'Record citations traced to source' },
-  { id: 6, title: 'Interactive Review', actor: 'Attorney', icon: FileText, description: 'Strategic brief drafted from findings' },
+  { id: 6, title: 'Interactive Review', actor: 'Attorney', icon: FileText, description: 'Citation digest drafted from findings' },
   { id: 7, title: 'Override & Refine', actor: 'Attorney', icon: Edit3, description: 'Matter parameters, Bates numbering & approval' },
   { id: 8, title: 'Package Ready', actor: 'Deliverables', icon: Archive, description: 'Preview and export production deliverables' },
   { id: 9, title: 'Completion Check', actor: 'Archived', icon: Trophy, description: 'Completion checklist and matter summary' },
@@ -254,8 +254,8 @@ const COMPLETION_ITEMS = [
   { stage: 4, label: 'Chronology built from the producible documents' },
   { stage: 5, label: 'Findings annotated by counsel' },
   { stage: 6, label: 'Brief reviewed and edited, not left as a scaffold' },
-  { stage: 7, label: 'Package approved by a named attorney' },
-  { stage: 8, label: 'Deliverables exported' },
+  { stage: 7, label: 'Package approved (name recorded)' },
+  { stage: 8, label: 'At least one deliverable exported' },
 ];
 
 // The eight steps a production needs, as the matter bar shows them. Labels are
@@ -327,13 +327,13 @@ const ACTOR_STYLES = {
 const ADVISOR_TIPS = {
   0: 'Start at Discovery Ingest to upload the documents for this matter. Everything downstream is built from what you load there.',
   1: 'Upload client documents from your computer. PDF, DOCX, email and plain-text formats are read directly; scanned PDFs are flagged as needing OCR.',
-  2: 'Set the matter name and Bates numbering here — the integrity check stamps documents in Stage 03, so this is your last chance to change them. Then designate each document; anything withheld as privileged is excluded downstream and recorded on the privilege log.',
+  2: 'Set the matter name, Bates prefix and starting number here. Bates numbers are assigned per document, not per page, when the readiness check runs in Stage 03, including to documents it holds back, and the prefix cannot be changed after that. Then designate each document; anything withheld as privileged is excluded downstream and recorded on the privilege log.',
   3: 'Run the readiness check. Documents with defects that make them unsafe to produce are held back onto an exceptions list; the rest proceed clean. Duplicates and missing dates are advisory and never block.',
   4: 'Dates are extracted from each document and assembled into a case chronology. Progress reflects documents actually processed.',
   5: 'Select a finding to highlight the exact passage it was drawn from. Notes you add are attached to that passage in that document.',
   6: 'The brief is drafted from the findings you extracted. Edit it directly — your changes are kept and exported.',
-  7: 'Set the Bates prefix and starting number before the integrity check assigns numbers, then record the attorney approving the package. Changing a designation afterwards voids that approval.',
-  8: 'Preview each deliverable before you download it. The brief and privilege log also render as paginated PDFs; the index and audit log stay CSV for loading into a review platform.',
+  7: 'Record the attorney approving the package. The approval is voided by selecting or deselecting a document, changing a designation or a privilege entry, confirming a held-back document or the collection, or changing the screening criteria.',
+  8: 'Preview each deliverable before you download it. The brief and privilege log also render as paginated PDFs; the index and audit log stay CSV for spreadsheets and case management systems.',
   9: 'A checklist of what a finished production requires, each item checked against real matter state. Resetting clears every document and annotation from this browser.',
 };
 
@@ -346,7 +346,7 @@ const DISPOSITIONS = {
 };
 
 const DEFAULT_MEMO =
-  'Draft the strategic evaluation here, or generate a first pass from the findings extracted in the Citation Matrix.';
+  'Write your analysis here, or generate a citation digest from the findings extracted in the Citation Matrix.';
 
 export default function App() {
   const [activeStep, setActiveStep] = useState(0);
@@ -1166,7 +1166,7 @@ export default function App() {
       .filter(Boolean);
 
     setMemoText([
-      `This evaluation is drawn from ${producibleDocs.length} document${producibleDocs.length === 1 ? '' : 's'} designated for production in ${caseTitle}, yielding ${allProducibleCitations.length} record citation${allProducibleCitations.length === 1 ? '' : 's'}.`,
+      `This digest is drawn from ${producibleDocs.length} document${producibleDocs.length === 1 ? '' : 's'} designated for production in ${caseTitle}, yielding ${allProducibleCitations.length} record citation${allProducibleCitations.length === 1 ? '' : 's'}.`,
       '',
       ...bySource.map((line, i) => `${i + 1}. ${line}`),
       '',
@@ -1175,7 +1175,7 @@ export default function App() {
         : 'No documents in this set were withheld as privileged.',
     ].join('\n'));
     setMemoEdited(false);
-    appendAudit('Generated strategic brief draft', `${allProducibleCitations.length} citations`);
+    appendAudit('Generated citation digest draft', `${allProducibleCitations.length} citations`);
   };
 
   /**
@@ -1212,27 +1212,34 @@ export default function App() {
 
     // Real keyword retrieval across ingested text — no fabricated answer.
     const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
-    const hits = documents
+    const allHits = documents
       .map(doc => {
         const haystack = (doc.content || '').toLowerCase();
         const matched = terms.filter(t => haystack.includes(t));
         return { doc, matched };
       })
       .filter(h => h.matched.length > 0)
-      .sort((a, b) => b.matched.length - a.matched.length)
-      .slice(0, 5);
+      .sort((a, b) => b.matched.length - a.matched.length);
+    const hits = allHits.slice(0, 5);
 
+    // Say how many matched in total, and that several words are searched
+    // separately, so a capped or broad result is not mistaken for the whole.
+    const shownLine = allHits.length > hits.length
+      ? `Showing ${hits.length} of ${allHits.length} documents`
+      : `Found in ${hits.length} document${hits.length === 1 ? '' : 's'}`;
+    const anyWord = terms.length > 1 ? ' (a document matches if it contains any of the words)' : '';
     const reply = documents.length === 0
       ? 'No documents have been ingested yet. Upload files in Discovery Ingest and I can search their contents.'
       : hits.length === 0
         ? `No ingested document contains ${terms.map(t => `"${t}"`).join(' or ')}.`
-        : `Found in ${hits.length} document${hits.length === 1 ? '' : 's'}:\n${hits.map(h => `• ${h.doc.name} (matched: ${h.matched.join(', ')})`).join('\n')}`;
+        : `${shownLine}${anyWord}:\n${hits.map(h => `• ${h.doc.name} (matched: ${h.matched.join(', ')})`).join('\n')}`;
 
     setMessages(prev => [...prev, { sender: 'assistant', text: reply }]);
   };
 
   const deliverables = () => {
-    const args = { caseTitle, documents: selectedDocs, privilege, bates: batesAssignments };
+    const flagged = isFlaggedForReview;
+    const args = { caseTitle, documents: selectedDocs, privilege, bates: batesAssignments, flagged };
     // The production index covers only what is actually going out: documents
     // that passed the readiness check and are designated for production.
     const readySet = new Set(integrityReport ? integrityReport.ready : selectedDocs.map(d => d.name));
@@ -1243,9 +1250,9 @@ export default function App() {
         key: 'brief',
         icon: FileText,
         tone: 'emerald',
-        title: 'Strategic Brief',
-        blurb: 'The evaluation text with every record citation traced to its source document and Bates number.',
-        build: () => buildBrief({ caseTitle, memoText, citations: allProducibleCitations, bates: batesAssignments, notes, approval }),
+        title: 'Citation Digest',
+        blurb: 'Every record citation, grouped by document, with its locator and any note you attached.',
+        build: () => buildBrief({ caseTitle, memoText, citations: allProducibleCitations, bates: batesAssignments, notes, approval, flagged }),
       },
       {
         key: 'privilege',
@@ -1260,7 +1267,7 @@ export default function App() {
         icon: Layers,
         tone: 'indigo',
         title: 'Production Index',
-        blurb: 'Bates range, type, page count and SHA-256 for each document being produced.',
+        blurb: 'Bates number, type, page count and SHA-256 for each document being produced. Numbers are assigned per document, not per page.',
         build: () => buildProductionIndex(indexArgs),
       },
       ...(exceptions.length > 0 ? [{
@@ -1269,7 +1276,7 @@ export default function App() {
         tone: 'red',
         title: 'Exceptions Report',
         blurb: 'Documents held back from production, the defect in each, and the action required to cure it.',
-        build: () => buildExceptionsReport({ caseTitle, exceptions }),
+        build: () => buildExceptionsReport({ caseTitle, exceptions, flagged }),
       }] : []),
       {
         key: 'audit',
@@ -1277,7 +1284,7 @@ export default function App() {
         tone: 'slate',
         title: 'Audit Log',
         blurb: 'Append-only record of every action taken on this matter, with timestamps.',
-        build: () => buildAuditLog({ caseTitle, auditLog }),
+        build: () => buildAuditLog({ caseTitle, auditLog, flagged }),
       },
     ];
   };
@@ -1544,8 +1551,8 @@ export default function App() {
 
             <p className={`text-[10px] leading-relaxed ${stamped > 0 ? 'text-amber-500' : 'text-slate-500'}`}>
               {stamped > 0
-                ? `${stamped} document${stamped === 1 ? ' has' : 's have'} already been stamped ${batesPrefix}-… Bates numbers are immutable once assigned — clear the matter in Stage 09 to renumber.`
-                : `Documents will be stamped ${batesPrefix}-${String(batesStart).padStart(6, '0')} onward when the integrity check runs in Stage 03. Set this before then.`}
+                ? `${stamped} document${stamped === 1 ? ' has' : 's have'} already been assigned ${batesPrefix}-… numbers. Numbers are assigned per document, not per page, and are immutable once assigned — clear the matter in Stage 09 to renumber.`
+                : `Bates numbers from ${batesPrefix}-${String(batesStart).padStart(6, '0')} are assigned to every selected document when the readiness check runs in Stage 03, including documents it holds back. Numbers are assigned per document, not per page. Set this before then.`}
             </p>
           </>
         )}
@@ -1951,10 +1958,10 @@ export default function App() {
                   </h4>
                   <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
                     Every file you upload is read, hashed, analyzed and cited on this device. Nothing is sent to a
-                    server, and no third party ever sees the text &mdash; which is what lets you use this on a live
-                    matter without a Model Rule 1.6 problem or a vendor agreement. The matter is stored in this
-                    browser's own database so you can close the tab and come back; you can erase it at any time from
-                    Stage&nbsp;09.
+                    server and no third party sees the text, so there is no vendor to vet. Rule&nbsp;1.6(c) still
+                    applies to the device itself: use a secured, firm-managed computer. Matter data stored in this
+                    browser is not encrypted. You can close the tab and come back, and erase the matter at any time
+                    from Stage&nbsp;09.
                   </p>
                   <button
                     onClick={() => setTrustOpen(v => !v)}
@@ -1988,7 +1995,7 @@ export default function App() {
                       },
                       {
                         q: 'What is transmitted?',
-                        a: 'Nothing. The application itself is downloaded once, the way any web page is. After that, no document text, file name, search term or result is sent anywhere.',
+                        a: 'The application downloads when first opened, with some components loading on first use. No document data is ever sent: no document text, file name, search term or result leaves this browser.',
                       },
                       {
                         q: 'Who can see the contents?',
@@ -2054,7 +2061,7 @@ export default function App() {
                 {[
                   { n: 'STAGE 01', t: 'Ingest', d: 'Upload PDF, Word, email or text files from your computer. Each is hashed, typed and indexed on arrival.' },
                   { n: 'STAGE 02', t: 'Designate', d: 'Mark each document produce, redact or withhold. Withheld documents are excluded downstream and logged.' },
-                  { n: 'STAGE 05', t: 'Cite', d: 'Every finding highlights the exact passage it came from, with a Bates number and line reference.' },
+                  { n: 'STAGE 05', t: 'Cite', d: 'Every finding highlights the exact passage it came from. Bates numbers appear once the readiness check runs. PDF citations give a page reference.' },
                 ].map(card => (
                   <div key={card.n} className={`p-5 rounded-2xl border transition-all hover:-translate-y-1 ${panelClass}`}>
                     <span className="text-indigo-400 font-mono text-xs font-bold block">{card.n}</span>
@@ -2087,8 +2094,9 @@ export default function App() {
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-amber-500 font-mono">Ingested &mdash; not yet indexed</h4>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    Documents loaded here are hashed and searchable but carry no Bates numbers until they pass the
-                    integrity check in Stage&nbsp;03. Nothing leaves your browser.
+                    Documents loaded here are hashed and searchable. Bates numbers are assigned per document, not
+                    per page, when the readiness check runs in Stage&nbsp;03, including to documents it holds back.
+                    Nothing leaves your browser.
                   </p>
                 </div>
               </div>
@@ -2111,7 +2119,7 @@ export default function App() {
                         Upload Client Documents
                       </h3>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        PDF, Word (.docx), email (.eml), CSV, JSON and plain text.
+                        PDF, Word (.docx), email (.eml), CSV, JSON, plain text (.txt), log files (.log) and Markdown (.md).
                       </p>
                     </div>
                   </div>
@@ -2313,7 +2321,7 @@ export default function App() {
                   <AlertTriangle className="text-red-400 shrink-0 mt-0.5" size={16} />
                   <div>
                     <h4 className="text-[11px] font-bold uppercase tracking-wider text-red-400 font-mono">
-                      {relevanceCounts.none > 0 && `${relevanceCounts.none} document${relevanceCounts.none === 1 ? '' : 's'} with no connection to this matter`}
+                      {relevanceCounts.none > 0 && `${relevanceCounts.none} document${relevanceCounts.none === 1 ? '' : 's'} with no match to your criteria`}
                       {relevanceCounts.none > 0 && relevanceCounts.out_of_period > 0 && ' · '}
                       {relevanceCounts.out_of_period > 0 && `${relevanceCounts.out_of_period} outside the relevant period`}
                     </h4>
@@ -2597,8 +2605,8 @@ export default function App() {
                             && ['none', 'out_of_period'].includes(relevanceResults[doc.name]?.category)
                             && disposition === 'produce' && (
                             <p className="px-3 pb-2.5 -mt-1 text-[10px] leading-snug text-red-400">
-                              Screening found no connection between this document and your matter, yet it is set to
-                              produce. {relevanceResults[doc.name]?.reason}
+                              No match to your criteria: names none of your listed parties and hits none of your key
+                              terms. Review before excluding. {relevanceResults[doc.name]?.reason}
                             </p>
                           )}
 
@@ -2843,9 +2851,9 @@ export default function App() {
                                         <>
                                           {defect.code === 'unrelated' ? (
                                             <p className="text-[10px] font-mono text-slate-500 mt-1">
-                                              Shares {(item.affinity * 100).toFixed(1)}% of its vocabulary with its closest
-                                              neighbour{item.nearest ? ` (${item.nearest})` : ''} — the rest of this set
-                                              averages {(integrityReport.cohesion.setCohesion * 100).toFixed(1)}%.
+                                              Similarity score to its closest neighbour{item.nearest ? ` (${item.nearest})` : ''}:{' '}
+                                              {(item.affinity * 100).toFixed(1)}. Median across the set:{' '}
+                                              {(integrityReport.cohesion.setCohesion * 100).toFixed(1)}.
                                             </p>
                                           ) : (
                                             <p className="text-[10px] font-mono text-slate-500 mt-1">
@@ -2904,10 +2912,10 @@ export default function App() {
                               Scope of this check
                             </p>
                             <p className="text-[10px] leading-relaxed text-slate-500">
-                              This confirms the documents you loaded are intact, uniquely numbered and safe to produce.
-                              It cannot tell you whether the collection itself was complete &mdash; whether every
-                              responsive custodian, date range and source was captured. That judgment, and the
-                              FRCP&nbsp;26(g) certification that rests on it, remains counsel's.
+                              This confirms the documents selected for production are readable, uniquely numbered and
+                              accounted for. It does not review content for privilege, and it cannot tell you whether
+                              the collection itself was complete. Those judgments, and the FRCP&nbsp;26(g) certification
+                              that rests on them, remain counsel's.
                             </p>
                           </div>
 
@@ -2942,8 +2950,12 @@ export default function App() {
               <div className="text-center pt-2">
                 <MicroStatusVisualizer active={!!integrityReport} isDarkMode={isDarkMode} />
                 <p className="text-xs font-mono text-slate-500 mt-2">
-                  Manifest state: <span className={`font-bold ${integrityReport ? 'text-emerald-500' : 'text-slate-400'}`}>
-                    {integrityReport ? 'VERIFIED' : 'AWAITING VERIFICATION'}
+                  Manifest state: <span className={`font-bold ${integrityReport?.state === 'ready' ? 'text-emerald-500' : integrityReport ? 'text-amber-500' : 'text-slate-400'}`}>
+                    {!integrityReport
+                      ? 'AWAITING VERIFICATION'
+                      : integrityReport.state === 'ready'
+                        ? 'VERIFIED'
+                        : `CHECK RUN: ${integrityReport.stateMeta.label}`}
                   </span>
                 </p>
 
@@ -3781,7 +3793,7 @@ export default function App() {
                       <span>
                         Approved by <strong>{approval.by}</strong> on {new Date(approval.at).toLocaleString()},
                         covering {approval.producing} document{approval.producing === 1 ? '' : 's'} designated
-                        for production. Changing a designation voids this approval.
+                        for production. The approval is voided by selecting or deselecting a document, changing a designation or a privilege entry, confirming a held-back document or the collection, or changing the screening criteria.
                       </span>
                     </div>
                   ) : (
@@ -3931,8 +3943,7 @@ export default function App() {
                   }`}>
                     <h4 className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest font-mono">Review Effort Estimate</h4>
                     <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
-                      Estimated at 50 pages reviewed per hour, the common planning figure for linear attorney review.
-                      Adjust against your own rate before quoting this to a client.
+                      Calculated at 50 pages per hour, a planning assumption. Adjust it to your own review rate.
                     </p>
                     <div className="space-y-1.5 mt-4">
                       <div className="flex justify-between items-center text-[10px] font-mono">
@@ -4093,8 +4104,9 @@ export default function App() {
               <div className="space-y-2 h-44 overflow-y-auto pr-1">
                 {messages.length === 0 && (
                   <p className="text-[11px] text-slate-600 leading-relaxed py-2">
-                    Type a term to find which ingested documents contain it. This searches the actual text of your
-                    documents &mdash; it does not generate answers.
+                    Type a term to find which ingested documents contain it. Several words are searched separately:
+                    a document matches if it contains any of them. This searches the actual text of your documents
+                    &mdash; it does not generate answers.
                   </p>
                 )}
                 {messages.map((msg, i) => (
@@ -4281,7 +4293,7 @@ export default function App() {
               </span>
               <button
                 onClick={() => {
-                  const file = buildAuditLog({ caseTitle, auditLog });
+                  const file = buildAuditLog({ caseTitle, auditLog, flagged: isFlaggedForReview });
                   triggerDownload(file.filename, file.content, file.mime);
                 }}
                 disabled={auditLog.length === 0}
