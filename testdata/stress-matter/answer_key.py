@@ -234,7 +234,7 @@ def stage_checks(m, r, exp):
     p2 = {e['name']: e['defects'] for e in (R.get('pass2') or {}).get('exceptions', [])}
     add('03 Readiness (pass 2: attorney selection)', 'Held back', 'Keystone delay notice (legacy export, Windows-1252).txt: Corrupted character encoding',
         '; '.join(f'{n}: {"; ".join(v)}' for n, v in p2.items()), status(list(p2) == ['Keystone delay notice (legacy export, Windows-1252).txt']) if r else '',
-        'After the attorney confirms the text messages, only the corrupt export should be held. The scans and intruders were already excluded by screening.')
+        'After the attorney confirms the text messages, only the corrupt export should be held. The scans and intruders were excluded at screening and marked Not Responsive with a reason; left unmarked, each would be held as Unaccounted.')
     adv = {a['label']: a for a in (R.get('pass2') or {}).get('advisories', [])}
     for label, must in [('No date found', ['Project directory - Harpeth Ridge.json', 'Punch list - Level 3 (walk with Architect).md',
                                            'Manufacturer data sheet - galvanized duct gauges.pdf']),

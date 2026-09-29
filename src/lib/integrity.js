@@ -76,6 +76,10 @@ const DEFECTS = {
     // confidentiality breach, not merely a quality problem.
     dismissible: true,
   },
+  unaccounted: {
+    label: 'Unaccounted: no designation',
+    cure: 'Designate this document in Stage 02: Produce, Redact, Withhold, or Not Responsive with a reason. Until then the production cannot be shown to be complete.',
+  },
   no_connection: {
     label: 'Names no party or key term of this matter',
     cure: 'Screening found nothing connecting this document to the matter. If it belongs here, confirm it and it will be released for production.',
@@ -97,6 +101,10 @@ const DEFECTS = {
  * @param bates      assigned Bates numbers keyed by document name
  * @param screening  relevance category keyed by document name, when the
  *                   matter has screening criteria
+ * @param unaccounted ingested documents outside the production set that have
+ *                   no designation at all. Each is a blocking exception: a
+ *                   document nobody decided about is how a production ends up
+ *                   silently short.
  */
 export function computeIntegrityReport(
   files,
@@ -105,10 +113,12 @@ export function computeIntegrityReport(
   bates = {},
   confirmedRelated = new Set(),
   collectionConfirmed = false,
-  screening = {}
+  screening = {},
+  unaccounted = []
 ) {
-  if (!files || files.length === 0) return null;
-  const total = files.length;
+  files = files || [];
+  if (files.length === 0 && unaccounted.length === 0) return null;
+  const total = files.length + unaccounted.length;
 
   // Does this set look like one matter?
   const cohesion = analyzeCohesion(files);
@@ -192,6 +202,25 @@ export function computeIntegrityReport(
     }
   });
 
+  // --- Unaccounted documents: listed first, scanned ones ahead of the rest,
+  // since those need OCR before anyone can read them to decide. ---
+  const unaccountedExceptions = unaccounted
+    .map(file => ({
+      name: file.name,
+      hash: file.hash,
+      bates: null,
+      unaccounted: true,
+      affinity: null,
+      nearest: null,
+      defects: (file.needsOcr ? ['needs_ocr', 'unaccounted'] : ['unaccounted'])
+        .map(code => ({ code, ...DEFECTS[code] })),
+    }))
+    .sort((a, b) => {
+      const ocr = (e) => (e.defects[0].code === 'needs_ocr' ? 0 : 1);
+      return ocr(a) - ocr(b) || a.name.localeCompare(b.name);
+    });
+  exceptions.unshift(...unaccountedExceptions);
+
   // --- Advisory signals. None of these block production. ---
   const advisories = [];
   const readySet = new Set(ready);
@@ -255,7 +284,7 @@ export function computeIntegrityReport(
     });
   }
 
-  const unreadableRatio = unreadableCount / total;
+  const unreadableRatio = files.length ? unreadableCount / files.length : 0;
   const state = (cohesion?.incoherent && !collectionConfirmed)
     ? 'incoherent'
     : unreadableRatio > RECOLLECT_RATIO
@@ -264,8 +293,11 @@ export function computeIntegrityReport(
 
   return {
     total,
+    // Documents in the production set, as distinct from unaccounted ones.
+    setSize: files.length,
     ready,
     exceptions,
+    unaccounted: unaccountedExceptions.map(e => e.name),
     advisories,
     unreadableCount,
     // Coverage, not a quality average: the share of the set that is

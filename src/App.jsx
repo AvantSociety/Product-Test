@@ -249,8 +249,8 @@ const STEPS = [
 // Each item is satisfied by a stage's real state, not by having visited it.
 const COMPLETION_ITEMS = [
   { stage: 1, label: 'Documents ingested and hashed' },
-  { stage: 2, label: 'Every document designated, with a complete privilege log entry for each one withheld' },
-  { stage: 3, label: 'Readiness check run against the production set' },
+  { stage: 2, label: 'Every ingested document designated (Produce, Redact, Withhold or Not Responsive), with a complete privilege log entry for each one withheld' },
+  { stage: 3, label: 'Readiness check run, with every held-back document cured or acknowledged on the exceptions report' },
   { stage: 4, label: 'Chronology built from the producible documents' },
   { stage: 5, label: 'Findings annotated by counsel' },
   { stage: 6, label: 'Brief reviewed and edited, not left as a scaffold' },
@@ -327,7 +327,7 @@ const ACTOR_STYLES = {
 const ADVISOR_TIPS = {
   0: 'Start at Discovery Ingest to upload the documents for this matter. Everything downstream is built from what you load there.',
   1: 'Upload client documents from your computer. PDF, DOCX, email and plain-text formats are read directly; scanned PDFs are flagged as needing OCR.',
-  2: 'Set the matter name, Bates prefix and starting number here. Bates numbers are assigned per document, not per page, when the readiness check runs in Stage 03, including to documents it holds back, and the prefix cannot be changed after that. Then designate each document; anything withheld as privileged is excluded downstream and recorded on the privilege log.',
+  2: 'Set the matter name, Bates prefix and starting number here. Bates numbers are assigned per document, not per page, when the readiness check runs in Stage 03, including to documents it holds back, and the prefix cannot be changed after that. Then give every ingested document one of four designations: select it to Produce, Redact or Withhold, or mark it Not Responsive with a reason. Anything withheld as privileged is excluded downstream and recorded on the privilege log.',
   3: 'Run the readiness check. Documents with defects that make them unsafe to produce are held back onto an exceptions list; the rest proceed clean. Duplicates and missing dates are advisory and never block.',
   4: 'Dates are extracted from each document and assembled into a case chronology. Progress reflects documents actually processed.',
   5: 'Select a finding to highlight the exact passage it was drawn from. Notes you add are attached to that passage in that document.',
@@ -344,6 +344,12 @@ const DISPOSITIONS = {
   redact: { label: 'Redact', tone: 'amber' },
   withhold: { label: 'Withhold', tone: 'red' },
 };
+// The fourth designation, for documents outside the production set. It needs a
+// reason, so "not responsive" is a decision on the record rather than a
+// document nobody looked at.
+const NOT_RESPONSIVE = 'not_responsive';
+const IN_SET = ['produce', 'redact', 'withhold'];
+const MIN_REASON_CHARS = 3;
 
 const DEFAULT_MEMO =
   'Write your analysis here, or generate a citation digest from the findings extracted in the Citation Matrix.';
@@ -389,6 +395,12 @@ export default function App() {
   // Content-set keys for collections counsel has confirmed are the right
   // documents. Changing the selection changes the key, so the question returns.
   const [confirmedCollections, setConfirmedCollections] = useState([]);
+  // Reasons being typed for a Not Responsive designation, keyed by document.
+  const [nrDrafts, setNrDrafts] = useState({});
+  // Counsel's acknowledgment of the current check's exceptions: proceeding
+  // with the ready set while the listed documents stay held back. Cleared with
+  // the check it acknowledges.
+  const [exceptionsAck, setExceptionsAck] = useState(null);
   const [isFlaggedForReview, setIsFlaggedForReview] = useState(false);
   const [memoText, setMemoText] = useState(DEFAULT_MEMO);
   // A generated listing is not work product until counsel has worked on it.
@@ -580,7 +592,19 @@ export default function App() {
       return a.name.localeCompare(b.name);
     });
 
-  const dispositionOf = (name) => privilege[name]?.status || 'produce';
+  // Every ingested document ends in exactly one explicit state. Selecting a
+  // document designates it for the production set (Produce unless counsel
+  // chose Redact or Withhold); an unselected document is Not Responsive only
+  // when counsel said so with a reason, and otherwise it is unaccounted (null).
+  const selectedSet = useMemo(() => new Set(selectedForReview), [selectedForReview]);
+  const dispositionOf = (name) => {
+    const status = privilege[name]?.status;
+    if (!selectedSet.has(name)) return status === NOT_RESPONSIVE ? NOT_RESPONSIVE : null;
+    return IN_SET.includes(status) ? status : 'produce';
+  };
+  const unaccountedDocs = documents.filter(d => dispositionOf(d.name) === null);
+  const notResponsiveCount = documents.filter(d => dispositionOf(d.name) === NOT_RESPONSIVE).length;
+  const designatedCount = documents.length - unaccountedDocs.length;
 
   // Withheld documents never reach analysis, citations, or the brief.
   // Documents the readiness check held back. They stay in the matter and on the
@@ -636,9 +660,22 @@ export default function App() {
   // A stage is never marked done because you merely visited it.
   const deliverableDownloaded = auditLog.some(e => e.action === 'Downloaded deliverable');
 
+  // The check is settled when it has run and every document it held back is
+  // either cured (so no longer listed) or acknowledged by counsel on the
+  // exceptions report. An unaccounted document cannot be acknowledged away:
+  // it needs a designation first.
+  const exceptionsAcknowledged = Boolean(
+    exceptionsAck && integrityReport && integrityReport.unaccounted.length === 0
+  );
+  const checkSettled = Boolean(
+    integrityReport
+      && !integrityReport.setHold
+      && integrityReport.ready.length > 0
+      && (integrityReport.exceptions.length === 0 || exceptionsAcknowledged)
+  );
+
   const baseProgress = useMemo(() => {
     const ingested = documents.length > 0;
-    const selected = selectedForReview.length > 0;
     const producible = producibleNames.length > 0;
     const cited = allProducibleCitations.length > 0;
     // Annotation is the attorney's own work on the record: a note, a tag, or a
@@ -654,15 +691,24 @@ export default function App() {
     return {
       0: state(ingested, false, '', 'Read the orientation', 'Orientation read'),
       1: state(ingested, false, '', 'No documents ingested', `${documents.length} ingested`),
-      2: state(selected && incompletePrivilege.length === 0, !ingested,
+      // Checked across every ingested document, not only the selected ones:
+      // an unselected document with no designation is the silent gap.
+      2: state(ingested && unaccountedDocs.length === 0 && incompletePrivilege.length === 0, !ingested,
           'Ingest documents first',
-          incompletePrivilege.length > 0
-            ? `${incompletePrivilege.length} privilege entr${incompletePrivilege.length === 1 ? 'y' : 'ies'} incomplete`
-            : 'Nothing designated',
-          `${producibleNames.length} producing, ${withheldCount} withheld`),
-      3: state(integrityReport?.state === 'ready', !producible, 'Designate documents first',
-          integrityReport ? (integrityReport.stateMeta?.label || 'Not ready').toLowerCase() : 'Check not run',
-          `${integrityReport?.ready.length ?? 0} ready to produce`),
+          unaccountedDocs.length > 0
+            ? `${designatedCount} of ${documents.length} ingested documents designated · ${unaccountedDocs.length} unaccounted`
+            : `${documents.length} of ${documents.length} designated · ${incompletePrivilege.length} privilege entr${incompletePrivilege.length === 1 ? 'y' : 'ies'} incomplete`,
+          `${documents.length} of ${documents.length} ingested documents designated · ${producibleNames.length} producing, ${withheldCount} withheld, ${notResponsiveCount} not responsive`),
+      3: state(checkSettled, !producible && unaccountedDocs.length === 0, 'Designate documents first',
+          !integrityReport ? 'Check not run'
+            : integrityReport.setHold ? 'Collection not yet confirmed'
+            : integrityReport.unaccounted.length > 0
+              ? `${integrityReport.unaccounted.length} unaccounted document${integrityReport.unaccounted.length === 1 ? '' : 's'}`
+            : integrityReport.ready.length === 0 ? 'Nothing ready to produce'
+            : `${integrityReport.exceptions.length} held back, not acknowledged`,
+          integrityReport?.exceptions.length
+            ? `${integrityReport.ready.length} ready · ${integrityReport.exceptions.length} held back, acknowledged`
+            : `${integrityReport?.ready.length ?? 0} ready to produce`),
       4: state(analysisComplete, !producible, 'Designate documents first', 'Analysis not run',
           `${timeline.length} dated event${timeline.length === 1 ? '' : 's'}`),
       5: state(annotated, !cited, 'No citations to work from', 'No notes or tags yet',
@@ -675,7 +721,8 @@ export default function App() {
           'Deliverables downloaded'),
       9: { state: 'todo', hint: '' },
     };
-  }, [documents.length, selectedForReview.length, producibleNames.length, withheldCount,
+  }, [documents.length, producibleNames.length, withheldCount,
+      unaccountedDocs.length, designatedCount, notResponsiveCount, checkSettled,
       incompletePrivilege.length, integrityReport, analysisComplete, timeline.length,
       allProducibleCitations, notes, memoEdited, approval, deliverableDownloaded]);
 
@@ -802,6 +849,7 @@ export default function App() {
       setVoidedCheck({ at: new Date(), ready: hadReportRef.current.ready.length });
     }
     setIntegrityReport(null);
+    setExceptionsAck(null);
     setManifestSha(null);
     setIsRunningIntegrityCheck(false);
     // An approval covers the set that was approved. Change the set and the
@@ -929,7 +977,8 @@ export default function App() {
       setPrivilege(prev => {
         const next = { ...prev };
         accepted.forEach(doc => {
-          if (!next[doc.name]) next[doc.name] = { status: 'produce', basis: '', description: '' };
+          // No status: a new document is unaccounted until counsel designates it.
+          if (!next[doc.name]) next[doc.name] = { basis: '', description: '' };
         });
         return next;
       });
@@ -961,9 +1010,65 @@ export default function App() {
     appendAudit('Removed document', name);
   };
 
+  // Selecting designates a document into the production set, Produce unless
+  // counsel already chose Redact or Withhold; deselecting leaves it
+  // unaccounted until it is marked Not Responsive with a reason.
+  const applySelection = (nextNames) => {
+    const next = new Set(nextNames);
+    const added = nextNames.filter(n => !selectedSet.has(n));
+    const removed = selectedForReview.filter(n => !next.has(n));
+    added.forEach(n => {
+      if (privilege[n]?.status === NOT_RESPONSIVE) appendAudit('Cleared not-responsive designation', n);
+    });
+    setSelectedForReview(nextNames);
+    setPrivilege(prev => {
+      const out = { ...prev };
+      added.forEach(n => {
+        const record = { basis: '', description: '', ...(out[n] || {}) };
+        if (!IN_SET.includes(record.status)) record.status = 'produce';
+        delete record.reason;
+        out[n] = record;
+      });
+      removed.forEach(n => {
+        const { status: _status, ...rest } = out[n] || {};
+        out[n] = rest;
+      });
+      return out;
+    });
+  };
+
   const toggleSelection = (name) => {
-    setSelectedForReview(prev =>
-      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    applySelection(selectedSet.has(name)
+      ? selectedForReview.filter(n => n !== name)
+      : [...selectedForReview, name]);
+  };
+
+  const markNotResponsive = (name) => {
+    const reason = (nrDrafts[name] || '').trim();
+    if (reason.length < MIN_REASON_CHARS || selectedSet.has(name)) return;
+    setPrivilege(prev => ({
+      ...prev,
+      [name]: { basis: '', description: '', ...(prev[name] || {}), status: NOT_RESPONSIVE, reason },
+    }));
+    setNrDrafts(prev => { const next = { ...prev }; delete next[name]; return next; });
+    appendAudit('Designated not responsive', `${name} — reason: ${reason}`);
+  };
+
+  const clearNotResponsive = (name) => {
+    setPrivilege(prev => {
+      const { status: _status, reason: _reason, ...rest } = prev[name] || {};
+      return { ...prev, [name]: rest };
+    });
+    appendAudit('Cleared not-responsive designation', name);
+  };
+
+  const acknowledgeExceptions = () => {
+    if (!integrityReport || integrityReport.unaccounted.length > 0) return;
+    const names = integrityReport.exceptions.map(e => e.name);
+    setExceptionsAck({ at: new Date().toISOString(), names });
+    appendAudit(
+      `Acknowledged ${names.length} held-back document${names.length === 1 ? '' : 's'} — proceeding with the ready set`,
+      names.join('; ')
     );
   };
 
@@ -978,14 +1083,15 @@ export default function App() {
   const setPrivilegeField = (name, field, value) => {
     setPrivilege(prev => ({
       ...prev,
-      [name]: { ...(prev[name] || { status: 'produce', basis: '', description: '' }), [field]: value },
+      [name]: { ...(prev[name] || { basis: '', description: '' }), [field]: value },
     }));
   };
 
   const handleRunIntegrityCheck = async () => {
-    if (selectedDocs.length === 0 || isRunningIntegrityCheck) return;
+    if ((selectedDocs.length === 0 && unaccountedDocs.length === 0) || isRunningIntegrityCheck) return;
     setIsRunningIntegrityCheck(true);
     setIntegrityReport(null);
+    setExceptionsAck(null);
 
     // Stamp first, so the readiness check can see the numbers it is validating
     // for collisions. Bates numbers are immutable once assigned.
@@ -1003,7 +1109,8 @@ export default function App() {
       : {};
     const report = computeIntegrityReport(
       selectedDocs, citations, privilege, assignments,
-      new Set(confirmedRelated), confirmedCollections.includes(collectionKey), screening
+      new Set(confirmedRelated), confirmedCollections.includes(collectionKey), screening,
+      unaccountedDocs
     );
     const sha = await manifestHash(selectedDocs.map(d => d.hash));
 
@@ -1014,7 +1121,8 @@ export default function App() {
     setIsRunningIntegrityCheck(false);
     appendAudit(
       `Ran readiness check — ${report.ready.length} of ${report.total} ready`
-        + (report.exceptions.length ? `, ${report.exceptions.length} held back` : ''),
+        + (report.exceptions.length ? `, ${report.exceptions.length} held back` : '')
+        + (report.unaccounted.length ? ` (${report.unaccounted.length} unaccounted)` : ''),
       `${selectedDocs.length} documents`
     );
   };
@@ -1276,7 +1384,7 @@ export default function App() {
         tone: 'red',
         title: 'Exceptions Report',
         blurb: 'Documents held back from production, the defect in each, and the action required to cure it.',
-        build: () => buildExceptionsReport({ caseTitle, exceptions, flagged }),
+        build: () => buildExceptionsReport({ caseTitle, exceptions, acknowledgment: exceptionsAcknowledged ? exceptionsAck : null, flagged }),
       }] : []),
       {
         key: 'audit',
@@ -1374,6 +1482,7 @@ export default function App() {
       setSelectedForReview(names);
       setPrivilege(prev => ({
         ...prev,
+        ...Object.fromEntries(names.map(n => [n, { basis: '', description: '', ...(prev[n] || {}), status: 'produce' }])),
         [sample.privileged.file]: {
           status: 'withhold',
           basis: sample.privileged.basis,
@@ -1444,7 +1553,7 @@ export default function App() {
     setDocuments([]); setCitations({}); setPrivilege({}); setSelectedForReview([]);
     setNotes({}); setAuditLog([]); setBatesAssignments({}); setIntegrityReport(null);
     setVoidedCheck(null);
-    setConfirmedRelated([]); setConfirmedCollections([]);
+    setConfirmedRelated([]); setConfirmedCollections([]); setNrDrafts({}); setExceptionsAck(null);
     setCriteriaParties(''); setCriteriaTerms(''); setCriteriaFrom(''); setCriteriaTo('');
     setRelevanceFilter('ALL');
     setManifestSha(null); setTimeline([]); setAnalysisComplete(false); setAnalysisProgress(0);
@@ -2476,9 +2585,10 @@ export default function App() {
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400 font-mono">Privilege review</h4>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    Select the documents in scope, then designate each one. Anything marked <strong>Withhold</strong> is
-                    excluded from analysis, the citation matrix and the brief, and appears instead on the privilege log
-                    required by FRCP&nbsp;26(b)(5).
+                    Every ingested document needs one designation. Select the documents in scope and mark each
+                    Produce, Redact or Withhold; mark the rest <strong>Not Responsive</strong> with a reason, which is
+                    recorded in the audit log. Anything marked <strong>Withhold</strong> is excluded from analysis, the
+                    citation matrix and the brief, and appears instead on the privilege log required by FRCP&nbsp;26(b)(5).
                   </p>
                 </div>
               </div>
@@ -2524,13 +2634,16 @@ export default function App() {
                       onClick={() => {
                         // "Select relevant" deliberately excludes no-match and
                         // out-of-period documents rather than sweeping them in.
+                        // Documents already marked Not Responsive keep that
+                        // designation rather than being swept back in.
                         const eligible = documents
                           .filter(d => !screeningActive
                             || !['none', 'out_of_period'].includes(relevanceResults[d.name]?.category))
+                          .filter(d => dispositionOf(d.name) !== NOT_RESPONSIVE)
                           .map(d => d.name);
                         const alreadyAll = eligible.every(n => selectedForReview.includes(n))
                           && selectedForReview.length >= eligible.length;
-                        setSelectedForReview(alreadyAll ? [] : eligible);
+                        applySelection(selectedForReview.length > 0 || alreadyAll ? [] : eligible);
                       }}
                       className="text-[11px] font-mono font-bold text-indigo-400 hover:text-indigo-300 px-2 shrink-0 text-right"
                     >
@@ -2599,7 +2712,88 @@ export default function App() {
                                 ))}
                               </div>
                             )}
+
+                            {!isSelected && disposition === NOT_RESPONSIVE && (
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`px-2 py-1 rounded-lg text-[9px] font-mono font-bold border ${toneClasses.slate}`}>
+                                  NOT RESPONSIVE
+                                </span>
+                                <button
+                                  onClick={() => clearNotResponsive(doc.name)}
+                                  className="text-[10px] font-mono text-slate-500 hover:text-slate-300 underline"
+                                >
+                                  Undo
+                                </button>
+                              </div>
+                            )}
+
+                            {!isSelected && disposition === null && (
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="px-2 py-1 rounded-lg text-[9px] font-mono font-bold border bg-amber-500/10 border-amber-500/30 text-amber-500">
+                                  UNACCOUNTED
+                                </span>
+                                {nrDrafts[doc.name] === undefined && (
+                                  <button
+                                    onClick={() => setNrDrafts(prev => ({ ...prev, [doc.name]: '' }))}
+                                    className={`px-2 py-1 rounded-lg text-[9px] font-mono font-bold border ${
+                                      isDarkMode ? 'border-white/[0.1] text-slate-300 hover:bg-white/[0.04]' : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    Not Responsive…
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
+
+                          {!isSelected && disposition === NOT_RESPONSIVE && (
+                            <p className="px-3 pb-2.5 -mt-1 text-[10px] leading-snug text-slate-500">
+                              Reason: {record.reason}
+                            </p>
+                          )}
+
+                          {!isSelected && disposition === null && nrDrafts[doc.name] !== undefined && (
+                            <form
+                              onSubmit={(e) => { e.preventDefault(); markNotResponsive(doc.name); }}
+                              className={`px-3 pb-3 pt-1 flex flex-col sm:flex-row gap-2 border-t ${
+                                isDarkMode ? 'border-white/[0.04]' : 'border-slate-100'
+                              }`}
+                            >
+                              <input
+                                type="text"
+                                autoFocus
+                                aria-label={`Reason ${doc.name} is not responsive`}
+                                placeholder="Reason it is not responsive (required)"
+                                value={nrDrafts[doc.name]}
+                                onChange={(e) => setNrDrafts(prev => ({ ...prev, [doc.name]: e.target.value }))}
+                                onFocus={() => setIsTyping(true)}
+                                onBlur={() => setIsTyping(false)}
+                                className={`flex-1 text-[11px] rounded-lg border px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                                  isDarkMode ? 'bg-[#151620] border-white/[0.06] text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-800'
+                                }`}
+                              />
+                              <div className="flex gap-2 shrink-0">
+                                <button
+                                  type="submit"
+                                  disabled={nrDrafts[doc.name].trim().length < MIN_REASON_CHARS}
+                                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold ${
+                                    nrDrafts[doc.name].trim().length < MIN_REASON_CHARS
+                                      ? 'bg-slate-500/10 text-slate-500 cursor-not-allowed'
+                                      : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                                  }`}
+                                >
+                                  Mark Not Responsive
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNrDrafts(prev => { const next = { ...prev }; delete next[doc.name]; return next; })}
+                                  className="px-2 py-1.5 text-[10px] font-mono text-slate-500 hover:text-slate-300"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          )}
 
                           {isSelected && screeningActive
                             && ['none', 'out_of_period'].includes(relevanceResults[doc.name]?.category)
@@ -2665,10 +2859,24 @@ export default function App() {
                     </div>
                   )}
 
+                  {unaccountedDocs.length > 0 && (
+                    <div className="p-3 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-500 text-[11px] flex items-start gap-2 animate-fadeIn">
+                      <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                      <span>
+                        <strong>{unaccountedDocs.length} of {documents.length} ingested document{documents.length === 1 ? '' : 's'}</strong>{' '}
+                        {unaccountedDocs.length === 1 ? 'has' : 'have'} no designation. Select {unaccountedDocs.length === 1 ? 'it' : 'each one'} to
+                        produce, redact or withhold, or mark it Not Responsive with a reason. The readiness check holds
+                        unaccounted documents as exceptions and the matter cannot be completed until each is designated.
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
                     <p className="text-[11px] font-mono text-slate-500">
                       {selectedForReview.length} selected &middot; {producibleNames.length} producible
                       {withheldCount > 0 && ` · ${withheldCount} withheld`}
+                      {notResponsiveCount > 0 && ` · ${notResponsiveCount} not responsive`}
+                      {unaccountedDocs.length > 0 && ` · ${unaccountedDocs.length} unaccounted`}
                     </p>
                     <button
                       onClick={() => handleStepChange(3)}
@@ -2741,7 +2949,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {selectedDocs.length === 0 ? (
+                  {selectedDocs.length === 0 && unaccountedDocs.length === 0 ? (
                     <p className="text-xs text-slate-500 font-mono text-center py-2">
                       No documents were selected in Review &amp; Designate. Return to Stage&nbsp;02 to choose files.
                     </p>
@@ -2787,7 +2995,10 @@ export default function App() {
                                 <p className="text-[10px] font-mono text-slate-500 mt-2 flex flex-wrap gap-x-3 gap-y-1">
                                   <span><b className="text-emerald-500">{producingCount}</b> producing</span>
                                   <span><b className="text-slate-400">{withheldReadyCount}</b> withheld</span>
-                                  <span><b className="text-amber-500">{integrityReport.exceptions.length}</b> held back</span>
+                                  <span><b className="text-amber-500">{integrityReport.exceptions.length - integrityReport.unaccounted.length}</b> held back</span>
+                                  {integrityReport.unaccounted.length > 0 && (
+                                    <span><b className="text-amber-500">{integrityReport.unaccounted.length}</b> unaccounted</span>
+                                  )}
                                 </p>
                               )}
                             </div>
@@ -2838,7 +3049,7 @@ export default function App() {
                                       {item.name}
                                     </span>
                                     <span className="text-[9px] font-mono text-slate-500 shrink-0">
-                                      {item.bates || 'Bates pending'}
+                                      {item.unaccounted ? 'Not in the production set' : (item.bates || 'Bates pending')}
                                     </span>
                                   </div>
                                   {item.defects.map((defect) => (
@@ -2963,7 +3174,7 @@ export default function App() {
                   <div className="mt-4 space-y-2">
                     {integrityReport.state === 'not-reviewable' && (
                       <p className="text-[11px] text-red-400 max-w-md mx-auto leading-relaxed">
-                        {Math.round((integrityReport.unreadableCount / integrityReport.total) * 100)}% of this set is
+                        {Math.round((integrityReport.unreadableCount / Math.max(integrityReport.setSize, 1)) * 100)}% of this set is
                         unreadable, above the {Math.round(RECOLLECT_RATIO * 100)}% mark where the collection itself is
                         usually the problem. Re-collecting is likely faster than repairing these individually.
                       </p>
@@ -3005,6 +3216,33 @@ export default function App() {
                         {' '}on the exceptions report in Stage&nbsp;08, and are excluded from analysis, citations and
                         the brief until cured.
                       </p>
+                    )}
+
+                    {/* Proceeding with the ready set is a decision counsel records,
+                        not something that happens by moving on. Unaccounted documents
+                        cannot be acknowledged: they need a designation first. */}
+                    {!integrityReport.setHold && integrityReport.ready.length > 0 && integrityReport.exceptions.length > 0 && (
+                      integrityReport.unaccounted.length > 0 ? (
+                        <p className="text-[11px] text-amber-500 max-w-md mx-auto leading-relaxed">
+                          {integrityReport.unaccounted.length} unaccounted document{integrityReport.unaccounted.length === 1 ? '' : 's'} must be
+                          designated in Stage&nbsp;02 before the exceptions can be acknowledged and the matter completed.
+                        </p>
+                      ) : exceptionsAcknowledged ? (
+                        <p className="text-[11px] text-emerald-500 max-w-md mx-auto leading-relaxed inline-flex items-center gap-1.5">
+                          <Check size={12} /> Exceptions acknowledged at{' '}
+                          {new Date(exceptionsAck.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {' '}&mdash; proceeding with the ready set; the held-back documents are recorded on the exceptions report.
+                        </p>
+                      ) : (
+                        <div>
+                          <button
+                            onClick={acknowledgeExceptions}
+                            className="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-all inline-flex items-center gap-1.5"
+                          >
+                            <Check size={12} /> Acknowledge exceptions and proceed with the ready set
+                          </button>
+                        </div>
+                      )
                     )}
                   </div>
                 )}
@@ -3983,7 +4221,7 @@ export default function App() {
                 </h3>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
                   {completionOutstanding.length === 0
-                    ? `${caseTitle} — every step below is done. ${producibleNames.length} document${producibleNames.length === 1 ? '' : 's'} designated for production, ${withheldCount} withheld as privileged.`
+                    ? `${caseTitle} — every step below is done. ${producibleNames.length} document${producibleNames.length === 1 ? '' : 's'} designated for production, ${withheldCount} withheld as privileged, ${notResponsiveCount} not responsive.`
                     : `${completionOutstanding.length} step${completionOutstanding.length === 1 ? '' : 's'} still outstanding. This matter is not ready to serve.`}
                 </p>
               </div>

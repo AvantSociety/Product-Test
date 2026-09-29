@@ -261,12 +261,12 @@ export function buildBrief({ caseTitle, memoText, citations, bates, notes, appro
  * This is the artifact that lets a firm show its production was complete as to
  * what was producible, and account for what was not.
  */
-export function buildExceptionsReport({ caseTitle, exceptions, flagged = false }) {
+export function buildExceptionsReport({ caseTitle, exceptions, acknowledgment = null, flagged = false }) {
   const rows = [
     ['Bates', 'Document', 'Defect', 'Required Action'],
     ...exceptions.flatMap(item =>
       item.defects.map(defect => [
-        item.bates || '(not assigned)',
+        item.unaccounted ? '(not in production set)' : (item.bates || '(not assigned)'),
         item.name,
         defect.label,
         defect.cure,
@@ -277,7 +277,11 @@ export function buildExceptionsReport({ caseTitle, exceptions, flagged = false }
     filename: `${slug(caseTitle)}-exceptions-report.csv`,
     mime: 'text/csv',
     content: `${imprintHeader('Exceptions Report', caseTitle, flagged)}`
-      + `Documents held back from production pending the actions below.\r\n\r\n${toCsv(rows)}`,
+      + `Documents held back from production pending the actions below.\r\n`
+      + (acknowledgment
+        ? `Acknowledged by counsel ${acknowledgment.at}: production proceeds with the ready set while ${acknowledgment.names.length === 1 ? 'the document below is' : `the ${acknowledgment.names.length} documents below are`} held back.\r\n`
+        : 'Not yet acknowledged by counsel.\r\n')
+      + `\r\n${toCsv(rows)}`,
     count: exceptions.length,
   };
 }
