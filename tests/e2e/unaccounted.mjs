@@ -3,7 +3,7 @@
 // the Harlow sample with its misfiled letter.
 //
 // Run against a dev or preview server:
-//   node tests/e2e/unaccounted.mjs [--url http://localhost:5173/Product-Test/]
+//   node tests/e2e/unaccounted.mjs [--url URL]   (or E2E_URL=URL npm run test:e2e)
 // Set CHROMIUM_PATH to use a preinstalled browser.
 import { chromium } from 'playwright';
 import { readFileSync } from 'fs';
@@ -12,7 +12,7 @@ const FIX = fileURLToPath(new URL('./fixtures', import.meta.url));
 const SCAN_NAME = '2025-02-19 Site sign-in sheet (scan).pdf';
 const SCAN = `${FIX}/${SCAN_NAME}`;
 const urlArg = process.argv.indexOf('--url');
-const URL_ = urlArg > -1 ? process.argv[urlArg + 1] : 'http://localhost:5173/Product-Test/';
+const URL_ = urlArg > -1 ? process.argv[urlArg + 1] : (process.env.E2E_URL || 'http://localhost:5173/Product-Test/');
 
 const b = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const ok = (c, msg) => console.log((c ? 'PASS ' : 'FAIL ') + msg);
