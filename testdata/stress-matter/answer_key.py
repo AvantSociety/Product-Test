@@ -254,15 +254,19 @@ def stage_checks(m, r, exp):
         status(by_src.get('2025-01-15 Daily Field Report No. 196 (date typo).txt') == 1) if r else '', 'A rolled-over date would be a confident wrong entry.')
     ash = [p['date'] for p in pts if p['source'].startswith('2025-03-04 Ashdown')]
     add('04 Chronology', 'UK day-first date 04/03/2025 (true date March 4, 2025)', '3/4/2025', ', '.join(ash),
-        ('FINDING' if ash == ['4/3/2025'] else status(ash == ['3/4/2025'])) if r else '',
-        'FINDING if 4/3/2025: numeric dates are always read US month-first. A foreign sender puts the event a month off.')
+        ('FINDING' if '4/3/2025' in ash and '3/4/2025' not in ash
+         else status('3/4/2025' in ash and '4/3/2025' not in ash)) if r else '',
+        'FINDING if 4/3/2025: numeric dates are always read US month-first. A foreign sender puts the event a month off. '
+        'The email\'s own sent date (Feb 25, 2025) is also on the chronology and is not part of this check.')
     priv_on = [p for p in pts if p['source'] in {d['file'] for d in wh}]
     add('04 Chronology', 'Withheld documents excluded from the chronology', '0 events from withheld documents', len(priv_on) if r else '',
         status(not priv_on) if r else '', 'Privileged content must never reach analysis.')
     rfc_only = ['2025-02-03 Carranza to Haldane - L3 supply trunks.eml', '2024-12-19 Oyelaran to Haldane - CO 14 notice window.eml']
     add('04 Chronology', 'Email sent dates (RFC header format) on the chronology', 'Feb 3, 2025 and Dec 19, 2024 (a reviewer dates emails by when they were sent)',
-        ', '.join(f'{f}: {by_src.get(f, 0)} events' for f in rfc_only), 'FINDING' if r else '',
-        'FINDING: email "Date:" headers ("Mon, 3 Feb 2025") are not a format the date reader accepts, so the two hottest emails are not on the timeline at all.')
+        ', '.join(f'{f}: {by_src.get(f, 0)} events' for f in rfc_only),
+        status(all(any(p['source'] == f and p['date'] == want for p in pts)
+                   for f, want in zip(rfc_only, ['2/3/2025', '12/19/2024'])), finding=True) if r else '',
+        'FINDING if missing: email "Date:" headers ("Mon, 3 Feb 2025") must be read so the two hottest emails are on the timeline on the day they were sent.')
 
     # ---- Stage 05 ----
     cit = R.get('citations', {})
