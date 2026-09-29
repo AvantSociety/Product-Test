@@ -79,6 +79,106 @@ export function parseEventDate(raw) {
   return null;
 }
 
+// ---------- Dates without a year ----------
+//
+// "March 4" and "4/3" are common in correspondence, and the year is almost
+// always the document's own. It is inferred from the document's date (an
+// email's Date or Sent header first, otherwise the nearest full date in the
+// text) and every such date is flagged as inferred wherever it is shown. With
+// nothing to infer from, the date is left off the chronology.
+
+const MONTH_NAME = 'Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
+// Case-sensitive, so "may" the verb is never read as a month.
+const YEARLESS_NAMED = new RegExp(`\\b(${MONTH_NAME})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?!,?\\s*\\d{4})(?!:\\d)`, 'g');
+// M/D standing alone: not part of a longer number, a full date, a price or a
+// measurement such as 3/4 inch.
+const YEARLESS_NUMERIC = /(?<![\d/.$,-])(\d{1,2})\/(\d{1,2})(?![\d/])(?!\s*(?:"|in\b|inch|ft\b|foot|feet|mm\b|cm\b|lb|ga\b|gauge|thick|ths?\b))/g;
+// RFC 2822 email dates: "Thu, 19 Dec 2024 17:48:02 -0600".
+const DAY_MONTH_YEAR = new RegExp(`\\b(\\d{1,2})\\s+(${MONTH_NAME})[a-z]*\\.?\\s+(\\d{4})\\b`);
+
+/** The date an email or memo carries in its own opening header block. */
+function headerDate(content) {
+  const block = content.slice(0, headerBlockLength(content));
+  const line = block.split('\n').find(l => /^\s*(date|sent)\s*:/i.test(l));
+  if (!line) return null;
+  const full = line.match(DATE_PATTERN);
+  if (full) {
+    const time = parseEventDate(full[0]);
+    if (time !== null) return time;
+  }
+  const rfc = line.match(DAY_MONTH_YEAR);
+  if (rfc) return buildDate(Number(rfc[3]), MONTH_INDEX[rfc[2].slice(0, 3).toLowerCase()], Number(rfc[1]));
+  return null;
+}
+
+/**
+ * Every date in a document with its position: full dates as written, and
+ * dates without a year given the year of the document's own date. Inferred
+ * dates carry `inferred: true` and the date the year came from.
+ */
+export function extractDates(content) {
+  const text = content || '';
+  const full = [];
+  const fullRe = new RegExp(DATE_PATTERN.source, 'gi');
+  let m;
+  while ((m = fullRe.exec(text)) !== null) {
+    const time = parseEventDate(m[0]);
+    if (time !== null) full.push({ time, label: m[0], offset: m.index, length: m[0].length, inferred: false });
+  }
+  // An email's own RFC 2822 Date header ("Thu, 19 Dec 2024 17:48:02") is a
+  // full date the general pattern does not read; the email is dated by it.
+  const headerEnd = headerBlockLength(text);
+  const rfcLine = /^[ \t]*(?:date|sent)[ \t]*:.*$/gim;
+  while ((m = rfcLine.exec(text)) !== null && m.index < headerEnd) {
+    const rfc = m[0].match(DAY_MONTH_YEAR);
+    if (!rfc || DATE_PATTERN.test(m[0])) continue;
+    const time = buildDate(Number(rfc[3]), MONTH_INDEX[rfc[2].slice(0, 3).toLowerCase()], Number(rfc[1]));
+    if (time !== null) {
+      full.push({ time, label: rfc[0], offset: m.index + rfc.index, length: rfc[0].length, inferred: false });
+    }
+  }
+  const overlapsFull = (start, end) => full.some(d => start < d.offset + d.length && d.offset < end);
+
+  const fromHeader = headerDate(text);
+  const anchorFor = (offset) => {
+    if (fromHeader !== null) return { time: fromHeader, source: 'email date' };
+    let best = null;
+    full.forEach(d => {
+      const distance = Math.abs(d.offset - offset);
+      if (!best || distance < best.distance) best = { time: d.time, source: d.label, distance };
+    });
+    return best;
+  };
+
+  const inferred = [];
+  const addYearless = (match, month, day) => {
+    const start = match.index;
+    const end = start + match[0].length;
+    if (overlapsFull(start, end)) return;
+    const anchor = anchorFor(start);
+    if (!anchor) return;
+    const time = buildDate(new Date(anchor.time).getFullYear(), month, day);
+    if (time === null) return;
+    inferred.push({
+      time, label: match[0], offset: start, length: match[0].length,
+      inferred: true, anchor: anchor.source,
+    });
+  };
+  const named = new RegExp(YEARLESS_NAMED.source, 'g');
+  while ((m = named.exec(text)) !== null) {
+    addYearless(m, MONTH_INDEX[m[1].slice(0, 3).toLowerCase()], Number(m[2]));
+  }
+  const numeric = new RegExp(YEARLESS_NUMERIC.source, 'g');
+  while ((m = numeric.exec(text)) !== null) {
+    addYearless(m, Number(m[1]), Number(m[2]));
+  }
+
+  return [...full, ...inferred].sort((a, b) => a.offset - b.offset);
+}
+
+/** Shown wherever an inferred date appears. */
+export const INFERRED_YEAR_NOTE = 'year inferred from document date';
+
 /** M/D/YYYY. Fixed rather than locale-dependent, so the axis cannot contradict
  *  the month-day-year rule used to read the documents. */
 export function formatEventDate(time) {
@@ -98,6 +198,7 @@ export const SIGNAL_LABELS = {
   money: 'amount',
   party: 'named party',
   proper_name: 'proper name',
+  term: 'key term',
   operative: 'operative term',
 };
 
@@ -131,10 +232,12 @@ function partyAliases(content, parties) {
  */
 function prepareCriteria(criteria = {}, content = '') {
   const parties = (criteria.parties || []).map(p => p.trim()).filter(Boolean);
+  const terms = (criteria.terms || []).map(t => t.trim()).filter(Boolean);
   const aliases = parties.length ? partyAliases(content, parties) : new Map();
   return {
     parties: parties.map(p => ({ name: p, re: wordPattern(p) })),
     aliases: [...aliases].map(([initials, party]) => ({ party, re: new RegExp(`\\b${initials}\\b`) })),
+    terms: terms.map(t => ({ name: t, re: wordPattern(t) })),
   };
 }
 
@@ -148,6 +251,21 @@ function partiesNamed(text, prepared) {
 /** One citation per ~40 pages of text, floored at 3 and capped at 25. */
 function citationBudget(text) {
   return Math.max(3, Math.min(25, Math.round(text.length / 12000) + 3));
+}
+
+/**
+ * For chat and email exports, one slot per message (capped at 25), since a
+ * file of short messages is short in characters but long in content. Zero for
+ * anything else, so ordinary documents keep the character-based budget.
+ */
+function messageBudget(text, excluded) {
+  const lines = text.split('\n');
+  const chat = lines.filter((l, i) => !excluded[i] && (CHAT_LINE.test(l) || CHAT_LINE_SIMPLE.test(l))).length;
+  if (chat > 0) return Math.min(25, chat);
+  const isEmail = headerBlockLength(text) > 0 && lines.some(l => /^\s*(from|sent)\s*:/i.test(l));
+  if (!isEmail) return 0;
+  const messages = 1 + lines.filter(l => REPLY_BOUNDARY.test(l)).length;
+  return Math.min(25, messages);
 }
 
 // Abbreviations whose trailing period never ends a sentence. Seeded from the
@@ -301,6 +419,9 @@ export function excludedLines(text) {
   return out;
 }
 
+// A chat export line naming only the sender: "2/18/25 3:12 PM  Luis: ..." or
+// "[2/18/25, 3:12 PM] Luis: ...". Kept whole as one passage.
+const CHAT_LINE_SIMPLE = /^\s*\[?\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AaPp]\.?[Mm]\.?)?\]?\s*(?:[—–-]\s*)?[A-Z][\w .'-]{0,40}:/;
 // A chat or text-message export line: "8/12/2025 5:48 a.m. — MR to DO: ...".
 const CHAT_LINE = /^\s*(\d{1,2}\/\d{1,2}\/\d{2,4}),?\s+\d{1,2}:\d{2}(?:\s*[ap]\.?m\.?)?\s*[—–-]+\s*([A-Za-z]{1,4})\s+to\s+([A-Za-z]{1,4})\s*:/i;
 
@@ -348,6 +469,7 @@ function passagesWithOffsets(text, excluded) {
       return;
     }
     if (line.trim() !== '') lastChat = null;
+    if (CHAT_LINE_SIMPLE.test(line)) { add(start, end); return; }
 
     let cursor = start;
     for (let i = start; i < end; i++) {
@@ -367,19 +489,27 @@ function passagesWithOffsets(text, excluded) {
  * they are reported the same way whether the extractor surfaced the passage or
  * the attorney selected it by hand.
  */
-export function detectSignals(text, criteria = {}, content = text) {
-  return scorePassage(text, prepareCriteria(criteria, content)).signals;
+export function detectSignals(text, criteria = {}, content = text, offset = null) {
+  const inferred = offset !== null
+    && extractDates(content).some(d => d.inferred && d.offset >= offset && d.offset < offset + text.length);
+  return scorePassage(text, prepareCriteria(criteria, content), inferred).signals;
 }
 
 /**
  * Scores one passage. With parties listed, "named party" means one of them,
  * and a passage naming two of them (a communication between the parties,
- * say) outranks one naming a single party.
+ * say) outranks one naming a single party. Counsel's key terms add a smaller
+ * signal of their own. A date without a year counts as a date only when the
+ * document gives a year to infer.
  */
-function scorePassage(text, prepared) {
+// Counsel's key terms rank below the parties: one listed party plus a key
+// term (2 + 0.75) stays below a passage naming two listed parties (3).
+const KEY_TERM_WEIGHT = 0.75;
+
+function scorePassage(text, prepared, hasInferredDate = false) {
   const signals = [];
   let score = 0;
-  if (DATE_PATTERN.test(text)) { signals.push('date'); score += 3; }
+  if (DATE_PATTERN.test(text) || hasInferredDate) { signals.push('date'); score += 3; }
   if (MONEY_PATTERN.test(text)) { signals.push('money'); score += 3; }
   if (prepared.parties.length) {
     const named = partiesNamed(text, prepared);
@@ -387,6 +517,7 @@ function scorePassage(text, prepared) {
   } else if (PROPER_NAME_PATTERN.test(text)) {
     signals.push('proper_name'); score += 2;
   }
+  if (prepared.terms?.some(t => t.re.test(text))) { signals.push('term'); score += KEY_TERM_WEIGHT; }
   if (OPERATIVE_PATTERN.test(text)) { signals.push('operative'); score += 2; }
   score += Math.min(text.length / 100, 1.5);
   return { signals, score };
@@ -404,7 +535,7 @@ export function buildUserCitation({ id, content, excerpt, offset, fileName, tags
     finding: excerpt.length > 150 ? `${excerpt.slice(0, 150)}…` : excerpt,
     excerpt,
     offset,
-    signals: detectSignals(excerpt, criteria, content),
+    signals: detectSignals(excerpt, criteria, content, offset),
     source: fileName,
     origin: 'user',
     tags,
@@ -422,15 +553,18 @@ export function extractCitations(content, fileName, criteria = {}) {
   // Routing headers, signature blocks, disclaimers, quoted text and export
   // metadata are skipped so none of them can displace a real finding.
   const prepared = prepareCriteria(criteria, content);
-  const scored = passagesWithOffsets(content, excludedLines(content)).map((s, i) => (
-    { ...s, index: i, ...scorePassage(s.text, prepared) }
-  ));
+  const excluded = excludedLines(content);
+  const inferredAt = extractDates(content).filter(d => d.inferred).map(d => d.offset);
+  const scored = passagesWithOffsets(content, excluded).map((s, i) => {
+    const hasInferred = inferredAt.some(o => o >= s.offset && o < s.offset + s.text.length);
+    return { ...s, index: i, ...scorePassage(s.text, prepared, hasInferred) };
+  });
 
   // Only passages that carry at least one real signal are worth citing.
   const candidates = scored.filter(s => s.signals.length > 0);
   const top = candidates
     .sort((a, b) => b.score - a.score)
-    .slice(0, citationBudget(content))
+    .slice(0, Math.max(citationBudget(content), messageBudget(content, excluded)))
     .sort((a, b) => a.index - b.index);
 
   // Ordinal within the line (or, for a paginated document, within the page),

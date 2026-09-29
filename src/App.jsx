@@ -47,11 +47,11 @@ import {
   extractCitations,
   formatCitation,
   formatLocator,
-  parseEventDate,
   formatEventDate,
+  extractDates,
+  INFERRED_YEAR_NOTE,
   buildUserCitation,
   SIGNAL_LABELS,
-  DATE_PATTERN,
 } from './lib/citations.js';
 import { computeIntegrityReport, RECOLLECT_RATIO } from './lib/integrity.js';
 import { MIN_SET_COHESION } from './lib/cohesion.js';
@@ -124,6 +124,7 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {}, onOpen }) => {
   const max = Math.max(...times);
   const span = Math.max(max - min, 1);
   const sourceCount = new Set(timeline.map(e => e.source)).size;
+  const inferredCount = timeline.filter(e => e.inferred).length;
 
   const DOT = 9;        // rendered point diameter including ring, in px
   const LANE_H = 12;    // vertical step between stacked lanes, in px
@@ -153,6 +154,12 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {}, onOpen }) => {
           <h4 className={`text-[11px] font-bold mt-0.5 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
             {timeline.length} dated event{timeline.length === 1 ? '' : 's'} across {sourceCount} document{sourceCount === 1 ? '' : 's'}
           </h4>
+          {inferredCount > 0 && (
+            <p className="text-[9px] font-mono text-amber-600 mt-0.5 inline-flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full border-2 border-amber-500 bg-white" />
+              {inferredCount} with {INFERRED_YEAR_NOTE}
+            </p>
+          )}
         </div>
         <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono border shrink-0 ${
           isDarkMode ? 'bg-white/[0.05] text-slate-400 border-white/[0.06]' : 'bg-slate-100 text-slate-500 border-slate-200'
@@ -180,7 +187,7 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {}, onOpen }) => {
             >
               <button
                 type="button"
-                aria-label={`${formatEventDate(point.time)} — ${point.source}. Open document.`}
+                aria-label={`${formatEventDate(point.time)}${point.inferred ? ` (${INFERRED_YEAR_NOTE})` : ''} — ${point.source}. Open document.`}
                 onMouseEnter={() => setHovered(point.key)}
                 onMouseLeave={() => setHovered(null)}
                 onFocus={() => setHovered(point.key)}
@@ -190,9 +197,11 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {}, onOpen }) => {
               >
                 <span
                   className={`block rounded-full transition-transform duration-150 ${
-                    isHovered
-                      ? 'bg-indigo-300 ring-2 ring-indigo-400/50 scale-150'
-                      : 'bg-indigo-500 ring-2 ring-indigo-500/20'
+                    point.inferred
+                      ? `bg-white border-2 border-amber-500 ${isHovered ? 'scale-150' : ''}`
+                      : isHovered
+                        ? 'bg-indigo-300 ring-2 ring-indigo-400/50 scale-150'
+                        : 'bg-indigo-500 ring-2 ring-indigo-500/20'
                   }`}
                   style={{ width: DOT - 2, height: DOT - 2 }}
                 />
@@ -211,6 +220,11 @@ const TimelineStrip = ({ timeline, isDarkMode, bates = {}, onOpen }) => {
                   <p className="text-[9px] font-mono text-slate-500 mt-0.5">
                     {bates[point.source] ? `${bates[point.source]} · ` : ''}matched &ldquo;{point.label}&rdquo;
                   </p>
+                  {point.inferred && (
+                    <p className="text-[9px] font-mono text-amber-600 mt-0.5">
+                      {INFERRED_YEAR_NOTE[0].toUpperCase() + INFERRED_YEAR_NOTE.slice(1)} ({point.anchor})
+                    </p>
+                  )}
                   <p className="text-[9px] font-mono text-indigo-400 mt-1">Click to open this document</p>
                 </div>
               )}
@@ -618,8 +632,12 @@ export default function App() {
   }), [criteriaParties, criteriaTerms, criteriaFrom, criteriaTo]);
 
   const screeningActive = hasCriteria(relevanceCriteria);
-  // What citation scoring needs from the criteria: the listed parties.
-  const citationCriteria = useMemo(() => ({ parties: relevanceCriteria.parties }), [relevanceCriteria.parties]);
+  // What citation scoring needs from the criteria: the listed parties and
+  // counsel's key terms.
+  const citationCriteria = useMemo(
+    () => ({ parties: relevanceCriteria.parties, terms: relevanceCriteria.terms }),
+    [relevanceCriteria.parties, relevanceCriteria.terms]
+  );
 
   const { results: relevanceResults, counts: relevanceCounts } = useMemo(
     () => screenDocuments(documents, relevanceCriteria),
@@ -934,6 +952,9 @@ export default function App() {
   useEffect(() => { hydratingRef.current = false; });
 
   // Deep Analysis: real per-document date extraction driving real progress.
+  // Documents are processed in time slices of about one frame, yielding to the
+  // browser between slices so the bar can paint. There is no added delay: the
+  // bar moves only as documents are actually read.
   useEffect(() => {
     if (activeStep !== 4) return;
     if (producibleDocs.length === 0) {
@@ -945,50 +966,56 @@ export default function App() {
     }
 
     let cancelled = false;
+    let timer = null;
     setAnalysisProgress(0);
     setAnalysisComplete(false);
     setTimeline([]);
     setDocAnalysis({});
     setAnalysisPhase('Extracting dates...');
 
+    const docs = producibleDocs;
     const events = [];
+    const perDoc = {};
     let index = 0;
+    const started = performance.now();
 
-    const step = () => {
+    const slice = () => {
       if (cancelled) return;
-      const doc = producibleDocs[index];
-      if (doc) {
-        const re = new RegExp(DATE_PATTERN.source, 'gi');
-        let match;
-        let found = 0;
-        while ((match = re.exec(doc.content || '')) !== null) {
-          const time = parseEventDate(match[0]);
-          if (time !== null) { events.push({ time, label: match[0], source: doc.name }); found += 1; }
-        }
-        setDocAnalysis(prev => ({ ...prev, [doc.name]: { events: found, done: true } }));
+      const until = performance.now() + 16;
+      while (index < docs.length && performance.now() < until) {
+        const doc = docs[index];
+        // Dates without a year are placed only when the document supplies
+        // one to infer from, and are marked as inferred.
+        const found = extractDates(doc.content || '');
+        found.forEach(d => events.push({
+          time: d.time, label: d.label, source: doc.name, inferred: d.inferred, anchor: d.anchor,
+        }));
+        perDoc[doc.name] = { events: found.length, inferred: found.filter(d => d.inferred).length, done: true };
+        index += 1;
       }
-      index += 1;
-      const pct = Math.round((index / producibleDocs.length) * 100);
-      setAnalysisProgress(pct);
-      setAnalysisPhase(`Extracting dates — ${index} of ${producibleDocs.length} documents`);
+      setDocAnalysis({ ...perDoc });
+      setAnalysisProgress(Math.round((index / docs.length) * 100));
+      setAnalysisPhase(`Extracting dates — ${index} of ${docs.length} documents`);
 
-      if (index >= producibleDocs.length) {
-        events.sort((a, b) => a.time - b.time);
-        setTimeline(events);
-        setAnalysisPhase(
-          events.length
-            ? `Chronology assembled — ${events.length} dated event${events.length === 1 ? '' : 's'}`
-            : 'Analysis complete — no dated events found'
-        );
-        setAnalysisComplete(true);
-        appendAudit('Ran deep analysis', `${producibleDocs.length} documents`, 'system');
-        return;
-      }
-      setTimeout(step, 120);
+      if (index < docs.length) { timer = setTimeout(slice, 0); return; }
+
+      const seconds = ((performance.now() - started) / 1000).toFixed(2);
+      const inferredCount = events.filter(e => e.inferred).length;
+      events.sort((a, b) => a.time - b.time);
+      setTimeline(events);
+      setAnalysisPhase(
+        events.length
+          ? `Chronology assembled — ${events.length} dated event${events.length === 1 ? '' : 's'}`
+            + (inferredCount ? ` (${inferredCount} with ${INFERRED_YEAR_NOTE})` : '')
+            + ` in ${seconds}s`
+          : `Analysis complete — no dated events found in ${seconds}s`
+      );
+      setAnalysisComplete(true);
+      appendAudit('Ran deep analysis', `${docs.length} documents · ${events.length} dated events · ${seconds}s`, 'system');
     };
 
-    const kickoff = setTimeout(step, 200);
-    return () => { cancelled = true; clearTimeout(kickoff); };
+    timer = setTimeout(slice, 0);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [activeStep, producibleNames.join('|')]);
 
   // ---------- Handlers ----------
@@ -1581,7 +1608,10 @@ export default function App() {
     setLoadingSample(id);
     try {
       const files = await loadSampleFiles(id);
-      const accepted = await ingestFiles(files, { parties: parseCriteriaList(sample.criteria.parties) });
+      const accepted = await ingestFiles(files, {
+        parties: parseCriteriaList(sample.criteria.parties),
+        terms: parseCriteriaList(sample.criteria.terms),
+      });
       const names = accepted.map(d => d.name);
       setCaseTitle(sample.title);
       setBatesPrefix(sample.batesPrefix);
@@ -1681,21 +1711,32 @@ export default function App() {
 
   // Marks the dates the analysis pass extracts, so opening a document shows
   // what Stage 04 actually found in it.
+  // A date whose year was inferred is marked differently and says so.
   const renderWithDates = (text) => {
-    const re = new RegExp(DATE_PATTERN.source, 'gi');
     const parts = [];
     let last = 0;
-    let match;
     let key = 0;
-    while ((match = re.exec(text)) !== null) {
-      if (match.index > last) parts.push(text.slice(last, match.index));
-      parts.push(
-        <mark key={key++} className="bg-indigo-100 text-indigo-950 rounded px-0.5 font-semibold">
-          {match[0]}
+    extractDates(text).forEach(d => {
+      if (d.offset < last) return;
+      if (d.offset > last) parts.push(text.slice(last, d.offset));
+      const label = text.slice(d.offset, d.offset + d.length);
+      parts.push(d.inferred ? (
+        <mark
+          key={key++}
+          data-inferred-date
+          title={`${formatEventDate(d.time)}: ${INFERRED_YEAR_NOTE} (${d.anchor})`}
+          className="bg-amber-50 text-amber-950 rounded px-0.5 font-semibold border-b border-dashed border-amber-500"
+        >
+          {label}
+          <sup className="ml-0.5 text-[8px] font-mono font-bold text-amber-700">{new Date(d.time).getFullYear()}?</sup>
         </mark>
-      );
-      last = match.index + match[0].length;
-    }
+      ) : (
+        <mark key={key++} className="bg-indigo-100 text-indigo-950 rounded px-0.5 font-semibold">
+          {label}
+        </mark>
+      ));
+      last = d.offset + d.length;
+    });
     if (last < text.length) parts.push(text.slice(last));
     return parts;
   };
@@ -2440,7 +2481,7 @@ export default function App() {
                           // Citation scoring counts only listed parties, so the
                           // citations are re-extracted against the new list.
                           if (documents.length > 0) {
-                            reextractCitations({ parties: parseCriteriaList(after) },
+                            reextractCitations({ ...citationCriteria, parties: parseCriteriaList(after) },
                               'Re-extracted citations for the changed party list');
                           }
                         })}
@@ -2459,8 +2500,14 @@ export default function App() {
                         placeholder="escrow, wire transfer, account 4471-882"
                         value={criteriaTerms}
                         onChange={(e) => setCriteriaTerms(e.target.value)}
-                        {...editProps('criteriaTerms', criteriaTerms, (before, after) =>
-                          appendAudit('Changed screening criteria: key terms', `"${before}" → "${after}"`))}
+                        {...editProps('criteriaTerms', criteriaTerms, (before, after) => {
+                          appendAudit('Changed screening criteria: key terms', `"${before}" → "${after}"`);
+                          // Key terms feed citation scoring too.
+                          if (documents.length > 0) {
+                            reextractCitations({ ...citationCriteria, terms: parseCriteriaList(after) },
+                              'Re-extracted citations for the changed key terms');
+                          }
+                        })}
                         className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                           isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}
@@ -4816,7 +4863,8 @@ export default function App() {
               </div>
 
               <div className="px-4 py-2 border-t border-[#D1D5DB] bg-[#E5E7EB] text-[10px] font-mono text-slate-500 shrink-0">
-                Dates found by the analysis pass are highlighted. Press Esc to close.
+                Dates found by the analysis pass are highlighted; a dashed date with a year and "?" has its
+                {' '}{INFERRED_YEAR_NOTE}. Press Esc to close.
               </div>
             </div>
           </div>

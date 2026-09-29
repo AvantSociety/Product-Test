@@ -227,7 +227,7 @@ await page.waitForTimeout(800);
 results.chronology = await page.evaluate(() => {
   const summary = document.body.innerText.match(/Chronology assembled — (\d+) dated events?/);
   const points = [...document.querySelectorAll('[aria-label$=". Open document."]')].map(e => e.getAttribute('aria-label'))
-    .map(l => { const m = l.match(/^(\d+\/\d+\/\d+) — (.*)\. Open document\.$/); return m ? { date: m[1], source: m[2] } : null; }).filter(Boolean);
+    .map(l => { const m = l.match(/^(\d+\/\d+\/\d+)( \(year inferred from document date\))? — (.*)\. Open document\.$/); return m ? { date: m[1], source: m[3], inferred: !!m[2] } : null; }).filter(Boolean);
   return { events: summary ? Number(summary[1]) : 0, points };
 });
 log(`chronology: ${results.chronology.events} events, ${results.chronology.points.length} plotted`);
