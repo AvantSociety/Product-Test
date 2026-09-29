@@ -51,10 +51,10 @@ export const RELEVANCE_CATEGORIES = {
   },
   none: {
     key: 'none',
-    label: 'No connection found',
+    label: 'No match to your criteria',
     short: 'NO MATCH',
     tone: 'red',
-    blurb: 'Names no party and hits no key term. Nothing in it connects to this matter.',
+    blurb: 'No match to your criteria: names none of your listed parties and hits none of your key terms. Review before excluding.',
   },
 };
 

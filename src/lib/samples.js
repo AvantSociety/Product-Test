@@ -40,7 +40,7 @@ export const SAMPLE_MATTERS = [
     kind: 'Premises liability, insurance defense',
     place: 'Birmingham, AL',
     summary: 'A customer slips on spilled liquid; the store’s insurer is defending.',
-    shows: 'The chronology exposing a missed floor check and lost security video.',
+    shows: 'the chronology placing the lost security video against the incident date.',
     batesPrefix: 'BHM',
     criteria: {
       parties: 'Delgado, Brookhaven, Morrow, Tran',
@@ -60,7 +60,7 @@ export const SAMPLE_MATTERS = [
     kind: 'Employment',
     place: 'Montgomery, AL',
     summary: 'A supervisor is fired for lateness and says it was retaliation for reporting safety violations.',
-    shows: 'Citations that contradict the stated reason for the firing.',
+    shows: 'citations counsel can use to test the stated reason for the firing.',
     batesPrefix: 'RVB',
     criteria: {
       parties: 'Okafor, Kowalski, Willis, Chen',
