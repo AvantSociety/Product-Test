@@ -62,6 +62,7 @@ import {
   RELEVANCE_CATEGORIES,
 } from './lib/relevance.js';
 import { saveMatter, loadMatter, clearMatter } from './lib/persistence.js';
+import { chainEntry, chainLegacyLog, verifyChain } from './lib/auditChain.js';
 import { SAMPLE_MATTERS, loadSampleFiles } from './lib/samples.js';
 import {
   buildPrivilegeLog,
@@ -73,6 +74,7 @@ import {
   triggerBlobDownload,
   renderTextPdf,
   byteLabel,
+  AUDIT_LOG_STATEMENT,
 } from './lib/exports.js';
 
 // ==========================================
@@ -351,6 +353,9 @@ const NOT_RESPONSIVE = 'not_responsive';
 const IN_SET = ['produce', 'redact', 'withhold'];
 const MIN_REASON_CHARS = 3;
 
+/** A pause this long in typing ends a brief-editing session. */
+const BRIEF_EDIT_IDLE_MS = 20000;
+
 const DEFAULT_MEMO =
   'Write your analysis here, or generate a citation digest from the findings extracted in the Citation Matrix.';
 
@@ -409,6 +414,10 @@ export default function App() {
   // signature from an attorney of record; an unattributed "approved" event is
   // worth nothing if the production is later challenged.
   const [approval, setApproval] = useState(null);
+  // The attorney whose name was last recorded on an approval. Counsel actions
+  // are attributed to this name once one exists, and to "User" before then.
+  // It outlives a voided approval: the person is still the one working.
+  const [attorneyName, setAttorneyName] = useState('');
   const [approverDraft, setApproverDraft] = useState('');
   const [previewKey, setPreviewKey] = useState(null);
   const [trustOpen, setTrustOpen] = useState(false);
@@ -482,23 +491,71 @@ export default function App() {
   // document text and not the surrounding chrome.
   const docTextRef = useRef(null);
   const hydrated = useRef(false);
+  // True for the render that restores a saved matter, so restoring is not
+  // mistaken for an edit that voids the check or the approval.
+  const hydratingRef = useRef(false);
   // Mirrors `documents` so ingest can check for duplicates synchronously,
   // without reading a flag set inside a state updater.
   const documentsRef = useRef([]);
   useEffect(() => { documentsRef.current = documents; }, [documents]);
 
-  const appendAudit = useCallback((action, target) => {
-    setAuditLog(prev => [
-      ...prev,
-      { ts: new Date().toISOString(), actor: 'Attorney', action, target: target || '' },
-    ]);
+  // Every entry is attributed and hash-chained as it is appended. Automatic
+  // processing (ingest, checks, analysis, voids) is "System"; everything
+  // counsel does carries the recorded attorney name, or "User" until one
+  // is recorded.
+  const attorneyRef = useRef('');
+  useEffect(() => { attorneyRef.current = attorneyName; }, [attorneyName]);
+  const appendAudit = useCallback((action, target, kind = 'counsel') => {
+    const entry = {
+      ts: new Date().toISOString(),
+      actor: kind === 'system' ? 'System' : (attorneyRef.current || 'User'),
+      action,
+      target: target || '',
+    };
+    setAuditLog(prev => chainEntry(prev, entry));
   }, []);
 
+  // Brief edits are logged once per editing session rather than per
+  // keystroke: the session ends on blur, on leaving the stage, or after a
+  // pause in typing.
+  const memoTextRef = useRef(memoText);
+  useEffect(() => { memoTextRef.current = memoText; }, [memoText]);
+  const memoSessionRef = useRef(null);
+  const flushBriefEdit = useCallback(() => {
+    const session = memoSessionRef.current;
+    if (!session) return;
+    clearTimeout(session.timer);
+    memoSessionRef.current = null;
+    const after = memoTextRef.current;
+    if (after !== session.before) {
+      appendAudit('Edited brief', `${session.before.length} → ${after.length} characters`);
+    }
+  }, [appendAudit]);
+  const noteBriefEdit = (before) => {
+    if (!memoSessionRef.current) memoSessionRef.current = { before, timer: null };
+    clearTimeout(memoSessionRef.current.timer);
+    memoSessionRef.current.timer = setTimeout(flushBriefEdit, BRIEF_EDIT_IDLE_MS);
+  };
+
+  // Text fields are logged when an edit is finished (on blur), with the value
+  // before and after, so a field typed into letter by letter is one entry.
+  const editStartRef = useRef({});
+  const editProps = (key, value, onCommit) => ({
+    onFocus: () => { editStartRef.current[key] = value; setIsTyping(true); },
+    onBlur: () => {
+      setIsTyping(false);
+      const before = editStartRef.current[key];
+      delete editStartRef.current[key];
+      if (before !== undefined && before !== value) onCommit(before, value);
+    },
+  });
+
   const handleStepChange = useCallback((stepId) => {
+    flushBriefEdit();
     setActiveStep(stepId);
     setSidebarOpen(false);
     if (rightPanelRef.current) rightPanelRef.current.scrollTop = 0;
-  }, []);
+  }, [flushBriefEdit]);
 
   // ---------- Persistence ----------
 
@@ -511,7 +568,9 @@ export default function App() {
       setPrivilege(saved.privilege || {});
       setSelectedForReview(saved.selectedForReview || []);
       setNotes(saved.notes || {});
-      setAuditLog(saved.auditLog || []);
+      setAuditLog(chainLegacyLog(saved.auditLog || []));
+      setAttorneyName(saved.attorneyName || saved.approval?.by || '');
+      hydratingRef.current = true;
       setCaseTitle(saved.caseTitle ?? 'In Re Jones Litigation');
       setBatesPrefix(saved.batesPrefix ?? 'VLM');
       setBatesStart(saved.batesStart ?? 1);
@@ -540,14 +599,14 @@ export default function App() {
         caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
         confirmedRelated, confirmedCollections,
         criteriaParties, criteriaTerms, criteriaFrom, criteriaTo,
-        memoEdited, approval, sampleMatter,
+        memoEdited, approval, sampleMatter, attorneyName,
       });
     }, 400);
     return () => clearTimeout(handle);
   }, [documents, citations, privilege, selectedForReview, notes, auditLog,
       caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
       confirmedRelated, confirmedCollections,
-      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, approval, sampleMatter]);
+      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, approval, sampleMatter, attorneyName]);
 
   // ---------- Derived ----------
 
@@ -843,10 +902,21 @@ export default function App() {
   // A change to the selection or its designations invalidates the check.
   const hadReportRef = useRef(null);
   useEffect(() => { hadReportRef.current = integrityReport; }, [integrityReport]);
+  const approvalRef = useRef(null);
+  useEffect(() => { approvalRef.current = approval; }, [approval]);
 
   useEffect(() => {
+    // Restoring a saved matter changes these values without anyone editing
+    // them; nothing is voided by a reload.
+    if (hydratingRef.current) { hydratingRef.current = false; return; }
     if (hadReportRef.current) {
       setVoidedCheck({ at: new Date(), ready: hadReportRef.current.ready.length });
+      appendAudit('Readiness check voided by a change to the production set, designations or screening',
+        `${hadReportRef.current.ready.length} documents had been cleared`, 'system');
+    }
+    if (approvalRef.current) {
+      appendAudit('Approval voided by a change to the production set, designations or screening',
+        approvalRef.current.by, 'system');
     }
     setIntegrityReport(null);
     setExceptionsAck(null);
@@ -856,7 +926,10 @@ export default function App() {
     // approval no longer describes what would go out.
     setApproval(null);
   }, [selectedForReview.join('|'), JSON.stringify(privilege), confirmedRelated.join('|'),
-      confirmedCollections.join('|'), JSON.stringify(relevanceCriteria)]);
+      confirmedCollections.join('|'), JSON.stringify(relevanceCriteria), appendAudit]);
+  // Runs after the effect above in every commit, so the hydration flag never
+  // outlives the render that restored the matter.
+  useEffect(() => { hydratingRef.current = false; });
 
   // Deep Analysis: real per-document date extraction driving real progress.
   useEffect(() => {
@@ -906,7 +979,7 @@ export default function App() {
             : 'Analysis complete — no dated events found'
         );
         setAnalysisComplete(true);
-        appendAudit('Ran deep analysis', `${producibleDocs.length} documents`);
+        appendAudit('Ran deep analysis', `${producibleDocs.length} documents`, 'system');
         return;
       }
       setTimeout(step, 120);
@@ -982,12 +1055,7 @@ export default function App() {
         });
         return next;
       });
-      setAuditLog(prev => [
-        ...prev,
-        ...accepted.map(doc => ({
-          ts: new Date().toISOString(), actor: 'Attorney', action: 'Ingested document', target: doc.name,
-        })),
-      ]);
+      accepted.forEach(doc => appendAudit('Ingested document', `${doc.name} — SHA-256 ${doc.hash}`, 'system'));
     }
 
     setUploadNotices(notices);
@@ -1020,6 +1088,14 @@ export default function App() {
     added.forEach(n => {
       if (privilege[n]?.status === NOT_RESPONSIVE) appendAudit('Cleared not-responsive designation', n);
     });
+    // One entry per document for a single click; one entry naming every
+    // document for a bulk change, so selecting 2,000 files is not 2,000 lines.
+    const logChange = (names, one, many) => {
+      if (names.length === 1) appendAudit(one, names[0]);
+      else if (names.length > 1) appendAudit(`${many} (${names.length} documents)`, names.join('; '));
+    };
+    logChange(added, 'Selected for production (Produce)', 'Selected for production (Produce)');
+    logChange(removed, 'Deselected from production (now unaccounted)', 'Deselected from production (now unaccounted)');
     setSelectedForReview(nextNames);
     setPrivilege(prev => {
       const out = { ...prev };
@@ -1117,13 +1193,15 @@ export default function App() {
     setBatesAssignments(assignments);
     setManifestSha(sha);
     setIntegrityReport(report);
+    if (approval) appendAudit('Approval voided by re-running the readiness check', approval.by, 'system');
     setVoidedCheck(null); setApproval(null); setApproverDraft(''); setPreviewKey(null);
     setIsRunningIntegrityCheck(false);
     appendAudit(
       `Ran readiness check — ${report.ready.length} of ${report.total} ready`
         + (report.exceptions.length ? `, ${report.exceptions.length} held back` : '')
         + (report.unaccounted.length ? ` (${report.unaccounted.length} unaccounted)` : ''),
-      `${selectedDocs.length} documents`
+      `${selectedDocs.length} documents · manifest SHA-256 ${sha}`,
+      'system'
     );
   };
 
@@ -1225,6 +1303,14 @@ export default function App() {
   };
 
   const updateCitationTags = (citationId, updater) => {
+    const current = activeCitations.find(c => c.id === citationId);
+    if (current) {
+      const before = current.tags || [];
+      const after = updater(before);
+      const target = `${selectedDocSource}, ${formatLocator(current)}`;
+      after.filter(t => !before.includes(t)).forEach(t => appendAudit('Tagged finding', `${target} — ${t}`));
+      before.filter(t => !after.includes(t)).forEach(t => appendAudit('Removed tag', `${target} — ${t}`));
+    }
     setCitations(prev => ({
       ...prev,
       [selectedDocSource]: (prev[selectedDocSource] || []).map(c =>
@@ -1391,8 +1477,8 @@ export default function App() {
         icon: ScrollText,
         tone: 'slate',
         title: 'Audit Log',
-        blurb: 'Append-only record of every action taken on this matter, with timestamps.',
-        build: () => buildAuditLog({ caseTitle, auditLog, flagged }),
+        blurb: AUDIT_LOG_STATEMENT,
+        build: () => buildAuditLog({ caseTitle, auditLog, chain: verifyChain(auditLog), flagged }),
       },
     ];
   };
@@ -1428,9 +1514,22 @@ export default function App() {
                         });
                         return next;
                       });
-                      appendAudit('Re-extracted citations', `${documents.length} documents`);
+                      appendAudit('Re-extracted citations', `${documents.length} documents`, 'system');
                       handleStepChange(4);
                     };
+
+  // Verified only while the drawer is open: recomputing every hash on each
+  // keystroke elsewhere would be wasted work on a long matter.
+  const ledgerChain = useMemo(
+    () => (ledgerOpen || confirmClear ? verifyChain(auditLog) : null),
+    [ledgerOpen, confirmClear, auditLog]
+  );
+
+  const exportAuditLog = () => {
+    const file = buildAuditLog({ caseTitle, auditLog, chain: verifyChain(auditLog), flagged: isFlaggedForReview });
+    triggerDownload(file.filename, file.content, file.mime);
+    appendAudit('Exported audit log', file.filename);
+  };
 
   const handleDownload = (item) => {
     const file = item.build();
@@ -1549,6 +1648,8 @@ export default function App() {
     // fresh untouched draft kept the "attorney work product" header that is
     // only meant to appear once counsel has edited it.
     setApproval(null); setApproverDraft(''); setMemoEdited(false); setSampleMatter(null);
+    setAttorneyName(''); attorneyRef.current = '';
+    if (memoSessionRef.current) { clearTimeout(memoSessionRef.current.timer); memoSessionRef.current = null; }
     setPreviewKey(null); setLedgerOpen(false); setTrustOpen(false);
     setDocuments([]); setCitations({}); setPrivilege({}); setSelectedForReview([]);
     setNotes({}); setAuditLog([]); setBatesAssignments({}); setIntegrityReport(null);
@@ -1616,8 +1717,8 @@ export default function App() {
             type="text"
             value={caseTitle}
             onChange={(e) => setCaseTitle(e.target.value)}
-            onFocus={() => setIsTyping(true)}
-            onBlur={() => setIsTyping(false)}
+            {...editProps('caseTitle', caseTitle, (before, after) =>
+              appendAudit('Renamed matter', `"${before}" → "${after}"`))}
             className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all ${
               isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
             }`}
@@ -1633,8 +1734,8 @@ export default function App() {
                   type="text"
                   value={batesPrefix}
                   onChange={(e) => setBatesPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
-                  onFocus={() => setIsTyping(true)}
-                  onBlur={() => setIsTyping(false)}
+                  {...editProps('batesPrefix', batesPrefix, (before, after) =>
+                    appendAudit('Changed Bates prefix', `${before} → ${after}`))}
                   disabled={stamped > 0}
                   className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 ${
                     isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
@@ -1648,8 +1749,8 @@ export default function App() {
                   min="1"
                   value={batesStart}
                   onChange={(e) => setBatesStart(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  onFocus={() => setIsTyping(true)}
-                  onBlur={() => setIsTyping(false)}
+                  {...editProps('batesStart', batesStart, (before, after) =>
+                    appendAudit('Changed Bates start number', `${before} → ${after}`))}
                   disabled={stamped > 0}
                   className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 ${
                     isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
@@ -2322,8 +2423,8 @@ export default function App() {
                         placeholder="Acme Holdings, Jane Doe, Meridian Partners"
                         value={criteriaParties}
                         onChange={(e) => setCriteriaParties(e.target.value)}
-                        onFocus={() => setIsTyping(true)}
-                        onBlur={() => setIsTyping(false)}
+                        {...editProps('criteriaParties', criteriaParties, (before, after) =>
+                          appendAudit('Changed screening criteria: parties', `"${before}" → "${after}"`))}
                         className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                           isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}
@@ -2339,8 +2440,8 @@ export default function App() {
                         placeholder="escrow, wire transfer, account 4471-882"
                         value={criteriaTerms}
                         onChange={(e) => setCriteriaTerms(e.target.value)}
-                        onFocus={() => setIsTyping(true)}
-                        onBlur={() => setIsTyping(false)}
+                        {...editProps('criteriaTerms', criteriaTerms, (before, after) =>
+                          appendAudit('Changed screening criteria: key terms', `"${before}" → "${after}"`))}
                         className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                           isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                         }`}
@@ -2356,8 +2457,8 @@ export default function App() {
                           type="date"
                           value={criteriaFrom}
                           onChange={(e) => setCriteriaFrom(e.target.value)}
-                          onFocus={() => setIsTyping(true)}
-                          onBlur={() => setIsTyping(false)}
+                          {...editProps('criteriaFrom', criteriaFrom, (before, after) =>
+                            appendAudit('Changed screening criteria: period start', `"${before}" → "${after}"`))}
                           className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                             isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                           }`}
@@ -2371,8 +2472,8 @@ export default function App() {
                           type="date"
                           value={criteriaTo}
                           onChange={(e) => setCriteriaTo(e.target.value)}
-                          onFocus={() => setIsTyping(true)}
-                          onBlur={() => setIsTyping(false)}
+                          {...editProps('criteriaTo', criteriaTo, (before, after) =>
+                            appendAudit('Changed screening criteria: period end', `"${before}" → "${after}"`))}
                           className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                             isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                           }`}
@@ -2810,7 +2911,10 @@ export default function App() {
                             }`}>
                               <select
                                 value={record.basis || ''}
-                                onChange={(e) => setPrivilegeField(doc.name, 'basis', e.target.value)}
+                                onChange={(e) => {
+                                  setPrivilegeField(doc.name, 'basis', e.target.value);
+                                  appendAudit('Set privilege basis', `${doc.name} — ${e.target.value || '(none)'}`);
+                                }}
                                 className={`text-[11px] rounded-lg border px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                                   isDarkMode ? 'bg-[#151620] border-white/[0.06] text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-800'
                                 }`}
@@ -2823,8 +2927,8 @@ export default function App() {
                                 placeholder="Description for the log"
                                 value={record.description || ''}
                                 onChange={(e) => setPrivilegeField(doc.name, 'description', e.target.value)}
-                                onFocus={() => setIsTyping(true)}
-                                onBlur={() => setIsTyping(false)}
+                                {...editProps(`desc:${doc.name}`, record.description || '', (before, after) =>
+                                  appendAudit('Edited privilege description', `${doc.name} — "${before}" → "${after}"`))}
                                 className={`sm:col-span-2 text-[11px] rounded-lg border px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                                   isDarkMode ? 'bg-[#151620] border-white/[0.06] text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-800'
                                 }`}
@@ -3932,8 +4036,8 @@ export default function App() {
 
                 <textarea
                   value={memoText}
-                  onChange={(e) => { setMemoText(e.target.value); setMemoEdited(true); setIsTyping(true); }}
-                  onBlur={() => setIsTyping(false)}
+                  onChange={(e) => { noteBriefEdit(memoText); setMemoText(e.target.value); setMemoEdited(true); setIsTyping(true); }}
+                  onBlur={() => { setIsTyping(false); flushBriefEdit(); }}
                   rows={14}
                   className={`w-full text-[13px] leading-relaxed p-4 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y font-sans ${
                     isDarkMode ? 'bg-[#151620] border-white/[0.06] text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-800'
@@ -4070,6 +4174,10 @@ export default function App() {
                         const by = approverDraft.trim();
                         const record = { by, at: new Date().toISOString(), producing: producibleNames.length };
                         setApproval(record);
+                        // The name is recorded now, so this entry and every
+                        // later counsel action carry it.
+                        attorneyRef.current = by;
+                        setAttorneyName(by);
                         appendAudit('Approved package for service', `${by} — ${caseTitle}`);
                         handleStepChange(8);
                       }}
@@ -4424,9 +4532,32 @@ export default function App() {
                       {losing.length > 0 && <>: {losing.map(([n, w]) => `${n} ${w}${n === 1 ? '' : 's'}`).join(', ')}</>}.
                     </p>
                     <p>
-                      There is no copy anywhere else, so this cannot be undone. If you need the brief, the
-                      privilege log or the ledger, export them from Stage&nbsp;08 first.
+                      There is no copy anywhere else, so this cannot be undone. If you need the brief or the
+                      privilege log, export them from Stage&nbsp;08 first.
                     </p>
+                    {auditLog.length > 0 && (
+                      <div
+                        data-testid="clear-export-prompt"
+                        className={`p-3 rounded-lg border ${isDarkMode ? 'border-amber-500/30 bg-amber-500/10' : 'border-amber-300 bg-amber-50'}`}
+                      >
+                        <p className={`font-semibold ${isDarkMode ? 'text-amber-300' : 'text-amber-800'}`}>
+                          Clearing erases the audit log.
+                        </p>
+                        <p className="mt-1">
+                          Its {auditLog.length} entr{auditLog.length === 1 ? 'y is' : 'ies are'} the only record of
+                          the work done on this matter. Export it before you clear.
+                        </p>
+                        <button
+                          onClick={exportAuditLog}
+                          className="mt-2 px-3 py-1.5 text-[11px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-colors inline-flex items-center gap-1.5"
+                        >
+                          <Download size={12} /> Export audit log (CSV)
+                        </button>
+                        {auditLog[auditLog.length - 1]?.action === 'Exported audit log' && (
+                          <span className="ml-2 text-[10px] font-mono text-emerald-600">Exported</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -4474,10 +4605,20 @@ export default function App() {
                   <ScrollText size={14} className="text-indigo-500" /> Review Ledger
                 </h3>
                 <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
-                  Every action taken on this matter, in order, with the time it happened. Entries are appended and
-                  never edited or removed &mdash; which is what makes this usable as evidence that the review
-                  actually took place.
+                  {AUDIT_LOG_STATEMENT}
                 </p>
+                {auditLog.length > 0 && ledgerChain && (
+                  <p
+                    data-testid="chain-status"
+                    className={`text-[10px] font-mono font-bold mt-2 inline-flex items-center gap-1.5 ${
+                      ledgerChain.intact ? 'text-emerald-500' : 'text-red-500'
+                    }`}
+                  >
+                    {ledgerChain.intact
+                      ? <><CheckCircle2 size={12} /> Chain intact &middot; head {ledgerChain.head.slice(0, 12)}…</>
+                      : <><AlertTriangle size={12} /> Chain broken at entry {ledgerChain.brokenAt}</>}
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => setLedgerOpen(false)}
@@ -4506,6 +4647,7 @@ export default function App() {
                       }`}
                     >
                       <span className="text-[9px] font-mono text-slate-500 shrink-0 w-20 pt-0.5">
+                        <span className="block text-slate-400">#{entry.seq ?? auditLog.length - i}</span>
                         {new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -4527,13 +4669,10 @@ export default function App() {
               isDarkMode ? 'border-white/[0.06] bg-white/[0.01]' : 'border-slate-200 bg-slate-50'
             }`}>
               <span className="text-[10px] font-mono text-slate-500">
-                {auditLog.length} event{auditLog.length === 1 ? '' : 's'} &middot; append-only
+                {auditLog.length} event{auditLog.length === 1 ? '' : 's'} &middot; hash-chained
               </span>
               <button
-                onClick={() => {
-                  const file = buildAuditLog({ caseTitle, auditLog, flagged: isFlaggedForReview });
-                  triggerDownload(file.filename, file.content, file.mime);
-                }}
+                onClick={exportAuditLog}
                 disabled={auditLog.length === 0}
                 className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 transition-all inline-flex items-center gap-1.5"
               >

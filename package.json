@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:e2e": "node tests/e2e/unaccounted.mjs"
+    "test:e2e": "node tests/e2e/unaccounted.mjs && node tests/e2e/audit.mjs"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

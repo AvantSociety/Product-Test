@@ -286,16 +286,27 @@ export function buildExceptionsReport({ caseTitle, exceptions, acknowledgment = 
   };
 }
 
-/** Append-only custody and activity log. */
-export function buildAuditLog({ caseTitle, auditLog, flagged = false }) {
+/** What the audit log says about itself, wherever it is shown or exported. */
+export const AUDIT_LOG_STATEMENT = 'A record of actions taken on this matter in this browser. Each entry is chained to the one before it, so any later alteration is detectable. Clearing the matter erases the log, so export it first.';
+
+/**
+ * Custody and activity log. Each row carries the previous entry's hash and its
+ * own, so the export can be re-verified outside the product.
+ */
+export function buildAuditLog({ caseTitle, auditLog, chain = null, flagged = false }) {
   const rows = [
-    ['Timestamp', 'Actor', 'Action', 'Target'],
-    ...auditLog.map(e => [e.ts, e.actor, e.action, e.target || '']),
+    ['Seq', 'Timestamp', 'Actor', 'Action', 'Target', 'Previous Hash', 'Hash (SHA-256)'],
+    ...auditLog.map((e, i) => [e.seq ?? i + 1, e.ts, e.actor, e.action, e.target || '', e.prevHash || '', e.hash || '']),
   ];
+  const status = !chain ? ''
+    : chain.intact ? `Chain intact at export. Head hash: ${chain.head}\r\n`
+    : `CHAIN BROKEN AT ENTRY ${chain.brokenAt}: that entry or its link does not match its recorded hash.\r\n`;
   return {
     filename: `${slug(caseTitle)}-audit-log.csv`,
     mime: 'text/csv',
-    content: `${imprintHeader('Review Ledger', caseTitle, flagged)}Append-only. Entries are never edited or removed.\r\n\r\n${toCsv(rows)}`,
+    content: `${imprintHeader('Review Ledger', caseTitle, flagged)}${AUDIT_LOG_STATEMENT}\r\n`
+      + 'Each hash is SHA-256 over the JSON array [Seq, Timestamp, Actor, Action, Target, Previous Hash].\r\n'
+      + `${status}\r\n${toCsv(rows)}`,
     count: auditLog.length,
   };
 }
