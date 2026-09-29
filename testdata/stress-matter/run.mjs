@@ -177,6 +177,20 @@ for (const d of designations) {
   await row.locator('select').selectOption(d.basis);
   await row.getByPlaceholder('Description for the log').fill(d.description);
 }
+// Every document left out of the production set must be marked Not Responsive
+// with a reason; one simply left unselected is held by the check as unaccounted.
+results.notResponsive = [];
+for (const d of manifest.documents) {
+  const row = rowFor(d.file);
+  if (!(await row.count()) || !/UNACCOUNTED/.test(await row.innerText())) continue;
+  const reason = `Outside the production set (screened ${results.rows[d.file]?.screen || 'out'}`
+    + `${String(d.responsive || '').startsWith('No') ? `; responsive: ${d.responsive}` : ''})`;
+  await row.getByRole('button', { name: 'Not Responsive…' }).click();
+  await row.getByPlaceholder(/Reason it is not responsive/).fill(reason);
+  await row.getByRole('button', { name: 'Mark Not Responsive' }).click();
+  results.notResponsive.push({ file: d.file, reason });
+}
+log(`pass 2: ${results.notResponsive.length} marked not responsive`);
 await page.waitForTimeout(500);
 results.selectionSummary = (await page.locator('body').innerText()).match(/\d+ selected · \d+ producible · \d+ withheld/)?.[0] || null;
 log(`pass 2 selection: ${results.selectionSummary}`);
