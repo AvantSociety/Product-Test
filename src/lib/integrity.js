@@ -28,7 +28,7 @@ export const READINESS_STATES = {
   ready: {
     label: 'READY TO PRODUCE',
     tone: 'emerald',
-    verdict: 'Every document in this set is intact, accounted for, and safe to produce.',
+    verdict: "Every document selected for production is readable, uniquely numbered and accounted for. Privilege review remains counsel's.",
   },
   cure: {
     label: 'CURE REQUIRED',

@@ -124,10 +124,13 @@ check(last.some(e => e.action.startsWith('Readiness check voided') && e.actor ==
 let csv = await downloadLog();
 check(/Seq,Timestamp,Actor,Action,Target,Previous Hash,Hash \(SHA-256\)/.test(csv), 'CSV export includes hash columns');
 check(/Chain intact at export\. Head hash: [0-9a-f]{64}/.test(csv), 'CSV export states the chain is intact');
-check(/Each entry is chained to the one before it, so any later alteration is detectable\./.test(csv), 'CSV carries the log statement');
+check(/Any change made after an export can be detected by comparing against the chain head printed on that export\./.test(csv)
+  && !/any later alteration is detectable/.test(csv), 'CSV carries the log statement');
+check(/Audit log chain head at export: entry \d+, SHA-256 [0-9a-f]{64}/.test(csv), 'CSV prints the chain head at export');
 await openLedger();
 check(/Chain intact/.test(await p.getByTestId('chain-status').innerText()), 'drawer shows "Chain intact"');
-check(/Clearing the matter erases the log, so export it first\./.test(await p.locator('body').innerText()), 'drawer shows the new statement');
+check(/Each entry is chained to the one before it\. Any change made after an export can be detected by comparing against the chain head printed on that export\./.test(await p.locator('body').innerText()),
+  'drawer shows the new statement');
 await closeLedger();
 
 // --- A plain reload keeps the chain and voids nothing ---

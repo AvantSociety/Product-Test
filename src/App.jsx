@@ -53,7 +53,7 @@ import {
   buildUserCitation,
   SIGNAL_LABELS,
 } from './lib/citations.js';
-import { computeIntegrityReport, RECOLLECT_RATIO } from './lib/integrity.js';
+import { computeIntegrityReport, RECOLLECT_RATIO, READINESS_STATES } from './lib/integrity.js';
 import { MIN_SET_COHESION } from './lib/cohesion.js';
 import {
   screenDocuments,
@@ -62,7 +62,9 @@ import {
   RELEVANCE_CATEGORIES,
 } from './lib/relevance.js';
 import { saveMatter, loadMatter, clearMatter } from './lib/persistence.js';
-import { chainEntry, chainLegacyLog, verifyChain } from './lib/auditChain.js';
+import {
+  chainEntry, chainLegacyLog, verifyChain, chainHead, formatChainHead, verifyAgainstHead, fingerprint,
+} from './lib/auditChain.js';
 import { SAMPLE_MATTERS, loadSampleFiles } from './lib/samples.js';
 import {
   buildPrivilegeLog,
@@ -75,6 +77,9 @@ import {
   renderTextPdf,
   byteLabel,
   AUDIT_LOG_STATEMENT,
+  AUDIT_CHAIN_STATEMENT,
+  FIRM_NOT_SET,
+  TOOL_FOOTER,
 } from './lib/exports.js';
 
 // ==========================================
@@ -407,6 +412,16 @@ export default function App() {
   const [batesPrefix, setBatesPrefix] = useState('VLM');
   const [batesStart, setBatesStart] = useState(1);
   const [batesAssignments, setBatesAssignments] = useState({});
+  // The next Bates number to issue. It only increases, so a number is never
+  // issued twice; a removed document's number is retired, not reused.
+  const [batesNext, setBatesNext] = useState(null);
+  const [retiredBates, setRetiredBates] = useState([]);
+  // The serving firm, printed on every deliverable, and whether to credit the
+  // software in a footer (off unless counsel turns it on).
+  const [firmName, setFirmName] = useState('');
+  const [toolFooter, setToolFooter] = useState(false);
+  // Whether the browser agreed to keep this matter's storage (null: unknown).
+  const [storagePersisted, setStoragePersisted] = useState(null);
   // Content hashes of documents counsel has confirmed belong to this matter,
   // clearing the "does not appear to belong" hold. Keyed by hash so editing or
   // replacing a document re-raises the question.
@@ -424,6 +439,11 @@ export default function App() {
   const [memoText, setMemoText] = useState(DEFAULT_MEMO);
   // A generated listing is not work product until counsel has worked on it.
   const [memoEdited, setMemoEdited] = useState(false);
+  // Pending "Draft from findings" over edited text: { draft } while counsel
+  // chooses between replacing and inserting.
+  const [draftChoice, setDraftChoice] = useState(null);
+  // Last caret position in the brief, for inserting at the cursor.
+  const memoCursorRef = useRef(null);
   // Who approved the package for service, and when. FRCP 26(g) requires a
   // signature from an attorney of record; an unattributed "approved" event is
   // worth nothing if the production is later challenged.
@@ -436,6 +456,9 @@ export default function App() {
   const [previewKey, setPreviewKey] = useState(null);
   const [trustOpen, setTrustOpen] = useState(false);
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  // A chain head pasted from an export, and the result of checking against it.
+  const [headDraft, setHeadDraft] = useState('');
+  const [headCheck, setHeadCheck] = useState(null);
   const [pdfPending, setPdfPending] = useState(null);
 
   // --- Ingest ---
@@ -466,7 +489,10 @@ export default function App() {
   // Set when a completed check is invalidated by a later edit, so the warning
   // appears where the change was made rather than only where the result lived.
   const [voidedCheck, setVoidedCheck] = useState(null);
-  const [manifestSha, setManifestSha] = useState(null);
+  // The production manifest: SHA-256 over the hashes of the documents being
+  // produced, fixed when the check runs and saved with the matter.
+  const [manifest, setManifest] = useState(null);
+  const manifestSha = manifest?.hash || null;
 
   // --- Analysis ---
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -474,6 +500,9 @@ export default function App() {
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [timeline, setTimeline] = useState([]);
   const [docAnalysis, setDocAnalysis] = useState({});
+  // Fingerprint of the producible set the chronology was built from. When the
+  // set changes the chronology is stale and is rebuilt.
+  const [timelineKey, setTimelineKey] = useState(null);
 
   // Document opened in the full-screen reader (by name), or null.
   const [openDocument, setOpenDocument] = useState(null);
@@ -600,6 +629,27 @@ export default function App() {
       setMemoEdited(!!saved.memoEdited);
       setSampleMatter(saved.sampleMatter || null);
       setApproval(saved.approval || null);
+      // The check result, its acknowledgment, the manifest and the chronology
+      // are part of the matter: without them a reload would fall back to an
+      // unchecked set. The verdict text is re-read so wording changes apply.
+      setIntegrityReport(saved.integrityReport
+        ? { ...saved.integrityReport, stateMeta: READINESS_STATES[saved.integrityReport.state] }
+        : null);
+      setExceptionsAck(saved.exceptionsAck || null);
+      setManifest(saved.manifest || null);
+      setTimeline(saved.timeline || []);
+      setTimelineKey(saved.timelineKey || null);
+      setDocAnalysis(saved.docAnalysis || {});
+      setAnalysisComplete(!!saved.analysisComplete);
+      setAnalysisProgress(saved.analysisComplete ? 100 : 0);
+      setAnalysisPhase(saved.analysisPhase || 'Waiting to start...');
+      setBatesNext(saved.batesNext ?? null);
+      setRetiredBates(saved.retiredBates || []);
+      setFirmName(saved.firmName || '');
+      setToolFooter(!!saved.toolFooter);
+      navigator.storage?.persisted?.()
+        .then(p => setStoragePersisted(p ? 'granted' : 'denied'))
+        .catch(() => {});
       hydrated.current = true;
     });
     return () => { cancelled = true; };
@@ -614,13 +664,18 @@ export default function App() {
         confirmedRelated, confirmedCollections,
         criteriaParties, criteriaTerms, criteriaFrom, criteriaTo,
         memoEdited, approval, sampleMatter, attorneyName,
+        integrityReport, exceptionsAck, manifest,
+        timeline, timelineKey, docAnalysis, analysisComplete, analysisPhase,
+        batesNext, retiredBates, firmName, toolFooter,
       });
     }, 400);
     return () => clearTimeout(handle);
   }, [documents, citations, privilege, selectedForReview, notes, auditLog,
       caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
       confirmedRelated, confirmedCollections,
-      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, approval, sampleMatter, attorneyName]);
+      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, approval, sampleMatter, attorneyName,
+      integrityReport, exceptionsAck, manifest, timeline, timelineKey, docAnalysis, analysisComplete, analysisPhase,
+      batesNext, retiredBates, firmName, toolFooter]);
 
   // ---------- Derived ----------
 
@@ -728,6 +783,36 @@ export default function App() {
 
   const allProducibleCitations = producibleDocs.flatMap(d => citations[d.name] || []);
 
+  // Everything a readiness check result depends on. A result is current only
+  // while this matches the fingerprint stored with it, so a result restored
+  // from storage, or one some path failed to clear, can never pass as current.
+  const checkInputsKey = useMemo(() => fingerprint({
+    documents: documents.map(d => [d.name, d.hash]),
+    selected: [...selectedForReview].sort(),
+    privilege,
+    confirmedRelated: [...confirmedRelated].sort(),
+    confirmedCollections: [...confirmedCollections].sort(),
+    criteria: relevanceCriteria,
+  }), [documents, selectedForReview, privilege, confirmedRelated, confirmedCollections, relevanceCriteria]);
+  const checkCurrent = Boolean(integrityReport && integrityReport.inputsKey === checkInputsKey);
+
+  // The served deliverables rest on a current check. Without one they would
+  // list documents the check never cleared, so they are blocked, with the
+  // reason.
+  const servedBlock = !integrityReport
+    ? 'No readiness check result. Run the check in Stage 03 before exporting this.'
+    : !checkCurrent
+      ? 'The readiness check is out of date: documents, designations, privilege entries or screening changed after it ran. Re-run it in Stage 03.'
+      : integrityReport.setHold
+        ? 'Nothing is cleared for production until the collection is confirmed in Stage 03.'
+        : null;
+
+  // Fingerprint of the producible set, so a chronology built from a different
+  // set reads as stale.
+  const producibleSignature = producibleDocs.map(d => `${d.name}\u0000${d.hash}`).join('\n');
+  const producibleKey = useMemo(() => fingerprint(producibleSignature), [producibleSignature]);
+  const chronologyCurrent = analysisComplete && timelineKey === producibleKey;
+
   // ---------- Stage progress ----------
   //
   // The stepper used to show only where you were standing, which tells an
@@ -748,6 +833,7 @@ export default function App() {
   );
   const checkSettled = Boolean(
     integrityReport
+      && checkCurrent
       && !integrityReport.setHold
       && integrityReport.ready.length > 0
       && (integrityReport.exceptions.length === 0 || exceptionsAcknowledged)
@@ -780,6 +866,7 @@ export default function App() {
           `${documents.length} of ${documents.length} ingested documents designated · ${producibleNames.length} producing, ${withheldCount} withheld, ${notResponsiveCount} not responsive`),
       3: state(checkSettled, !producible && unaccountedDocs.length === 0, 'Designate documents first',
           !integrityReport ? 'Check not run'
+            : !checkCurrent ? 'Check out of date: re-run it'
             : integrityReport.setHold ? 'Collection not yet confirmed'
             : integrityReport.unaccounted.length > 0
               ? `${integrityReport.unaccounted.length} unaccounted document${integrityReport.unaccounted.length === 1 ? '' : 's'}`
@@ -788,7 +875,8 @@ export default function App() {
           integrityReport?.exceptions.length
             ? `${integrityReport.ready.length} ready · ${integrityReport.exceptions.length} held back, acknowledged`
             : `${integrityReport?.ready.length ?? 0} ready to produce`),
-      4: state(analysisComplete, !producible, 'Designate documents first', 'Analysis not run',
+      4: state(chronologyCurrent, !producible, 'Designate documents first',
+          analysisComplete ? 'Chronology out of date: rebuilding' : 'Analysis not run',
           `${timeline.length} dated event${timeline.length === 1 ? '' : 's'}`),
       5: state(annotated, !cited, 'No citations to work from', 'No notes or tags yet',
           `${allProducibleCitations.length} citations on the record`),
@@ -801,8 +889,8 @@ export default function App() {
       9: { state: 'todo', hint: '' },
     };
   }, [documents.length, producibleNames.length, withheldCount,
-      unaccountedDocs.length, designatedCount, notResponsiveCount, checkSettled,
-      incompletePrivilege.length, integrityReport, analysisComplete, timeline.length,
+      unaccountedDocs.length, designatedCount, notResponsiveCount, checkSettled, chronologyCurrent,
+      incompletePrivilege.length, integrityReport, checkCurrent, analysisComplete, timeline.length,
       allProducibleCitations, notes, memoEdited, approval, deliverableDownloaded]);
 
   const completionOutstanding = COMPLETION_ITEMS.filter(
@@ -825,6 +913,12 @@ export default function App() {
   const shownEvents = useAnimatedNumber(auditLog.length);
   const shownPct = useAnimatedNumber(readinessPct);
   const hasMatter = documents.length > 0 || auditLog.length > 0;
+  const storageStatus = !hasMatter || !storagePersisted ? null
+    : storagePersisted === 'granted'
+      ? { tone: 'text-emerald-600', text: 'Browser storage: persistent. This browser agreed not to clear this matter on its own.' }
+      : storagePersisted === 'unsupported'
+        ? { tone: 'text-amber-600', text: 'Browser storage: best-effort. This browser cannot promise to keep the matter; export before stepping away.' }
+        : { tone: 'text-amber-600', text: 'Browser storage: best-effort. The browser did not grant persistent storage and may clear this matter; export before stepping away.' };
 
 
   // Every tag used anywhere in the matter, so tagging stays consistent across
@@ -888,17 +982,18 @@ export default function App() {
 
   // Escape closes the document reader and the deliverable preview.
   useEffect(() => {
-    if (!openDocument && !previewKey && !ledgerOpen && !confirmClear) return;
+    if (!openDocument && !previewKey && !ledgerOpen && !confirmClear && !draftChoice) return;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
       setOpenDocument(null);
       setPreviewKey(null);
       setLedgerOpen(false);
       setConfirmClear(false);
+      setDraftChoice(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openDocument, previewKey, ledgerOpen, confirmClear]);
+  }, [openDocument, previewKey, ledgerOpen, confirmClear, draftChoice]);
 
   // Bring the highlighted passage to the top of the viewer whenever the
   // selected finding or document changes. Runs before paint so the reader
@@ -940,7 +1035,7 @@ export default function App() {
     }
     setIntegrityReport(null);
     setExceptionsAck(null);
-    setManifestSha(null);
+    setManifest(null);
     setIsRunningIntegrityCheck(false);
     // An approval covers the set that was approved. Change the set and the
     // approval no longer describes what would go out.
@@ -955,8 +1050,16 @@ export default function App() {
   // Documents are processed in time slices of about one frame, yielding to the
   // browser between slices so the bar can paint. There is no added delay: the
   // bar moves only as documents are actually read.
+  //
+  // The chronology is first built in Stage 04. After that, any change to the
+  // producible set (a designation, a document held back or released) makes
+  // it stale, and it is rebuilt wherever the user is, so the checklist never
+  // counts a chronology built from a different set. A current one is reused.
   useEffect(() => {
-    if (activeStep !== 4) return;
+    const wanted = activeStep === 4 || timelineKey !== null;
+    if (!wanted || chronologyCurrent) return;
+    const rebuilding = timelineKey !== null;
+    const key = producibleKey;
     if (producibleDocs.length === 0) {
       setAnalysisProgress(0);
       setAnalysisPhase('No producible documents selected.');
@@ -1011,12 +1114,17 @@ export default function App() {
           : `Analysis complete — no dated events found in ${seconds}s`
       );
       setAnalysisComplete(true);
-      appendAudit('Ran deep analysis', `${docs.length} documents · ${events.length} dated events · ${seconds}s`, 'system');
+      setTimelineKey(key);
+      appendAudit(
+        rebuilding ? 'Rebuilt chronology after the producible set changed' : 'Ran deep analysis',
+        `${docs.length} documents · ${events.length} dated events · ${seconds}s`,
+        'system'
+      );
     };
 
     timer = setTimeout(slice, 0);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [activeStep, producibleNames.join('|')]);
+  }, [activeStep, producibleKey]);
 
   // ---------- Handlers ----------
 
@@ -1025,6 +1133,23 @@ export default function App() {
     e.target.value = '';
     if (files.length === 0) return;
     await ingestFiles(files);
+  };
+
+  const requestPersistentStorage = async () => {
+    const storage = typeof navigator !== 'undefined' ? navigator.storage : null;
+    if (!storage?.persist) {
+      setStoragePersisted('unsupported');
+      appendAudit('Requested persistent browser storage', 'not supported by this browser — it may clear this matter', 'system');
+      return;
+    }
+    try {
+      const granted = (await storage.persisted?.()) || (await storage.persist());
+      setStoragePersisted(granted ? 'granted' : 'denied');
+      appendAudit('Requested persistent browser storage',
+        granted ? 'granted' : 'not granted — the browser may clear this matter', 'system');
+    } catch {
+      setStoragePersisted('denied');
+    }
   };
 
   // The one ingest path. Uploads and sample matters both come through here, so
@@ -1071,6 +1196,11 @@ export default function App() {
       setUploadProgress(Math.round(((i + 1) / files.length) * 100));
     }
 
+    // A new matter asks the browser to keep its storage. Without that the
+    // browser may clear it under disk pressure, or (Safari) after 7 days
+    // without a visit. The answer is shown and logged.
+    if (accepted.length > 0 && documentsRef.current.length === 0) requestPersistentStorage();
+
     if (accepted.length > 0) {
       setDocuments(prev => [...prev, ...accepted]);
       setCitations(prev => {
@@ -1100,6 +1230,13 @@ export default function App() {
     setCitations(prev => { const next = { ...prev }; delete next[name]; return next; });
     setPrivilege(prev => { const next = { ...prev }; delete next[name]; return next; });
     setSelectedForReview(prev => prev.filter(n => n !== name));
+    // Its Bates number is retired, not freed: it stays on the index as
+    // withdrawn and the counter never issues it again.
+    const retired = batesAssignments[name];
+    if (retired) {
+      setRetiredBates(prev => [...prev, { number: retired, document: name, at: new Date().toISOString() }]);
+      appendAudit('Retired Bates number', `${retired} — ${name} was removed from the matter; the number will not be reused`);
+    }
     setBatesAssignments(prev => { const next = { ...prev }; delete next[name]; return next; });
     setNotes(prev => {
       const next = { ...prev };
@@ -1200,10 +1337,18 @@ export default function App() {
     setIntegrityReport(null);
     setExceptionsAck(null);
 
-    // Stamp first, so the readiness check can see the numbers it is validating
-    // for collisions. Bates numbers are immutable once assigned.
+    // Assign first, so the readiness check can see the numbers it is
+    // validating for collisions. The counter only increases: it starts above
+    // every number ever issued, including retired ones, so no number is
+    // issued twice.
     const assignments = { ...batesAssignments };
-    let counter = batesStart + Object.keys(assignments).length;
+    const numberOf = (bates) => Number(String(bates).match(/(\d+)$/)?.[1]) || 0;
+    const highest = Math.max(
+      batesStart - 1,
+      ...Object.values(assignments).map(numberOf),
+      ...retiredBates.map(r => numberOf(r.number)),
+    );
+    let counter = Math.max(batesNext ?? batesStart, highest + 1);
     selectedDocs.forEach(doc => {
       if (!assignments[doc.name]) {
         assignments[doc.name] = `${batesPrefix}-${String(counter).padStart(6, '0')}`;
@@ -1219,10 +1364,16 @@ export default function App() {
       new Set(confirmedRelated), confirmedCollections.includes(collectionKey), screening,
       unaccountedDocs
     );
-    const sha = await manifestHash(selectedDocs.map(d => d.hash));
+    // The manifest covers the production set only: documents cleared by the
+    // check and not withheld. It is what the Production Index lists.
+    const produced = report.setHold ? [] : report.ready.filter(n => dispositionOf(n) !== 'withhold');
+    const producedHashes = produced.map(n => documents.find(d => d.name === n)?.hash).filter(Boolean);
+    const sha = await manifestHash(producedHashes);
+    report.inputsKey = checkInputsKey;
 
     setBatesAssignments(assignments);
-    setManifestSha(sha);
+    setBatesNext(counter);
+    setManifest({ hash: sha, count: producedHashes.length });
     setIntegrityReport(report);
     if (approval) appendAudit('Approval voided by re-running the readiness check', approval.by, 'system');
     setVoidedCheck(null); setApproval(null); setApproverDraft(''); setPreviewKey(null);
@@ -1231,7 +1382,7 @@ export default function App() {
       `Ran readiness check — ${report.ready.length} of ${report.total} ready`
         + (report.exceptions.length ? `, ${report.exceptions.length} held back` : '')
         + (report.unaccounted.length ? ` (${report.unaccounted.length} unaccounted)` : ''),
-      `${selectedDocs.length} documents · manifest SHA-256 ${sha}`,
+      `${selectedDocs.length} documents · production manifest SHA-256 ${sha} (${producedHashes.length} produced)`,
       'system'
     );
   };
@@ -1377,11 +1528,9 @@ export default function App() {
     setTimeout(() => setCopiedCitation(false), 1600);
   };
 
-  const generateMemo = () => {
-    if (allProducibleCitations.length === 0) {
-      setMemoText('No findings have been extracted yet. Run the pipeline through the Citation Matrix first.');
-      return;
-    }
+  // The generated digest text, or null when there are no findings.
+  const buildDigestDraft = () => {
+    if (allProducibleCitations.length === 0) return null;
     const bySource = producibleDocs
       .map(doc => {
         const found = citations[doc.name] || [];
@@ -1391,7 +1540,7 @@ export default function App() {
       })
       .filter(Boolean);
 
-    setMemoText([
+    return [
       `This digest is drawn from ${producibleDocs.length} document${producibleDocs.length === 1 ? '' : 's'} designated for production in ${caseTitle}, yielding ${allProducibleCitations.length} record citation${allProducibleCitations.length === 1 ? '' : 's'}.`,
       '',
       ...bySource.map((line, i) => `${i + 1}. ${line}`),
@@ -1399,9 +1548,46 @@ export default function App() {
       withheldCount > 0
         ? `${withheldCount} document${withheldCount === 1 ? ' was' : 's were'} withheld as privileged and ${withheldCount === 1 ? 'is' : 'are'} recorded on the privilege log rather than discussed here.`
         : 'No documents in this set were withheld as privileged.',
-    ].join('\n'));
+    ].join('\n');
+  };
+
+  // "Draft from findings" never silently discards counsel's text. With edits
+  // in the draft it asks: replace the draft, or insert the generated digest
+  // at the cursor. Either choice is logged.
+  const generateMemo = () => {
+    const draft = buildDigestDraft();
+    if (!draft) {
+      if (!memoEdited) setMemoText('No findings have been extracted yet. Run the pipeline through the Citation Matrix first.');
+      return;
+    }
+    if (memoEdited) {
+      flushBriefEdit();
+      setDraftChoice({ draft });
+      return;
+    }
+    setMemoText(draft);
     setMemoEdited(false);
     appendAudit('Generated citation digest draft', `${allProducibleCitations.length} citations`);
+  };
+
+  const replaceWithDraft = (draft) => {
+    setMemoText(draft);
+    setMemoEdited(false);
+    setDraftChoice(null);
+    appendAudit('Replaced the edited brief with a generated digest draft',
+      `${memoText.length} characters of counsel's text replaced · ${allProducibleCitations.length} citations`);
+  };
+
+  const insertDraftAtCursor = (draft) => {
+    const at = Math.min(memoCursorRef.current ?? memoText.length, memoText.length);
+    const before = memoText.slice(0, at);
+    const after = memoText.slice(at);
+    const lead = before && !before.endsWith('\n\n') ? (before.endsWith('\n') ? '\n' : '\n\n') : '';
+    const trail = after && !after.startsWith('\n') ? '\n\n' : '';
+    setMemoText(`${before}${lead}${draft}${trail}${after}`);
+    setDraftChoice(null);
+    appendAudit('Inserted a generated digest draft at the cursor',
+      `position ${at} of ${memoText.length} · ${allProducibleCitations.length} citations`);
   };
 
   /**
@@ -1465,13 +1651,25 @@ export default function App() {
     setMessages(prev => [...prev, { sender: 'assistant', text: reply }]);
   };
 
+  // What every deliverable prints about the matter: the serving firm, the
+  // flag, the audit log's chain head at generation, and the production
+  // manifest while the check behind it is current.
+  const exportMeta = () => ({
+    firm: firmName,
+    toolFooter,
+    flagged: isFlaggedForReview,
+    chainHead: chainHead(auditLog),
+    manifest: checkCurrent ? manifest : null,
+  });
+
   const deliverables = () => {
-    const flagged = isFlaggedForReview;
-    const args = { caseTitle, documents: selectedDocs, privilege, bates: batesAssignments, flagged };
+    const meta = exportMeta();
+    const args = { caseTitle, documents: selectedDocs, privilege, bates: batesAssignments, meta };
     // The production index covers only what is actually going out: documents
-    // that passed the readiness check and are designated for production.
-    const readySet = new Set(integrityReport ? integrityReport.ready : selectedDocs.map(d => d.name));
-    const indexArgs = { ...args, documents: selectedDocs.filter(d => readySet.has(d.name)) };
+    // the current check cleared and that are designated for production. There
+    // is no fallback to the unchecked set.
+    const readySet = new Set(checkCurrent ? integrityReport.ready : []);
+    const indexArgs = { ...args, documents: selectedDocs.filter(d => readySet.has(d.name)), retired: retiredBates };
     const exceptions = integrityReport ? integrityReport.exceptions : [];
     return [
       {
@@ -1480,7 +1678,8 @@ export default function App() {
         tone: 'emerald',
         title: 'Citation Digest',
         blurb: 'Every record citation, grouped by document, with its locator and any note you attached.',
-        build: () => buildBrief({ caseTitle, memoText, citations: allProducibleCitations, bates: batesAssignments, notes, approval, reviewed: memoEdited, flagged }),
+        blocked: servedBlock,
+        build: () => buildBrief({ caseTitle, memoText, citations: allProducibleCitations, bates: batesAssignments, notes, approval, reviewed: memoEdited, meta }),
       },
       {
         key: 'privilege',
@@ -1488,6 +1687,7 @@ export default function App() {
         tone: 'amber',
         title: 'Privilege Log',
         blurb: 'FRCP 26(b)(5) log of every document withheld or redacted, with basis and description.',
+        blocked: servedBlock,
         build: () => buildPrivilegeLog(args),
       },
       {
@@ -1496,6 +1696,7 @@ export default function App() {
         tone: 'indigo',
         title: 'Production Index',
         blurb: 'Bates number, type, page count and SHA-256 for each document being produced. Numbers are assigned per document, not per page.',
+        blocked: servedBlock,
         build: () => buildProductionIndex(indexArgs),
       },
       ...(exceptions.length > 0 ? [{
@@ -1504,7 +1705,8 @@ export default function App() {
         tone: 'red',
         title: 'Exceptions Report',
         blurb: 'Documents held back from production, the defect in each, and the action required to cure it.',
-        build: () => buildExceptionsReport({ caseTitle, exceptions, acknowledgment: exceptionsAcknowledged ? exceptionsAck : null, flagged }),
+        blocked: checkCurrent ? null : servedBlock,
+        build: () => buildExceptionsReport({ caseTitle, exceptions, acknowledgment: exceptionsAcknowledged ? exceptionsAck : null, meta }),
       }] : []),
       {
         key: 'audit',
@@ -1512,7 +1714,8 @@ export default function App() {
         tone: 'slate',
         title: 'Audit Log',
         blurb: AUDIT_LOG_STATEMENT,
-        build: () => buildAuditLog({ caseTitle, auditLog, chain: verifyChain(auditLog), flagged }),
+        blocked: null,
+        build: () => buildAuditLog({ caseTitle, auditLog, chain: verifyChain(auditLog), meta }),
       },
     ];
   };
@@ -1565,12 +1768,13 @@ export default function App() {
   );
 
   const exportAuditLog = () => {
-    const file = buildAuditLog({ caseTitle, auditLog, chain: verifyChain(auditLog), flagged: isFlaggedForReview });
+    const file = buildAuditLog({ caseTitle, auditLog, chain: verifyChain(auditLog), meta: exportMeta() });
     triggerDownload(file.filename, file.content, file.mime);
     appendAudit('Exported audit log', file.filename);
   };
 
   const handleDownload = (item) => {
+    if (item.blocked) return;
     const file = item.build();
     triggerDownload(file.filename, file.content, file.mime);
     appendAudit('Downloaded deliverable', file.filename);
@@ -1579,6 +1783,7 @@ export default function App() {
   // PDF is rendered on demand: jsPDF is a large dependency and most sessions
   // never leave with one.
   const handleDownloadPdf = async (item) => {
+    if (item.blocked) return;
     const file = item.build();
     if (!file.printable) return;
     setPdfPending(item.key);
@@ -1587,6 +1792,8 @@ export default function App() {
         title: file.caption,
         caption: file.caption,
         body: file.printable,
+        firm: firmName,
+        toolFooter,
       });
       triggerBlobDownload(file.pdfFilename, blob);
       appendAudit('Downloaded deliverable', file.pdfFilename);
@@ -1699,7 +1906,9 @@ export default function App() {
     setConfirmedRelated([]); setConfirmedCollections([]); setNrDrafts({}); setExceptionsAck(null);
     setCriteriaParties(''); setCriteriaTerms(''); setCriteriaFrom(''); setCriteriaTo('');
     setRelevanceFilter('ALL');
-    setManifestSha(null); setTimeline([]); setAnalysisComplete(false); setAnalysisProgress(0);
+    setManifest(null); setTimeline([]); setAnalysisComplete(false); setAnalysisProgress(0);
+    setTimelineKey(null); setDocAnalysis({}); setAnalysisPhase('Waiting to start...');
+    setBatesNext(null); setRetiredBates([]); setFirmName(''); setToolFooter(false); setStoragePersisted(null);
     setSelectedDocSource(null); setSelectedFinding(0); setMemoText(DEFAULT_MEMO);
     setPendingSelection(null); setPendingTags([]); setTagDraft('');
     setIsFlaggedForReview(false); setCaseTitle('In Re Jones Litigation');
@@ -1762,8 +1971,36 @@ export default function App() {
   // and drop focus on each keystroke.
   const renderMatterFields = (showBates) => {
     const stamped = Object.keys(batesAssignments).length;
+    // Once any number has been issued the prefix and start are fixed: the
+    // counter only moves forward from the highest number ever issued.
+    const numbered = stamped > 0 || retiredBates.length > 0 || batesNext !== null;
     return (
       <div className="space-y-4">
+        <div>
+          <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Firm name</label>
+          <input
+            type="text"
+            value={firmName}
+            placeholder="Printed at the head of every deliverable"
+            onChange={(e) => setFirmName(e.target.value)}
+            {...editProps('firmName', firmName, (before, after) =>
+              appendAudit('Changed firm name', `"${before}" → "${after}"`))}
+            className={`w-full border rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all ${
+              isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+            }`}
+          />
+          <label className="mt-2 flex items-center gap-2 text-[10px] text-slate-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={toolFooter}
+              onChange={(e) => {
+                setToolFooter(e.target.checked);
+                appendAudit(e.target.checked ? 'Turned on the deliverable footer' : 'Turned off the deliverable footer', TOOL_FOOTER);
+              }}
+            />
+            Add a &ldquo;{TOOL_FOOTER}&rdquo; footer to deliverables
+          </label>
+        </div>
         <div>
           <label className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Matter Name</label>
           <input
@@ -1789,7 +2026,7 @@ export default function App() {
                   onChange={(e) => setBatesPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
                   {...editProps('batesPrefix', batesPrefix, (before, after) =>
                     appendAudit('Changed Bates prefix', `${before} → ${after}`))}
-                  disabled={stamped > 0}
+                  disabled={numbered}
                   className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 ${
                     isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                   }`}
@@ -1804,7 +2041,7 @@ export default function App() {
                   onChange={(e) => setBatesStart(Math.max(1, parseInt(e.target.value, 10) || 1))}
                   {...editProps('batesStart', batesStart, (before, after) =>
                     appendAudit('Changed Bates start number', `${before} → ${after}`))}
-                  disabled={stamped > 0}
+                  disabled={numbered}
                   className={`w-full border rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 ${
                     isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                   }`}
@@ -1812,9 +2049,11 @@ export default function App() {
               </div>
             </div>
 
-            <p className={`text-[10px] leading-relaxed ${stamped > 0 ? 'text-amber-500' : 'text-slate-500'}`}>
-              {stamped > 0
-                ? `${stamped} document${stamped === 1 ? ' has' : 's have'} already been assigned ${batesPrefix}-… numbers. Numbers are assigned per document, not per page, and are immutable once assigned — clear the matter in Stage 09 to renumber.`
+            <p className={`text-[10px] leading-relaxed ${numbered ? 'text-amber-500' : 'text-slate-500'}`}>
+              {numbered
+                ? `${stamped} document${stamped === 1 ? ' has' : 's have'} been assigned ${batesPrefix}-… numbers`
+                  + (retiredBates.length ? ` and ${retiredBates.length} number${retiredBates.length === 1 ? ' has' : 's have'} been retired` : '')
+                  + '. Numbers are assigned per document, not per page, and only ever increase: a removed document\'s number is retired, shown on the index as withdrawn, and never reused.'
                 : `Bates numbers from ${batesPrefix}-${String(batesStart).padStart(6, '0')} are assigned to every selected document when the readiness check runs in Stage 03, including documents it holds back. Numbers are assigned per document, not per page. Set this before then.`}
             </p>
           </>
@@ -1992,9 +2231,14 @@ export default function App() {
         <div className={`p-5 border-t text-[10px] flex justify-between items-center transition-colors ${
           isDarkMode ? 'bg-[#090A0F] border-white/[0.04] text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-500'
         }`}>
-          <div className={`flex items-center gap-1.5 ${sidebarCollapsed ? 'lg:mx-auto' : ''}`} title="Stored in this browser">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span className={`font-semibold ${sidebarCollapsed ? 'lg:hidden' : ''}`}>Stored in this browser</span>
+          <div
+            className={`flex items-center gap-1.5 ${sidebarCollapsed ? 'lg:mx-auto' : ''}`}
+            title={storageStatus ? storageStatus.text : 'Stored in this browser'}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${storagePersisted === 'granted' || !hasMatter ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <span className={`font-semibold ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
+              {hasMatter && storagePersisted && storagePersisted !== 'granted' ? 'Stored in this browser (may be cleared)' : 'Stored in this browser'}
+            </span>
           </div>
           <span className={`font-mono text-slate-600 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>v5.1.0</span>
         </div>
@@ -2035,7 +2279,7 @@ export default function App() {
                 {caseTitle}
               </span>
               <span className="text-[9px] font-mono text-slate-500 truncate block mt-0.5">
-                {manifestSha ? `Manifest ${manifestSha.slice(0, 16)}…` : 'Manifest not yet computed'}
+                {manifestSha ? `Production manifest ${manifestSha.slice(0, 16)}…` : 'Manifest not yet computed'}
               </span>
             </div>
 
@@ -2226,6 +2470,11 @@ export default function App() {
                     browser is not encrypted. You can close the tab and come back, and erase the matter at any time
                     from Stage&nbsp;09.
                   </p>
+                  {storageStatus && (
+                    <p data-testid="storage-status" className={`text-[10px] font-mono mt-1.5 ${storageStatus.tone}`}>
+                      {storageStatus.text}
+                    </p>
+                  )}
                   <button
                     onClick={() => setTrustOpen(v => !v)}
                     className="mt-2.5 text-[10px] font-mono font-bold text-emerald-500 hover:text-emerald-400 inline-flex items-center gap-1 transition-colors"
@@ -2270,7 +2519,7 @@ export default function App() {
                       },
                       {
                         q: 'How long is it retained?',
-                        a: 'Until you delete it. There is no expiry and no background cleanup, because there is no service managing it \u2014 only this browser\u2019s storage.',
+                        a: 'Your matter stays in this browser until you delete it, unless the browser clears site data, which can happen when disk space runs low or, in Safari, after 7 days without a visit. Export your deliverables and audit log before stepping away from a matter.',
                       },
                       {
                         q: 'How is it deleted?',
@@ -3112,9 +3361,12 @@ export default function App() {
                       </p>
                     </div>
                     <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-white/[0.02] border-white/[0.04]' : 'bg-slate-50 border-slate-200'}`}>
-                      <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Manifest SHA-256</span>
+                      <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Production manifest SHA-256</span>
                       <p className={`text-[10px] font-mono mt-1 truncate ${manifestSha ? 'text-emerald-400' : 'text-slate-500'}`}>
                         {manifestSha ? `${manifestSha.slice(0, 24)}…` : 'Computed when the check runs'}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-mono">
+                        {manifest ? `${manifest.count} document${manifest.count === 1 ? '' : 's'} being produced · printed in full on the index and digest` : 'Covers only the documents being produced'}
                       </p>
                     </div>
                   </div>
@@ -4103,6 +4355,7 @@ export default function App() {
                 <textarea
                   value={memoText}
                   onChange={(e) => { noteBriefEdit(memoText); setMemoText(e.target.value); setMemoEdited(true); setIsTyping(true); }}
+                  onSelect={(e) => { memoCursorRef.current = e.target.selectionStart; }}
                   onBlur={() => { setIsTyping(false); flushBriefEdit(); }}
                   rows={14}
                   className={`w-full text-[13px] leading-relaxed p-4 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y font-sans ${
@@ -4238,7 +4491,13 @@ export default function App() {
                       disabled={approverDraft.trim().length < 2}
                       onClick={() => {
                         const by = approverDraft.trim();
-                        const record = { by, at: new Date().toISOString(), producing: producibleNames.length };
+                        // The chain head is stored with the approval, so the
+                        // record of what was approved can be checked against
+                        // the log later.
+                        const record = {
+                          by, at: new Date().toISOString(), producing: producibleNames.length,
+                          chainHead: chainHead(auditLog), manifest: checkCurrent ? manifest : null,
+                        };
                         setApproval(record);
                         // The name is recorded now, so this entry and every
                         // later counsel action carry it.
@@ -4285,6 +4544,16 @@ export default function App() {
                     </span>
                   </div>
 
+                  {!firmName.trim() && (
+                    <div data-testid="firm-missing" className="p-3.5 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-500 text-[11px] flex items-start gap-2.5">
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                      <span>
+                        No firm name is set, so every deliverable is headed &ldquo;{FIRM_NOT_SET}&rdquo;. Add your firm
+                        in the matter settings in Stage&nbsp;02 or Stage&nbsp;07.
+                      </span>
+                    </div>
+                  )}
+
                   {incompletePrivilege.length > 0 && (
                     <div className="p-3.5 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-500 text-[11px] flex items-start gap-2.5">
                       <AlertTriangle size={14} className="shrink-0 mt-0.5" />
@@ -4298,7 +4567,7 @@ export default function App() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {deliverables().map((item) => {
-                      const file = item.build();
+                      const file = item.blocked ? null : item.build();
                       const Icon = item.icon;
                       return (
                         <div
@@ -4315,28 +4584,36 @@ export default function App() {
                             <p className="text-[10px] text-slate-400 mt-1.5 leading-normal">{item.blurb}</p>
                           </div>
                           <div className="mt-3 space-y-2">
-                            <span className="text-[9px] font-mono text-slate-500 font-bold uppercase block">
-                              {file.count} entr{file.count === 1 ? 'y' : 'ies'} &middot; {byteLabel(file.content)}
-                            </span>
+                            {item.blocked ? (
+                              <p data-testid="export-blocked" className="text-[10px] leading-snug text-amber-600 font-semibold">
+                                Export blocked. {item.blocked}
+                              </p>
+                            ) : (
+                              <span className="text-[9px] font-mono text-slate-500 font-bold uppercase block">
+                                {file.count} entr{file.count === 1 ? 'y' : 'ies'} &middot; {byteLabel(file.content)}
+                              </span>
+                            )}
                             <div className="flex flex-wrap items-center gap-1.5">
                               <button
+                                disabled={!!item.blocked}
                                 onClick={() => setPreviewKey(item.key)}
-                                className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg border transition-all inline-flex items-center gap-1.5 ${
+                                className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg border transition-all inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed ${
                                   isDarkMode ? 'border-white/[0.08] text-slate-300 hover:bg-white/[0.05]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                                 }`}
                               >
                                 <Eye size={12} /> Preview
                               </button>
                               <button
+                                disabled={!!item.blocked}
                                 onClick={() => handleDownload(item)}
-                                className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-all inline-flex items-center gap-1.5 shrink-0"
+                                className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1.5 shrink-0"
                               >
-                                <Download size={12} /> {file.mime === 'text/csv' ? 'CSV' : 'Text'}
+                                <Download size={12} /> {item.key === 'brief' ? 'Text' : 'CSV'}
                               </button>
-                              {file.printable && (
+                              {(item.key === 'brief' || item.key === 'privilege') && (
                                 <button
                                   onClick={() => handleDownloadPdf(item)}
-                                  disabled={pdfPending === item.key}
+                                  disabled={!!item.blocked || pdfPending === item.key}
                                   className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60 transition-all inline-flex items-center gap-1.5 shrink-0"
                                 >
                                   <Download size={12} /> {pdfPending === item.key ? 'Rendering…' : 'PDF'}
@@ -4465,7 +4742,7 @@ export default function App() {
               </div>
 
               <p className="text-[10px] text-slate-500 font-mono">
-                Manifest {manifestSha ? `${manifestSha.slice(0, 16)}…` : 'not generated'}
+                Production manifest {manifestSha ? `${manifestSha.slice(0, 16)}… (${manifest.count} produced)` : 'not generated'}
               </p>
 
               <button
@@ -4553,6 +4830,55 @@ export default function App() {
                   Search
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DRAFT FROM FINDINGS OVER EDITED TEXT */}
+      {draftChoice && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setDraftChoice(null)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="draft-choice-title"
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-md rounded-lg border p-6 shadow-2xl ${
+              isDarkMode ? 'bg-[#111218] border-white/[0.08]' : 'bg-white border-slate-200'
+            }`}
+          >
+            <h3 id="draft-choice-title" className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+              Your draft has edits
+            </h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              Replacing it discards the text you wrote. You can insert the generated digest at your cursor instead
+              and keep everything you have written. Either choice is recorded in the audit log.
+            </p>
+            <div className="flex flex-wrap justify-end gap-2 mt-6">
+              <button
+                autoFocus
+                onClick={() => setDraftChoice(null)}
+                className={`px-4 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+                  isDarkMode ? 'border-white/[0.08] text-slate-300 hover:bg-white/[0.04]' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => replaceWithDraft(draftChoice.draft)}
+                className="px-4 py-2 text-xs font-bold rounded-lg border border-red-500/40 text-red-600 hover:bg-red-500/10 transition-colors"
+              >
+                Replace draft
+              </button>
+              <button
+                onClick={() => insertDraftAtCursor(draftChoice.draft)}
+                className="px-4 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-colors"
+              >
+                Insert at cursor
+              </button>
             </div>
           </div>
         </div>
@@ -4671,7 +4997,7 @@ export default function App() {
                   <ScrollText size={14} className="text-indigo-500" /> Review Ledger
                 </h3>
                 <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
-                  {AUDIT_LOG_STATEMENT}
+                  {AUDIT_CHAIN_STATEMENT}
                 </p>
                 {auditLog.length > 0 && ledgerChain && (
                   <p
@@ -4683,6 +5009,51 @@ export default function App() {
                     {ledgerChain.intact
                       ? <><CheckCircle2 size={12} /> Chain intact &middot; head {ledgerChain.head.slice(0, 12)}…</>
                       : <><AlertTriangle size={12} /> Chain broken at entry {ledgerChain.brokenAt}</>}
+                  </p>
+                )}
+                {auditLog.length > 0 && (
+                  <form
+                    className="mt-2 flex gap-1.5"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const result = verifyAgainstHead(auditLog, headDraft);
+                      setHeadCheck(result);
+                      if (result.reason !== 'unreadable') {
+                        appendAudit('Checked the audit log against an exported chain head',
+                          `${result.ok ? 'matched' : 'did not match'} — ${headDraft.trim().slice(0, 120)}`, 'system');
+                      }
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={headDraft}
+                      onChange={(e) => { setHeadDraft(e.target.value); setHeadCheck(null); }}
+                      placeholder="Paste the chain head printed on an export"
+                      aria-label="Chain head from an export"
+                      className={`flex-1 min-w-0 text-[10px] font-mono px-2 py-1.5 rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                        isDarkMode ? 'bg-[#151620] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                      }`}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!headDraft.trim()}
+                      className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg border border-indigo-500/30 text-indigo-500 hover:bg-indigo-500/10 disabled:opacity-40 shrink-0"
+                    >
+                      Check
+                    </button>
+                  </form>
+                )}
+                {headCheck && (
+                  <p
+                    data-testid="head-check"
+                    className={`text-[10px] font-semibold mt-1.5 leading-snug ${headCheck.ok ? 'text-emerald-500' : 'text-red-500'}`}
+                  >
+                    {headCheck.message}
+                  </p>
+                )}
+                {auditLog.length > 0 && (
+                  <p className="text-[9px] font-mono text-slate-500 mt-1.5 break-all">
+                    Current head: {formatChainHead(chainHead(auditLog))}
                   </p>
                 )}
               </div>
@@ -4752,7 +5123,7 @@ export default function App() {
       {/* DELIVERABLE PREVIEW */}
       {previewKey && (() => {
         const item = deliverables().find(d => d.key === previewKey);
-        if (!item) return null;
+        if (!item || item.blocked) return null;
         const file = item.build();
         const shown = file.printable || file.content;
         return (
