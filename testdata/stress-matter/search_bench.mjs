@@ -22,7 +22,11 @@ import { fileURLToPath } from 'url';
 export const QUERIES = [
   { query: 'material did not meet the specified thickness', target: 'We ran 22 gauge on the Level 3 supply trunks' },
   { query: 'we missed the deadline to ask for more time', target: 'We blew the 21-day window on Change Order 14' },
+  // This admission is 36 characters, and the passage splitter drops passages
+  // of 40 or fewer, so it is never indexed; at best the next sentence in the
+  // same email is returned. Kept to show that limit.
   { query: 'the superintendent told them to keep working anyway', target: "Don't hold up the ceiling grid on 3" },
+  { query: 'the foreman knew the architect had refused it', target: 'Tomasz told me on the Friday before that the architect said no' },
 ];
 export const HARLOW_QUERIES = [
   { query: 'why the shipment was late', target: 'Our steel coil shipment from the mill was held up' },

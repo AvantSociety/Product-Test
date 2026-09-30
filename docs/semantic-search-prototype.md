@@ -36,7 +36,76 @@ git add public/models && git commit
 
 ## Measurements
 
-MEASUREMENTS
+**Every figure here comes from a timing proxy, not the real model.** The proxy
+is the same graph as all-MiniLM-L6-v2 (6 BERT layers, hidden size 384, 12
+heads, FFN 1536, vocabulary 30,522), 8-bit quantized the same way but with
+random weights, plus a WordPiece tokenizer trained on the stress corpus. Size,
+speed and memory depend on that shape, not on the weight values, so they
+should be close. The proxy's tokenizer may split words differently from the
+real one, which changes sequence lengths and so embedding time by some margin.
+The proxy's **rankings are meaningless**, so no query result below is a finding
+about search quality.
+
+Conditions: headless Chromium in a cloud container, production build served by
+a plain static server (fixed Content-Length, no compression, as GitHub Pages
+serves binaries), single-threaded WebAssembly (GitHub Pages cannot send the
+headers that multi-threading needs). Download times exclude network latency.
+Memory is the resident set of the renderer process, which holds the page and
+its worker, sampled once a second.
+
+| | Harlow sample | Stress set, 2,000 files |
+|---|---|---|
+| Indexed | 4 documents, 75 passages | 1,986 documents, 5,078 passages |
+| First download (model + runtime) | 37.0 MB | 37.0 MB |
+| Model load (download + start) | 4.0 s | 4.6 s |
+| Embedding | about 1 s | 110 s (about 46 passages/s) |
+| Renderer memory | 260 → 521 MB peak → 477 MB after | 4,398 → 4,742 MB peak → 4,571 MB after (+173 MB held) |
+| Search response (query embed + scan + render) | 50–110 ms | 101–188 ms |
+| Vectors stored | 0.1 MB | 7.8 MB (384 floats per passage) |
+
+- **Download breakdown:** model weights 22.7 MB (the real `model_quantized.onnx`
+  is about 23 MB), runtime `.wasm` 14.3 MB, tokenizer and configs 0.06 MB (the
+  real `tokenizer.json` is about 0.7 MB). Expect about 38 MB with the real files.
+  At 50 Mbps that is about 6 seconds.
+- **Second visit:** after a reload, nothing is fetched. The model and runtime
+  come from the browser's Cache Storage and the vectors from IndexedDB; the
+  first search took 0.9 s (starting the model) and embedded only the query.
+- **Stress-set memory context:** the 4.4 GB baseline is the existing app
+  holding a 2,000-document matter, before search. Search adds about 170 MB
+  once built and about 340 MB at peak.
+- **Throughput:** at about 46 passages a second single-threaded, a
+  10,000-document matter at this density (about 25,000 passages) would take
+  about 9 minutes to index the first time. Updates re-embed only documents new
+  to the set.
+
+### Query results (requirement 7): not yet answerable
+
+These need the real weights. The harness is ready:
+
+```
+npm run build && (serve dist at /Product-Test/)
+node testdata/stress-matter/run.mjs <2,000-file set> --url <app> --search
+node testdata/stress-matter/search_bench.mjs --url <app>          # Harlow
+```
+
+It reports the rank (top 10) of each target:
+
+| Query | Target admission |
+|---|---|
+| material did not meet the specified thickness | We ran 22 gauge on the Level 3 supply trunks… |
+| we missed the deadline to ask for more time | We blew the 21-day window on Change Order 14. |
+| the superintendent told them to keep working anyway | Don't hold up the ceiling grid on 3. |
+| the foreman knew the architect had refused it | Tomasz told me on the Friday before that the architect said no. |
+
+**Finding, independent of the model:** "Don't hold up the ceiling grid on 3."
+is 36 characters, and the reused splitter drops passages of 40 characters or
+fewer, so search can **never** return it. The best it can do is the next
+sentence in the same email ("Get me a substitution submittal on the gauge…").
+The other three targets are indexed as whole passages. If short admissions
+matter (and in this case the answer key calls this one of the two most damaging
+emails), index short sentences joined to their neighbour, or index paragraph
+windows, for search only. Doing that would mean departing from the shared
+splitter.
 
 ## Drafted copy (not applied)
 
@@ -140,8 +209,9 @@ sales sheet).
    `wasmPaths` to `cdn.jsdelivr.net` unless told otherwise. The worker
    overrides it, and that URL string remains in the built bundle. With the
    override in place, no request left the site in any run: the e2e test (stand-in
-   model, and real library with no model files) and the Harlow and stress
-   benchmarks (proxy model, full load of the runtime). If a future upgrade
+   model, and real library with no model files) and the Harlow and 2,000-file
+   stress benchmarks (proxy model, full load of the runtime, 0 off-site
+   requests). If a future upgrade
    changes how paths resolve, the claim breaks silently. Keep the
    `no request leaves` checks, and re-run them on every transformers.js upgrade.
    A `connect-src 'self'` Content-Security-Policy would not cover this: a
