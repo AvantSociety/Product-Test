@@ -19,6 +19,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { createRequire } from 'module';
+import { measureSearch, routeModelDir, watchDownloads, QUERIES } from './search_bench.mjs';
 
 const require = createRequire(new URL('../../package.json', import.meta.url));
 const { chromium } = require('playwright');
@@ -29,6 +30,8 @@ const APP_URL = urlArg > 0 ? process.argv[urlArg + 1] : 'http://localhost:5302/P
 const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
 const files = readdirSync(dir).filter(f => !['manifest.json', 'results.json', 'failure.png'].includes(f) && !f.endsWith('.xlsx') && !f.startsWith('.'));
 const byName = Object.fromEntries(manifest.documents.map(d => [d.file, d]));
+const withSearch = process.argv.includes('--search');
+const modelArg = process.argv.indexOf('--model-dir');
 
 const t0 = Date.now();
 const timings = {};
@@ -37,6 +40,10 @@ const log = (...a) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0)}s]`,
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium' });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
+if (withSearch && modelArg > 0) await routeModelDir(context, resolve(process.argv[modelArg + 1]));
+const modelDownloads = withSearch ? watchDownloads(context) : [];
+const offSite = [];
+context.on('request', r => { if (!r.url().startsWith(new URL(APP_URL).origin) && !/^(data|blob):/.test(r.url())) offSite.push(r.url()); });
 const page = await context.newPage();
 page.setDefaultTimeout(90 * 1000);
 const LONG = { timeout: 60 * 60 * 1000 };
@@ -50,7 +57,7 @@ const go = async (title) => {
   await page.waitForTimeout(400);
 };
 const readMatter = () => page.evaluate(() => new Promise((res) => {
-  const req = indexedDB.open('discovery-framework', 1);
+  const req = indexedDB.open('discovery-framework');
   req.onsuccess = () => {
     const tx = req.result.transaction('matter', 'readonly');
     const get = tx.objectStore('matter').get('current');
@@ -250,6 +257,14 @@ results.citations = Object.fromEntries(Object.entries(matter.citations || {}).ma
 results.bates = matter.batesAssignments;
 results.privilege = matter.privilege;
 
+// ---------------- Stage 05: local semantic search (prototype), with --search ----------------
+if (withSearch) {
+  log('building the search index');
+  results.search = await measureSearch(page, { queries: QUERIES, downloads: modelDownloads, log });
+  results.search.modelDir = modelArg > 0 ? process.argv[modelArg + 1] : null;
+  log(`search index: ${results.search.index}, built in ${results.search.buildSeconds}s`);
+}
+
 // ---------------- Stage 07 → 08: approve, then download the deliverables ----------------
 log('approving');
 await go('Override & Refine');
@@ -278,6 +293,7 @@ results.storage = await page.evaluate(async () => {
 results.timings = timings;
 results.totalSeconds = (Date.now() - t0) / 1000;
 results.errors = errors;
+results.offSiteRequests = offSite;
 writeFileSync(join(dir, 'results.json'), JSON.stringify(results, null, 1));
 log(`done in ${results.totalSeconds}s; ${errors.length} console errors`);
 await browser.close();

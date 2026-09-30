@@ -9,9 +9,11 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test:unit": "node tests/unit/citations.mjs",
-    "test:e2e": "node tests/e2e/unaccounted.mjs && node tests/e2e/audit.mjs && node tests/e2e/citations.mjs && node tests/e2e/dates.mjs && node tests/e2e/served.mjs && node tests/e2e/reload.mjs"
+    "test:e2e": "node tests/e2e/unaccounted.mjs && node tests/e2e/audit.mjs && node tests/e2e/citations.mjs && node tests/e2e/dates.mjs && node tests/e2e/served.mjs && node tests/e2e/reload.mjs && node tests/e2e/search.mjs",
+    "fetch-model": "node scripts/fetch-model.mjs"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.22.0",
     "mammoth": "^1.12.1",

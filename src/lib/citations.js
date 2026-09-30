@@ -485,6 +485,18 @@ function passagesWithOffsets(text, excluded) {
 }
 
 /**
+ * Every passage the extractor would consider, before scoring: the same
+ * sentence and chat-message splitting, with the same headers, signature
+ * blocks, disclaimers, quoted replies and export metadata left out. Local
+ * search indexes exactly these, so it can only return a passage that could
+ * also have been cited.
+ */
+export function citablePassages(content) {
+  if (!content || !content.trim()) return [];
+  return passagesWithOffsets(content, excludedLines(content));
+}
+
+/**
  * The signals a passage carries. These are observable facts about the text, so
  * they are reported the same way whether the extractor surfaced the passage or
  * the attorney selected it by hand.

@@ -52,7 +52,10 @@ import {
   INFERRED_YEAR_NOTE,
   buildUserCitation,
   SIGNAL_LABELS,
+  lineSpan,
+  pageSpan,
 } from './lib/citations.js';
+import { createSearchClient, searchIndexKey, RESULT_COUNT } from './lib/semanticSearch.js';
 import { computeIntegrityReport, RECOLLECT_RATIO, READINESS_STATES } from './lib/integrity.js';
 import { MIN_SET_COHESION } from './lib/cohesion.js';
 import {
@@ -527,6 +530,24 @@ export default function App() {
   const [pendingTags, setPendingTags] = useState([]);
   const [tagDraft, setTagDraft] = useState('');
 
+  // --- Local semantic search (prototype) ---
+  // What the stored search vectors were built from, saved with the matter.
+  // The vectors themselves live in their own IndexedDB store.
+  const [searchIndex, setSearchIndex] = useState(null);
+  // { phase: 'idle' | 'model' | 'building' | 'ready' | 'error', done, total, message }
+  const [searchState, setSearchState] = useState({ phase: 'idle' });
+  const [semanticQuery, setSemanticQuery] = useState('');
+  // [{ name, offset, length }] in rank order, or null before any search.
+  const [semanticResults, setSemanticResults] = useState(null);
+  const [semanticBusy, setSemanticBusy] = useState(false);
+  const searchClientRef = useRef(null);
+  // The index key the worker holds in memory this session. After a reload the
+  // worker starts empty and reads the stored vectors back before searching.
+  const workerKeyRef = useRef(null);
+  // A search result opened in another document, applied once that document
+  // is showing (changing documents otherwise clears a pending selection).
+  const searchPickRef = useRef(null);
+
   // --- Advisor ---
   const [messages, setMessages] = useState([]);
   const [userQueryText, setUserQueryText] = useState('');
@@ -656,6 +677,7 @@ export default function App() {
       setToolFooter(!!saved.toolFooter);
       setReviewRate(saved.reviewRate || 50);
       setHourlyRate(saved.hourlyRate || 250);
+      setSearchIndex(saved.searchIndex || null);
       navigator.storage?.persisted?.()
         .then(p => setStoragePersisted(p ? 'granted' : 'denied'))
         .catch(() => {});
@@ -676,6 +698,7 @@ export default function App() {
         integrityReport, exceptionsAck, manifest,
         timeline, timelineKey, docAnalysis, analysisComplete, analysisPhase,
         batesNext, retiredBates, firmName, toolFooter, reviewRate, hourlyRate,
+        searchIndex,
       });
     }, 400);
     return () => clearTimeout(handle);
@@ -684,7 +707,7 @@ export default function App() {
       confirmedRelated, confirmedCollections,
       criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, memoGenerated, approval, sampleMatter, attorneyName,
       integrityReport, exceptionsAck, manifest, timeline, timelineKey, docAnalysis, analysisComplete, analysisPhase,
-      batesNext, retiredBates, firmName, toolFooter, reviewRate, hourlyRate]);
+      batesNext, retiredBates, firmName, toolFooter, reviewRate, hourlyRate, searchIndex]);
 
   // ---------- Derived ----------
 
@@ -821,6 +844,11 @@ export default function App() {
   const producibleSignature = producibleDocs.map(d => `${d.name}\u0000${d.hash}`).join('\n');
   const producibleKey = useMemo(() => fingerprint(producibleSignature), [producibleSignature]);
   const chronologyCurrent = analysisComplete && timelineKey === producibleKey;
+
+  // The search index is keyed by the same producible-set signature. An index
+  // built from a different set is stale and cannot be searched until updated.
+  const currentSearchKey = useMemo(() => searchIndexKey(producibleSignature), [producibleSignature]);
+  const searchCurrent = Boolean(searchIndex && searchIndex.key === currentSearchKey);
 
   // ---------- Stage progress ----------
   //
@@ -986,7 +1014,9 @@ export default function App() {
   useEffect(() => {
     const first = (citations[selectedDocSource] || [])[0];
     setSelectedFinding(first ? first.id : 0);
-    setPendingSelection(null);
+    const pick = searchPickRef.current;
+    searchPickRef.current = null;
+    setPendingSelection(pick && pick.source === selectedDocSource ? pick.selection : null);
   }, [selectedDocSource]);
 
   useEffect(() => {
@@ -1018,7 +1048,7 @@ export default function App() {
     if (!container || !mark) return;
     const delta = mark.getBoundingClientRect().top - container.getBoundingClientRect().top;
     container.scrollTop += delta - 16;
-  }, [activeStep, selectedFinding, selectedDocSource]);
+  }, [activeStep, selectedFinding, selectedDocSource, pendingSelection?.fromSearch, pendingSelection?.offset]);
 
   // Default the matrix to the first producible document that yielded findings.
   useEffect(() => {
@@ -1495,7 +1525,97 @@ export default function App() {
     setPendingSelection(null);
     setPendingTags([]);
     window.getSelection()?.removeAllRanges();
-    appendAudit('Added citation', `${selectedDocSource}, ${formatLocator(citation)}`);
+    appendAudit(
+      pendingSelection.fromSearch ? 'Added citation from a search result' : 'Added citation',
+      `${selectedDocSource}, ${formatLocator(citation)}`
+    );
+  };
+
+  // ---------- Local semantic search (prototype) ----------
+
+  const searchClient = () => {
+    if (!searchClientRef.current) {
+      searchClientRef.current = createSearchClient({
+        onModel: (m) => { if (m.status === 'loading') setSearchState(s => ({ ...s, phase: 'model' })); },
+        onProgress: (p) => setSearchState({ phase: 'building', done: p.done, total: p.total }),
+      });
+    }
+    return searchClientRef.current;
+  };
+  const producibleForSearch = () => producibleDocs
+    .filter(d => d.content && d.content.trim())
+    .map(d => ({ name: d.name, hash: d.hash, content: d.content }));
+
+  const buildSearchIndex = async () => {
+    const key = currentSearchKey;
+    setSearchState({ phase: 'model' });
+    setSemanticResults(null);
+    try {
+      const result = await searchClient().build(producibleForSearch());
+      workerKeyRef.current = key;
+      setSearchIndex({
+        key,
+        model: result.model,
+        docs: result.docs,
+        passages: result.passages,
+        builtAt: new Date().toISOString(),
+      });
+      setSearchState({ phase: 'ready' });
+      appendAudit(
+        searchIndex ? 'Updated local search index' : 'Built local search index',
+        `${result.docs} documents · ${result.passages} passages (${result.embedded} embedded, ${result.reused} reused`
+          + `${result.pruned ? `, ${result.pruned} removed` : ''}) · ${result.model}`,
+        'system'
+      );
+    } catch (err) {
+      setSearchState({ phase: 'error', message: err.message });
+    }
+  };
+
+  const runSemanticSearch = async (e) => {
+    e?.preventDefault();
+    const query = semanticQuery.trim();
+    if (!query || !searchCurrent) return;
+    setSemanticBusy(true);
+    try {
+      if (workerKeyRef.current !== currentSearchKey) {
+        await searchClient().build(producibleForSearch());
+        workerKeyRef.current = currentSearchKey;
+        setSearchState({ phase: 'ready' });
+      }
+      const { hits } = await searchClient().search(query, RESULT_COUNT);
+      setSemanticResults(hits);
+    } catch (err) {
+      setSearchState({ phase: 'error', message: err.message });
+    } finally {
+      setSemanticBusy(false);
+    }
+  };
+
+  /** A result, resolved to its text and its locator as a brief would cite it. */
+  const describeHit = (hit) => {
+    const content = documents.find(d => d.name === hit.name)?.content || '';
+    const excerpt = content.slice(hit.offset, hit.offset + hit.length);
+    const span = lineSpan(content, hit.offset, hit.length);
+    const locator = formatLocator({ line: span.start, lineEnd: span.end, ...pageSpan(content, hit.offset, hit.length) });
+    return { ...hit, excerpt, locator };
+  };
+
+  /**
+   * Opens a result in the viewer as a pending selection, so it is saved (or
+   * not) through the same prompt as a passage counsel selected by hand.
+   */
+  const openSearchResult = (hit) => {
+    const { excerpt, offset, name } = describeHit(hit);
+    const selection = { excerpt, offset, fromSearch: true };
+    setPendingTags([]);
+    setTagDraft('');
+    if (name === selectedDocSource) {
+      setPendingSelection(selection);
+    } else {
+      searchPickRef.current = { source: name, selection };
+      setSelectedDocSource(name);
+    }
   };
 
   const updateCitationTags = (citationId, updater) => {
@@ -1925,7 +2045,12 @@ export default function App() {
 
   const performClear = async () => {
     setConfirmClear(false);
+    // Stop the search worker first, so a build in flight cannot write vectors
+    // back after the store is cleared.
+    searchClientRef.current?.terminate();
+    workerKeyRef.current = null;
     await clearMatter();
+    setSearchIndex(null); setSearchState({ phase: 'idle' }); setSemanticQuery(''); setSemanticResults(null);
     // These four were missing, so a cleared matter kept its approval, and a
     // fresh untouched draft kept the "attorney work product" header that is
     // only meant to appear once counsel has edited it.
@@ -3860,6 +3985,132 @@ export default function App() {
                 )}
               </div>
 
+              {/* Local semantic search (prototype). Finds passages to read; it
+                  feeds nothing but the "select text to cite it" prompt. */}
+              {producibleNames.length > 0 && (
+                <div data-testid="semantic-search" className={`rounded-2xl border p-4 ${panelClass}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className={`text-xs font-bold tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                        <Search size={13} className="text-indigo-400" /> Search by meaning
+                      </h4>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-relaxed max-w-2xl">
+                        Finds passages in the documents being produced that are close in meaning to what you type,
+                        including passages that share none of your words. It orders passages to read; it does not
+                        decide relevance and can miss a passage that matters. Nothing is cited until you save it.
+                      </p>
+                    </div>
+                    {searchIndex && searchCurrent && (
+                      <span data-testid="search-index-status" className="text-[9px] font-mono text-slate-500 shrink-0">
+                        Index: {searchIndex.passages.toLocaleString()} passages · {searchIndex.docs} documents
+                      </span>
+                    )}
+                  </div>
+
+                  {searchState.phase === 'model' || searchState.phase === 'building' ? (
+                    <p data-testid="search-index-progress" className="mt-3 text-[10px] font-mono text-indigo-400">
+                      {searchState.phase === 'model'
+                        ? 'Loading the search model…'
+                        : `Embedding passages: ${searchState.done.toLocaleString()} of ${searchState.total.toLocaleString()}`}
+                    </p>
+                  ) : searchState.phase === 'error' ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <p data-testid="search-error" className="text-[10px] font-mono text-red-400">
+                        Search is unavailable: {searchState.message}
+                      </p>
+                      <button onClick={buildSearchIndex} className="text-[10px] font-mono font-bold text-indigo-400 hover:text-indigo-300">
+                        Try again
+                      </button>
+                    </div>
+                  ) : !searchIndex ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={buildSearchIndex}
+                        className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${primaryButton}`}
+                      >
+                        Build search index
+                      </button>
+                      <span className="text-[10px] text-slate-500">
+                        The search model is loaded from this site&rsquo;s own files and runs in this browser.
+                      </span>
+                    </div>
+                  ) : !searchCurrent ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <p data-testid="search-index-stale" className="text-[10px] font-mono text-amber-500">
+                        The documents being produced changed after this index was built. Update it to search the current set.
+                      </p>
+                      <button
+                        onClick={buildSearchIndex}
+                        className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${primaryButton}`}
+                      >
+                        Update index
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={runSemanticSearch} className="mt-3 flex gap-2">
+                      <input
+                        type="search"
+                        aria-label="Search by meaning"
+                        placeholder='Describe what you are looking for, e.g. "we missed the deadline"'
+                        value={semanticQuery}
+                        onChange={(e) => { setSemanticQuery(e.target.value); setIsTyping(true); }}
+                        onBlur={() => setIsTyping(false)}
+                        className={`flex-1 min-w-0 text-xs px-3 py-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                          isDarkMode ? 'bg-[#151620] border-white/[0.06] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`}
+                      />
+                      <button
+                        type="submit"
+                        disabled={semanticBusy || !semanticQuery.trim()}
+                        className={`px-3 py-2 text-[10px] font-bold rounded-lg transition-all disabled:opacity-40 ${primaryButton}`}
+                      >
+                        {semanticBusy ? 'Searching…' : 'Search'}
+                      </button>
+                    </form>
+                  )}
+
+                  {searchCurrent && semanticResults && (
+                    semanticResults.length === 0 ? (
+                      <p className="mt-3 text-[10px] text-slate-500">No passages indexed.</p>
+                    ) : (
+                      <div className="mt-3">
+                        <p className="text-[9px] font-mono text-slate-500 mb-1.5">
+                          Closest in meaning first. Open one to read it in place and decide whether to cite it.
+                        </p>
+                        <ol className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
+                          {semanticResults
+                            .filter(hit => producibleNames.includes(hit.name))
+                            .map(describeHit)
+                            .map(hit => (
+                              <li key={`${hit.name}@${hit.offset}`}>
+                                <button
+                                  data-testid="semantic-result"
+                                  onClick={() => openSearchResult(hit)}
+                                  className={`w-full text-left p-2.5 rounded-lg border transition-colors ${
+                                    pendingSelection?.fromSearch && selectedDocSource === hit.name && pendingSelection.offset === hit.offset
+                                      ? 'border-amber-500/50 bg-amber-500/[0.06]'
+                                      : isDarkMode ? 'border-white/[0.05] hover:bg-white/[0.03]' : 'border-slate-200 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <span className="flex flex-wrap items-center gap-2">
+                                    <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                      {batesAssignments[hit.name] || 'Bates pending'} &middot; {hit.locator}
+                                    </span>
+                                    <span className="text-[9px] font-mono text-slate-500 truncate">{hit.name}</span>
+                                  </span>
+                                  <span className={`block text-[11px] mt-1 leading-snug line-clamp-3 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                                    {hit.excerpt}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                        </ol>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
               {producibleNames.length === 0 ? (
                 <EmptyState
                   icon={ShieldCheck}
@@ -4130,12 +4381,16 @@ export default function App() {
                           if (!content) {
                             return <p className="text-slate-400 font-mono text-[11px]">No readable content in this document.</p>;
                           }
-                          if (!activeCitation) {
+                          // A search result being considered is highlighted in
+                          // place of the selected finding until it is saved or
+                          // dismissed.
+                          const highlight = pendingSelection?.fromSearch ? pendingSelection : activeCitation;
+                          if (!highlight) {
                             return <p ref={docTextRef} className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{content}</p>;
                           }
                           // Anchored by stored offset, so repeated phrases highlight the right one.
-                          const start = activeCitation.offset;
-                          const end = start + activeCitation.excerpt.length;
+                          const start = highlight.offset;
+                          const end = start + highlight.excerpt.length;
                           return (
                             <p ref={docTextRef} className="text-slate-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
                               {content.slice(0, start)}
@@ -4163,7 +4418,7 @@ export default function App() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-amber-400">
-                              Add this passage as your citation
+                              {pendingSelection.fromSearch ? 'Search result: add this passage as your citation?' : 'Add this passage as your citation'}
                             </p>
                             <p className={`text-[11px] mt-1 leading-snug line-clamp-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                               &ldquo;{pendingSelection.excerpt.length > 160
