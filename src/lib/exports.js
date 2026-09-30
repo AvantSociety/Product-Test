@@ -6,6 +6,7 @@
 // here is generated from real matter state — nothing is a fixed placeholder.
 
 import { formatCitation } from './citations.js';
+import { formatChainHead } from './auditChain.js';
 
 function csvCell(value) {
   const s = String(value ?? '');
@@ -39,10 +40,22 @@ function loadJsPdf() {
   return jspdfPromise;
 }
 
-export const IMPRINT = {
-  firm: 'Avant Society',
-  line: 'Case Intelligence',
-};
+// Served documents carry the firm's name, never the software's. The product
+// is credited only if counsel turns the footer on.
+export const FIRM_NOT_SET = '[Firm name not set]';
+export const TOOL_FOOTER = 'Prepared with Case Intelligence';
+
+/**
+ * What every deliverable prints about the matter and its record:
+ *   firm        the serving firm, from matter settings
+ *   toolFooter  whether to credit the software in a footer
+ *   flagged     the senior-counsel flag
+ *   chainHead   the audit log's head when the file was generated
+ *   manifest    the production manifest, when a current check produced one
+ */
+function firmOf(meta) {
+  return (meta.firm || '').trim() || FIRM_NOT_SET;
+}
 
 const PAGE_WIDTH = 612;   // US Letter at 72dpi, the format a production is served in
 const PAGE_HEIGHT = 792;
@@ -55,10 +68,11 @@ const BODY_SIZE = 9;
  * the head of every page and a page number at the foot — the form a document
  * served on opposing counsel has to take.
  */
-export async function renderTextPdf({ title, caption, body }) {
+export async function renderTextPdf({ title, caption, body, firm = '', toolFooter = false }) {
   const JsPDF = await loadJsPdf();
   const doc = new JsPDF({ unit: 'pt', format: 'letter' });
-  doc.setProperties({ title, author: IMPRINT.firm });
+  const firmName = firmOf({ firm });
+  doc.setProperties({ title, author: firmName });
 
   const usableWidth = PAGE_WIDTH - MARGIN * 2;
 
@@ -86,12 +100,7 @@ export async function renderTextPdf({ title, caption, body }) {
     doc.setFont('times', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(30, 58, 95);           // the navy the interface uses
-    doc.text(IMPRINT.firm.toUpperCase(), MARGIN, MARGIN);
-
-    doc.setFont('times', 'italic');
-    doc.setFontSize(7);
-    doc.setTextColor(120);
-    doc.text(IMPRINT.line, PAGE_WIDTH - MARGIN, MARGIN, { align: 'right' });
+    doc.text(firmName.toUpperCase(), MARGIN, MARGIN);
 
     doc.setFont('times', 'normal');
     doc.setFontSize(7.5);
@@ -116,7 +125,7 @@ export async function renderTextPdf({ title, caption, body }) {
     doc.setFont('times', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(120);
-    doc.text(`Prepared by ${IMPRINT.firm}`, MARGIN, footerY);
+    doc.text(toolFooter ? `Prepared by ${firmName} · ${TOOL_FOOTER}` : `Prepared by ${firmName}`, MARGIN, footerY);
     doc.text(`Page ${page + 1} of ${pageCount}`, PAGE_WIDTH - MARGIN, footerY, { align: 'right' });
   }
 
@@ -131,7 +140,7 @@ export function byteLabel(content) {
 }
 
 /** FRCP 26(b)(5) privilege log — what was withheld, on what basis, and why. */
-export function buildPrivilegeLog({ caseTitle, documents, privilege, bates, flagged = false }) {
+export function buildPrivilegeLog({ caseTitle, documents, privilege, bates, meta = {} }) {
   const withheld = documents.filter(d => privilege[d.name]?.status !== 'produce');
   const rows = [
     ['Bates', 'Document', 'Date Ingested', 'Disposition', 'Basis', 'Description'],
@@ -148,13 +157,12 @@ export function buildPrivilegeLog({ caseTitle, documents, privilege, bates, flag
   // what actually gets served, one entry per block so a basis and description
   // of any length stays readable.
   const printable = [
-    `${IMPRINT.firm.toUpperCase()} — ${IMPRINT.line}`,
+    firmOf(meta).toUpperCase(),
     ``,
     `PRIVILEGE LOG`,
     `${caseTitle}`,
     `Prepared under FRCP 26(b)(5)`,
-    ...(flagged ? [SENIOR_REVIEW_LINE] : []),
-    `Generated ${new Date().toLocaleString()}`,
+    ...headerNotes(meta),
     ``,
     '='.repeat(64),
     ``,
@@ -167,12 +175,13 @@ export function buildPrivilegeLog({ caseTitle, documents, privilege, bates, flag
           `   Description: ${privilege[d.name]?.description || '(not stated)'}`,
           `   Date ingested: ${d.ingestedAt?.slice(0, 10) || '—'}`,
         ].join('\n')).join('\n\n'),
+    ...footerLines(meta),
   ].join('\n');
 
   return {
     filename: `${slug(caseTitle)}-privilege-log.csv`,
     mime: 'text/csv',
-    content: `${imprintHeader('Privilege Log', caseTitle, flagged)}Prepared under FRCP 26(b)(5)\r\n\r\n${toCsv(rows)}`,
+    content: `${imprintHeader('Privilege Log', caseTitle, meta)}Prepared under FRCP 26(b)(5)\r\n\r\n${toCsv(rows)}${csvFooter(meta)}`,
     printable,
     pdfFilename: `${slug(caseTitle)}-privilege-log.pdf`,
     caption: `Privilege Log — ${caseTitle}`,
@@ -181,7 +190,7 @@ export function buildPrivilegeLog({ caseTitle, documents, privilege, bates, flag
 }
 
 /** The index that accompanies a production: what was produced, under which Bates numbers. */
-export function buildProductionIndex({ caseTitle, documents, privilege, bates, flagged = false }) {
+export function buildProductionIndex({ caseTitle, documents, privilege, bates, retired = [], meta = {} }) {
   // Everything going out: produced whole or produced with redactions. A
   // redacted document is still Bates-stamped and served, so leaving it off
   // the index would put pages in opposing counsel's hands that the index
@@ -199,17 +208,27 @@ export function buildProductionIndex({ caseTitle, documents, privilege, bates, f
       d.pagesExact ? 'yes' : 'estimated',
       d.hash,
     ]),
+    // A number assigned and then retired stays on the index, so a gap in the
+    // sequence is explained rather than left for opposing counsel to ask about.
+    ...retired.map(r => [
+      r.number,
+      r.document,
+      'Withdrawn: number retired, not reused',
+      '', '', '', '',
+    ]),
   ];
+  const [head, ...body] = rows;
+  body.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
   return {
     filename: `${slug(caseTitle)}-production-index.csv`,
     mime: 'text/csv',
-    content: `${imprintHeader('Production Index', caseTitle, flagged)}\r\n${toCsv(rows)}`,
+    content: `${imprintHeader('Production Index', caseTitle, meta)}${manifestLine(meta)}\r\n${toCsv([head, ...body])}${csvFooter(meta)}`,
     count: produced.length,
   };
 }
 
 /** The citation digest, built from the citations actually extracted. */
-export function buildBrief({ caseTitle, memoText, citations, bates, notes, approval, reviewed = false, flagged = false }) {
+export function buildBrief({ caseTitle, memoText, citations, bates, notes, approval, reviewed = false, meta = {} }) {
   const body = citations
     .map((c, i) => {
       const cite = formatCitation(c, bates[c.source]);
@@ -229,14 +248,15 @@ export function buildBrief({ caseTitle, memoText, citations, bates, notes, appro
       ? `PRIVILEGED & CONFIDENTIAL — ATTORNEY WORK PRODUCT`
       : `DRAFT SCAFFOLD — NOT YET REVIEWED OR EDITED BY COUNSEL`,
     ``,
-    `${IMPRINT.firm.toUpperCase()} — ${IMPRINT.line}`,
+    firmOf(meta).toUpperCase(),
     ``,
     `${caseTitle}`,
     `Citation Digest`,
-    ...(flagged ? [SENIOR_REVIEW_LINE] : []),
-    `Generated ${new Date().toLocaleString()}`,
+    ...headerNotes(meta),
+    ...(meta.manifest ? [manifestLine(meta).trim()] : []),
     approval?.by
       ? `Approved for packaging by ${approval.by} on ${new Date(approval.at).toLocaleString()}`
+        + (approval.chainHead ? ` (audit log chain head at approval: ${formatChainHead(approval.chainHead)})` : '')
       : `Not yet approved for packaging`,
     ``,
     `${'='.repeat(64)}`,
@@ -247,6 +267,7 @@ export function buildBrief({ caseTitle, memoText, citations, bates, notes, appro
     `RECORD CITATIONS`,
     ``,
     body || '(No citations extracted.)',
+    ...footerLines(meta),
   ].join('\n');
 
   return {
@@ -265,7 +286,7 @@ export function buildBrief({ caseTitle, memoText, citations, bates, notes, appro
  * This is the artifact that lets a firm show its production was complete as to
  * what was producible, and account for what was not.
  */
-export function buildExceptionsReport({ caseTitle, exceptions, acknowledgment = null, flagged = false }) {
+export function buildExceptionsReport({ caseTitle, exceptions, acknowledgment = null, meta = {} }) {
   const rows = [
     ['Bates', 'Document', 'Defect', 'Required Action'],
     ...exceptions.flatMap(item =>
@@ -280,24 +301,25 @@ export function buildExceptionsReport({ caseTitle, exceptions, acknowledgment = 
   return {
     filename: `${slug(caseTitle)}-exceptions-report.csv`,
     mime: 'text/csv',
-    content: `${imprintHeader('Exceptions Report', caseTitle, flagged)}`
+    content: `${imprintHeader('Exceptions Report', caseTitle, meta)}`
       + `Documents held back from production pending the actions below.\r\n`
       + (acknowledgment
         ? `Acknowledged by counsel ${acknowledgment.at}: production proceeds with the ready set while ${acknowledgment.names.length === 1 ? 'the document below is' : `the ${acknowledgment.names.length} documents below are`} held back.\r\n`
         : 'Not yet acknowledged by counsel.\r\n')
-      + `\r\n${toCsv(rows)}`,
+      + `\r\n${toCsv(rows)}${csvFooter(meta)}`,
     count: exceptions.length,
   };
 }
 
 /** What the audit log says about itself, wherever it is shown or exported. */
-export const AUDIT_LOG_STATEMENT = 'A record of actions taken on this matter in this browser. Each entry is chained to the one before it, so any later alteration is detectable. Clearing the matter erases the log, so export it first.';
+export const AUDIT_CHAIN_STATEMENT = 'Each entry is chained to the one before it. Any change made after an export can be detected by comparing against the chain head printed on that export.';
+export const AUDIT_LOG_STATEMENT = `A record of actions taken on this matter in this browser. ${AUDIT_CHAIN_STATEMENT} Clearing the matter erases the log, so export it first.`;
 
 /**
  * Custody and activity log. Each row carries the previous entry's hash and its
  * own, so the export can be re-verified outside the product.
  */
-export function buildAuditLog({ caseTitle, auditLog, chain = null, flagged = false }) {
+export function buildAuditLog({ caseTitle, auditLog, chain = null, meta = {} }) {
   const rows = [
     ['Seq', 'Timestamp', 'Actor', 'Action', 'Target', 'Previous Hash', 'Hash (SHA-256)'],
     ...auditLog.map((e, i) => [e.seq ?? i + 1, e.ts, e.actor, e.action, e.target || '', e.prevHash || '', e.hash || '']),
@@ -308,9 +330,9 @@ export function buildAuditLog({ caseTitle, auditLog, chain = null, flagged = fal
   return {
     filename: `${slug(caseTitle)}-audit-log.csv`,
     mime: 'text/csv',
-    content: `${imprintHeader('Review Ledger', caseTitle, flagged)}${AUDIT_LOG_STATEMENT}\r\n`
+    content: `${imprintHeader('Review Ledger', caseTitle, meta)}${AUDIT_LOG_STATEMENT}\r\n`
       + 'Each hash is SHA-256 over the JSON array [Seq, Timestamp, Actor, Action, Target, Previous Hash].\r\n'
-      + `${status}\r\n${toCsv(rows)}`,
+      + `${status}\r\n${toCsv(rows)}${csvFooter(meta)}`,
     count: auditLog.length,
   };
 }
@@ -318,11 +340,37 @@ export function buildAuditLog({ caseTitle, auditLog, chain = null, flagged = fal
 /** Printed at the head of every deliverable while the matter is flagged in Stage 07. */
 export const SENIOR_REVIEW_LINE = 'Flagged for senior counsel review';
 
+/** Lines every deliverable prints under its title. */
+function headerNotes(meta) {
+  return [
+    ...(meta.flagged ? [SENIOR_REVIEW_LINE] : []),
+    `Generated ${new Date().toLocaleString()}`,
+    ...(meta.chainHead ? [`Audit log chain head at export: ${formatChainHead(meta.chainHead)}`] : []),
+  ];
+}
+
 /** The standing header every generated artifact carries. */
-function imprintHeader(docType, caseTitle, flagged = false) {
-  return `${IMPRINT.firm} — ${docType}\r\n${caseTitle}\r\n`
-    + (flagged ? `${SENIOR_REVIEW_LINE}\r\n` : '')
-    + `Generated ${new Date().toLocaleString()}\r\n`;
+function imprintHeader(docType, caseTitle, meta = {}) {
+  return `${firmOf(meta)} — ${docType}\r\n${caseTitle}\r\n${headerNotes(meta).join('\r\n')}\r\n`;
+}
+
+/**
+ * The production manifest: SHA-256 over the sorted SHA-256 hashes of the
+ * documents being produced, joined by "|". Anyone holding the produced files
+ * can recompute it.
+ */
+function manifestLine(meta) {
+  if (!meta.manifest) return '';
+  const { hash, count } = meta.manifest;
+  return `Production manifest SHA-256 (${count} document${count === 1 ? '' : 's'}; SHA-256 over their sorted SHA-256 hashes joined by "|"): ${hash}\r\n`;
+}
+
+function footerLines(meta) {
+  return meta.toolFooter ? ['', TOOL_FOOTER] : [];
+}
+
+function csvFooter(meta) {
+  return meta.toolFooter ? `\r\n\r\n${TOOL_FOOTER}\r\n` : '';
 }
 
 function slug(text) {

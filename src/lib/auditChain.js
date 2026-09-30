@@ -113,3 +113,60 @@ export function chainLegacyLog(log) {
     target: `${log.length} earlier entr${log.length === 1 ? 'y' : 'ies'}`,
   });
 }
+
+/** The last entry's position and hash: what an export prints as its head. */
+export function chainHead(log) {
+  const last = log[log.length - 1];
+  return last ? { seq: last.seq ?? log.length, hash: last.hash } : { seq: 0, hash: GENESIS_HASH };
+}
+
+/** "entry 42, SHA-256 <hash>", the form printed on every export. */
+export function formatChainHead(head) {
+  return `entry ${head.seq}, SHA-256 ${head.hash}`;
+}
+
+/**
+ * Checks the current log against a head printed on an earlier export. The
+ * chain alone cannot catch an edit that recomputes every later hash, or entries
+ * cut from the end; an export's head can, because it fixes what entry N was.
+ *
+ * Accepts the printed text ("entry 42, SHA-256 abc…") or a bare hash.
+ */
+export function verifyAgainstHead(log, printed) {
+  const text = String(printed || '');
+  const hash = (text.match(/[0-9a-f]{64}/i) || [])[0]?.toLowerCase();
+  if (!hash) return { ok: false, reason: 'unreadable', message: 'That is not a chain head. Paste the 64-character hash printed on the export.' };
+  const seq = Number((text.match(/entry\s+(\d+)/i) || [])[1]) || null;
+  const chain = verifyChain(log);
+  if (!chain.intact) {
+    return { ok: false, reason: 'broken', message: `The log itself is broken at entry ${chain.brokenAt}.` };
+  }
+  const index = log.findIndex(e => e.hash === hash);
+  if (index === -1 || (seq && index + 1 !== seq)) {
+    return {
+      ok: false,
+      reason: 'missing',
+      message: seq && log.length < seq
+        ? `The export's head is entry ${seq}, but the log now has only ${log.length} entries: entries were removed after that export.`
+        : 'No entry in the log matches that head: the log was altered or truncated after that export.',
+    };
+  }
+  return {
+    ok: true,
+    seq: index + 1,
+    message: `Matches entry ${index + 1}. The log up to that export is unchanged`
+      + (log.length > index + 1 ? `, and ${log.length - index - 1} entr${log.length - index - 1 === 1 ? 'y has' : 'ies have'} been added since.` : '.'),
+  };
+}
+
+/** A stable SHA-256 of any JSON-able value, with object keys sorted. */
+export function fingerprint(value) {
+  const canonical = (v) => {
+    if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`;
+    if (v && typeof v === 'object') {
+      return `{${Object.keys(v).sort().map(k => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`;
+    }
+    return JSON.stringify(v ?? null);
+  };
+  return sha256Hex(canonical(value));
+}
