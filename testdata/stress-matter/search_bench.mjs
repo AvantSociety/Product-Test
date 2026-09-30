@@ -74,6 +74,55 @@ function rendererRssMB() {
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+/**
+ * Where each target ranks among every indexed passage, not just the ten the
+ * panel shows. Reads the passage vectors the page stored in IndexedDB, so the
+ * passages and their vectors are exactly the browser's; only the query is
+ * embedded here, by the same model file under Node. Passages are counted once
+ * per document hash, so an exact duplicate does not push a target down. The
+ * Node top ten is compared with the panel's as a check that the two agree.
+ */
+export async function fullRanks(page, queries, panelTop) {
+  const stored = await page.evaluate(async () => {
+    const db = await new Promise((res, rej) => { const r = indexedDB.open('discovery-framework'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    const all = (store, fn) => new Promise((res, rej) => { const r = db.transaction(store).objectStore(store)[fn](); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    const [[matter], records] = await Promise.all([all('matter', 'getAll'), all('embeddings', 'getAll')]);
+    db.close();
+    const byHash = new Map((matter?.documents || []).map(d => [d.hash, d]));
+    const b64 = (f) => { const u = new Uint8Array(f.buffer, f.byteOffset, f.byteLength); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
+    return records.map(r => ({ name: byHash.get(r.hash)?.name, content: byHash.get(r.hash)?.content || '', dim: r.dim, passages: r.passages, vectors: b64(r.vectors) }));
+  });
+  const passages = [];
+  let dim = 0;
+  for (const r of stored) {
+    dim = r.dim || dim;
+    const buf = Buffer.from(r.vectors, 'base64');
+    const v = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+    r.passages.forEach(([o, l], i) => passages.push({ name: r.name, text: r.content.slice(o, o + l), vector: v.subarray(i * r.dim, (i + 1) * r.dim) }));
+  }
+  const { env, pipeline } = await import('@huggingface/transformers');
+  env.allowRemoteModels = false;
+  env.localModelPath = fileURLToPath(new URL('../../public/models/', import.meta.url));
+  const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { dtype: 'q8' });
+  const out = [];
+  for (const [i, { query, target }] of queries.entries()) {
+    const { data: q } = await extractor([query], { pooling: 'mean', normalize: true });
+    const scored = passages.map(p => { let s = 0; for (let j = 0; j < dim; j++) s += p.vector[j] * q[j]; return { p, s }; }).sort((a, b) => b.s - a.s);
+    const at = scored.findIndex(x => x.p.text.includes(target));
+    const top10 = scored.slice(0, 10).map(x => x.p.text.replace(/\s+/g, ' ').trim());
+    const panel = (panelTop?.[i] || []).map(t => t.replace(/\s+/g, ' '));
+    out.push({
+      query, target, of: passages.length,
+      rank: at === -1 ? null : at + 1,
+      targetPassage: at === -1 ? null : scored[at].p.text.replace(/\s+/g, ' ').trim(),
+      // The panel shows the first five in bench output; they should match.
+      panelAgrees: panel.length ? panel.every((t, k) => t.includes(top10[k].slice(0, 60))) : null,
+    });
+  }
+  await extractor.dispose();
+  return out;
+}
+
 /** Builds the index in Stage 05 and runs the queries. Page must be on Stage 05. */
 export async function measureSearch(page, { queries, downloads, log = console.log }) {
   const out = { memoryMB: { before: rendererRssMB() } };
@@ -133,6 +182,8 @@ export async function measureSearch(page, { queries, downloads, log = console.lo
   sampling = false;
   await sampler;
   out.memoryMB.afterSearch = rendererRssMB();
+  out.fullRanks = await fullRanks(page, queries, out.queries.map(q => q.top));
+  out.fullRanks.forEach(r => log(`"${r.query}": target at rank ${r.rank ?? 'none (not indexed)'} of ${r.of}${r.panelAgrees === false ? ' (Node and panel disagree)' : ''}`));
   return out;
 }
 

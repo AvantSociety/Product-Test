@@ -1,0 +1,37 @@
+{
+  "repo": "Xenova/all-MiniLM-L6-v2",
+  "requested": "main",
+  "commit": "751bff37182d3f1213fa05d7196b954e230abad9",
+  "files": {
+    "README.md": {
+      "bytes": 1767,
+      "sha256": "63ea99bf681a2e9eda4f6a537d5ed8fda95d1677111656da37e9cfd080c3af02",
+      "publishedSha256": "980ba38150c4c24f9858f3b585a1113ab01f47a2"
+    },
+    "config.json": {
+      "bytes": 650,
+      "sha256": "7135149f7cffa1a573466c6e4d8423ed73b62fd2332c575bf738a0d033f70df7",
+      "publishedSha256": "72147e4ff4426ebedbfa2146c4a0999def51a313"
+    },
+    "tokenizer.json": {
+      "bytes": 711661,
+      "sha256": "da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0",
+      "publishedSha256": "c17ed520ed8438736732a54957a69306b8822215"
+    },
+    "tokenizer_config.json": {
+      "bytes": 366,
+      "sha256": "9261e7d79b44c8195c1cada2b453e55b00aeb81e907a6664974b4d7776172ab3",
+      "publishedSha256": "37fca74771bc76a8e01178ce3a6055a0995f8093"
+    },
+    "onnx/model_quantized.onnx": {
+      "bytes": 22972370,
+      "sha256": "afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1",
+      "publishedSha256": "afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1"
+    }
+  },
+  "license": {
+    "spdx": "Apache-2.0",
+    "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  }
+}
