@@ -190,7 +190,7 @@ export function buildPrivilegeLog({ caseTitle, documents, privilege, bates, meta
 }
 
 /** The index that accompanies a production: what was produced, under which Bates numbers. */
-export function buildProductionIndex({ caseTitle, documents, privilege, bates, retired = [], meta = {} }) {
+export function buildProductionIndex({ caseTitle, documents, privilege, bates, retired = [], notProduced = [], meta = {} }) {
   // Everything going out: produced whole or produced with redactions. A
   // redacted document is still Bates-stamped and served, so leaving it off
   // the index would put pages in opposing counsel's hands that the index
@@ -208,14 +208,13 @@ export function buildProductionIndex({ caseTitle, documents, privilege, bates, r
       d.pagesExact ? 'yes' : 'estimated',
       d.hash,
     ]),
-    // A number assigned and then retired stays on the index, so a gap in the
-    // sequence is explained rather than left for opposing counsel to ask about.
-    ...retired.map(r => [
-      r.number,
-      r.document,
-      'Withdrawn: number retired, not reused',
-      '', '', '', '',
-    ]),
+    // Every number ever assigned appears, so the sequence has no unexplained
+    // gaps: numbers on documents not being produced, with their designation,
+    // and numbers retired when a document was removed. The index is served,
+    // so these rows carry no document name: a document set aside may belong
+    // to another client.
+    ...notProduced.map(r => [r.number, '', `Not produced: ${r.designation}`, '', '', '', '']),
+    ...retired.map(r => [r.number, '', 'Withdrawn: number retired, not reused', '', '', '', '']),
   ];
   const [head, ...body] = rows;
   body.sort((a, b) => String(a[0]).localeCompare(String(b[0])));

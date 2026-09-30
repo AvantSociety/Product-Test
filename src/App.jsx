@@ -263,18 +263,18 @@ const STEPS = [
   { id: 6, title: 'Interactive Review', actor: 'Attorney', icon: FileText, description: 'Citation digest drafted from findings' },
   { id: 7, title: 'Override & Refine', actor: 'Attorney', icon: Edit3, description: 'Matter parameters, Bates numbering & approval' },
   { id: 8, title: 'Package Ready', actor: 'Deliverables', icon: Archive, description: 'Preview and export production deliverables' },
-  { id: 9, title: 'Completion Check', actor: 'Archived', icon: Trophy, description: 'Completion checklist and matter summary' },
+  { id: 9, title: 'Completion Check', actor: 'Complete', icon: Trophy, description: 'Completion checklist and matter summary' },
 ];
 
 // What "complete" means for a production, as a checklist the attorney can see.
 // Each item is satisfied by a stage's real state, not by having visited it.
 const COMPLETION_ITEMS = [
   { stage: 1, label: 'Documents ingested and hashed' },
-  { stage: 2, label: 'Every ingested document designated (Produce, Redact, Withhold or Not Responsive), with a complete privilege log entry for each one withheld' },
+  { stage: 2, label: 'Every ingested document designated (Produce, Redact, Withhold or Not Responsive), with a complete privilege log entry for each one withheld or redacted' },
   { stage: 3, label: 'Readiness check run, with every held-back document cured or acknowledged on the exceptions report' },
   { stage: 4, label: 'Chronology built from the producible documents' },
-  { stage: 5, label: 'Findings annotated by counsel' },
-  { stage: 6, label: 'Brief reviewed and edited, not left as a scaffold' },
+  { stage: 5, label: 'At least one producing finding annotated' },
+  { stage: 6, label: 'Brief edited by counsel' },
   { stage: 7, label: 'Package approved (name recorded)' },
   { stage: 8, label: 'At least one deliverable exported' },
 ];
@@ -342,20 +342,20 @@ const ACTOR_STYLES = {
   Processor: { border: 'border-purple-500/20', text: 'text-purple-400', bg: 'bg-purple-500/5' },
   'Trust Layer': { border: 'border-emerald-500/20', text: 'text-emerald-400', bg: 'bg-emerald-500/5' },
   Deliverables: { border: 'border-indigo-500/20', text: 'text-indigo-400', bg: 'bg-indigo-500/5' },
-  Archived: { border: 'border-slate-500/20', text: 'text-slate-300', bg: 'bg-white/[0.04]' },
+  Complete: { border: 'border-slate-500/20', text: 'text-slate-300', bg: 'bg-white/[0.04]' },
 };
 
 const ADVISOR_TIPS = {
   0: 'Start at Discovery Ingest to upload the documents for this matter. Everything downstream is built from what you load there.',
-  1: 'Upload client documents from your computer. PDF, DOCX, email and plain-text formats are read directly; scanned PDFs are flagged as needing OCR.',
-  2: 'Set the matter name, Bates prefix and starting number here. Bates numbers are assigned per document, not per page, when the readiness check runs in Stage 03, including to documents it holds back, and the prefix cannot be changed after that. Then give every ingested document one of four designations: select it to Produce, Redact or Withhold, or mark it Not Responsive with a reason. Anything withheld as privileged is excluded downstream and recorded on the privilege log.',
+  1: 'Upload client documents from your computer. PDF, Word (.docx), email (.eml), CSV, JSON, plain text (.txt), log files (.log) and Markdown (.md) are read directly; scanned PDFs are flagged as needing OCR.',
+  2: 'Set the matter name, Bates prefix and starting number here. Bates numbers are assigned per document, not per page, when the readiness check runs in Stage 03, including to documents it holds back, and the prefix cannot be changed after that. Then give every ingested document one of four designations: select it to Produce, Redact or Withhold, or mark it Not Responsive with a reason. Anything withheld is excluded downstream. Each document withheld or redacted is recorded on the privilege log and needs a basis and description.',
   3: 'Run the readiness check. Documents with defects that make them unsafe to produce are held back onto an exceptions list; the rest proceed clean. Duplicates and missing dates are advisory and never block.',
   4: 'Dates are extracted from each document and assembled into a case chronology. Progress reflects documents actually processed.',
   5: 'Select a finding to highlight the exact passage it was drawn from. Notes you add are attached to that passage in that document.',
   6: 'The brief is drafted from the findings you extracted. Edit it directly — your changes are kept and exported.',
-  7: 'Record the attorney approving the package. The approval is voided by selecting or deselecting a document, changing a designation or a privilege entry, confirming a held-back document or the collection, or changing the screening criteria.',
+  7: 'Record the attorney approving the package. The approval is voided by selecting or deselecting a document, changing a designation or a privilege entry, confirming a held-back document or the collection, changing the screening criteria, or re-running the readiness check.',
   8: 'Preview each deliverable before you download it. The brief and privilege log also render as paginated PDFs; the index and audit log stay CSV for spreadsheets and case management systems.',
-  9: 'A checklist of what a finished production requires, each item checked against real matter state. Resetting clears every document and annotation from this browser.',
+  9: 'A checklist of what a finished production requires, each item checked against real matter state. Resetting clears every document, annotation and the audit log from this browser.',
 };
 
 const PRIVILEGE_BASES = ['Attorney-Client', 'Work Product', 'Common Interest', 'Other'];
@@ -420,6 +420,9 @@ export default function App() {
   // software in a footer (off unless counsel turns it on).
   const [firmName, setFirmName] = useState('');
   const [toolFooter, setToolFooter] = useState(false);
+  // Review-effort estimate assumptions, counsel's own and saved with the matter.
+  const [reviewRate, setReviewRate] = useState(50);
+  const [hourlyRate, setHourlyRate] = useState(250);
   // Whether the browser agreed to keep this matter's storage (null: unknown).
   const [storagePersisted, setStoragePersisted] = useState(null);
   // Content hashes of documents counsel has confirmed belong to this matter,
@@ -439,6 +442,9 @@ export default function App() {
   const [memoText, setMemoText] = useState(DEFAULT_MEMO);
   // A generated listing is not work product until counsel has worked on it.
   const [memoEdited, setMemoEdited] = useState(false);
+  // Whether the draft holds text generated from findings (a digest or a tag
+  // section), as opposed to the untouched placeholder.
+  const [memoGenerated, setMemoGenerated] = useState(false);
   // Pending "Draft from findings" over edited text: { draft } while counsel
   // chooses between replacing and inserting.
   const [draftChoice, setDraftChoice] = useState(null);
@@ -627,6 +633,7 @@ export default function App() {
       setCriteriaFrom(saved.criteriaFrom || '');
       setCriteriaTo(saved.criteriaTo || '');
       setMemoEdited(!!saved.memoEdited);
+      setMemoGenerated(saved.memoGenerated ?? Boolean(saved.memoText && saved.memoText !== DEFAULT_MEMO));
       setSampleMatter(saved.sampleMatter || null);
       setApproval(saved.approval || null);
       // The check result, its acknowledgment, the manifest and the chronology
@@ -647,6 +654,8 @@ export default function App() {
       setRetiredBates(saved.retiredBates || []);
       setFirmName(saved.firmName || '');
       setToolFooter(!!saved.toolFooter);
+      setReviewRate(saved.reviewRate || 50);
+      setHourlyRate(saved.hourlyRate || 250);
       navigator.storage?.persisted?.()
         .then(p => setStoragePersisted(p ? 'granted' : 'denied'))
         .catch(() => {});
@@ -663,19 +672,19 @@ export default function App() {
         caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
         confirmedRelated, confirmedCollections,
         criteriaParties, criteriaTerms, criteriaFrom, criteriaTo,
-        memoEdited, approval, sampleMatter, attorneyName,
+        memoEdited, memoGenerated, approval, sampleMatter, attorneyName,
         integrityReport, exceptionsAck, manifest,
         timeline, timelineKey, docAnalysis, analysisComplete, analysisPhase,
-        batesNext, retiredBates, firmName, toolFooter,
+        batesNext, retiredBates, firmName, toolFooter, reviewRate, hourlyRate,
       });
     }, 400);
     return () => clearTimeout(handle);
   }, [documents, citations, privilege, selectedForReview, notes, auditLog,
       caseTitle, batesPrefix, batesStart, batesAssignments, isFlaggedForReview, memoText,
       confirmedRelated, confirmedCollections,
-      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, approval, sampleMatter, attorneyName,
+      criteriaParties, criteriaTerms, criteriaFrom, criteriaTo, memoEdited, memoGenerated, approval, sampleMatter, attorneyName,
       integrityReport, exceptionsAck, manifest, timeline, timelineKey, docAnalysis, analysisComplete, analysisPhase,
-      batesNext, retiredBates, firmName, toolFooter]);
+      batesNext, retiredBates, firmName, toolFooter, reviewRate, hourlyRate]);
 
   // ---------- Derived ----------
 
@@ -845,7 +854,11 @@ export default function App() {
     const cited = allProducibleCitations.length > 0;
     // Annotation is the attorney's own work on the record: a note, a tag, or a
     // citation they wrote themselves.
-    const annotated = Object.values(notes).some(n => n?.trim())
+    // Only work on a producing document counts: a note on a withheld or
+    // held-back document is not a finding in this production.
+    const producing = new Set(producibleNames);
+    const annotated = Object.entries(notes).some(([key, text]) =>
+      text?.trim() && producing.has(key.slice(0, key.lastIndexOf('::'))))
       || allProducibleCitations.some(c => (c.tags || []).length > 0 || c.origin === 'user');
 
     const state = (done, blockedWhen, blockedHint, todoHint, doneHint) =>
@@ -878,7 +891,7 @@ export default function App() {
       4: state(chronologyCurrent, !producible, 'Designate documents first',
           analysisComplete ? 'Chronology out of date: rebuilding' : 'Analysis not run',
           `${timeline.length} dated event${timeline.length === 1 ? '' : 's'}`),
-      5: state(annotated, !cited, 'No citations to work from', 'No notes or tags yet',
+      5: state(annotated, !cited, 'No citations to work from', 'No notes or tags on a producing document yet',
           `${allProducibleCitations.length} citations on the record`),
       6: state(memoEdited, !cited, 'No citations to draft from', 'Draft not yet edited',
           'Draft edited by counsel'),
@@ -888,7 +901,7 @@ export default function App() {
           'Deliverables downloaded'),
       9: { state: 'todo', hint: '' },
     };
-  }, [documents.length, producibleNames.length, withheldCount,
+  }, [documents.length, producibleNames, withheldCount,
       unaccountedDocs.length, designatedCount, notResponsiveCount, checkSettled, chronologyCurrent,
       incompletePrivilege.length, integrityReport, checkCurrent, analysisComplete, timeline.length,
       allProducibleCitations, notes, memoEdited, approval, deliverableDownloaded]);
@@ -1557,7 +1570,10 @@ export default function App() {
   const generateMemo = () => {
     const draft = buildDigestDraft();
     if (!draft) {
-      if (!memoEdited) setMemoText('No findings have been extracted yet. Run the pipeline through the Citation Matrix first.');
+      if (!memoEdited) {
+        setMemoText('No findings have been extracted yet. Run the pipeline through the Citation Matrix first.');
+        setMemoGenerated(false);
+      }
       return;
     }
     if (memoEdited) {
@@ -1567,12 +1583,14 @@ export default function App() {
     }
     setMemoText(draft);
     setMemoEdited(false);
+    setMemoGenerated(true);
     appendAudit('Generated citation digest draft', `${allProducibleCitations.length} citations`);
   };
 
   const replaceWithDraft = (draft) => {
     setMemoText(draft);
     setMemoEdited(false);
+    setMemoGenerated(true);
     setDraftChoice(null);
     appendAudit('Replaced the edited brief with a generated digest draft',
       `${memoText.length} characters of counsel's text replaced · ${allProducibleCitations.length} citations`);
@@ -1614,6 +1632,7 @@ export default function App() {
     // marks the draft as edited, which is what the work-product header and
     // the Stage 09 item rest on.
     setMemoText(prev => (prev === DEFAULT_MEMO ? block : `${prev.trimEnd()}\n\n${block}`));
+    setMemoGenerated(true);
     appendAudit('Inserted tagged citations into the brief', `${tag} (${matching.length})`);
   };
 
@@ -1669,7 +1688,21 @@ export default function App() {
     // the current check cleared and that are designated for production. There
     // is no fallback to the unchecked set.
     const readySet = new Set(checkCurrent ? integrityReport.ready : []);
-    const indexArgs = { ...args, documents: selectedDocs.filter(d => readySet.has(d.name)), retired: retiredBates };
+    const indexDocs = selectedDocs.filter(d => readySet.has(d.name));
+    const producedNames = new Set(indexDocs.filter(d => dispositionOf(d.name) !== 'withhold').map(d => d.name));
+    const heldBack = new Set(quarantinedNames);
+    const designationOf = (name) => {
+      const d = dispositionOf(name);
+      if (d === 'withhold') return 'Withheld (entered on the privilege log)';
+      if (d === NOT_RESPONSIVE) return 'Not Responsive';
+      if (d === null) return 'No designation';
+      if (heldBack.has(name) || !readySet.has(name)) return 'Held back by the readiness check';
+      return 'Not produced';
+    };
+    const notProduced = Object.entries(batesAssignments)
+      .filter(([name]) => !producedNames.has(name))
+      .map(([name, number]) => ({ number, designation: designationOf(name) }));
+    const indexArgs = { ...args, documents: indexDocs, retired: retiredBates, notProduced };
     const exceptions = integrityReport ? integrityReport.exceptions : [];
     return [
       {
@@ -1695,7 +1728,7 @@ export default function App() {
         icon: Layers,
         tone: 'indigo',
         title: 'Production Index',
-        blurb: 'Bates number, type, page count and SHA-256 for each document being produced. Numbers are assigned per document, not per page.',
+        blurb: 'Bates number, type, page count and SHA-256 for each document being produced, with every other assigned number shown as not produced or withdrawn, so the sequence has no gaps. Numbers are assigned per document, not per page.',
         blocked: servedBlock,
         build: () => buildProductionIndex(indexArgs),
       },
@@ -1896,7 +1929,7 @@ export default function App() {
     // These four were missing, so a cleared matter kept its approval, and a
     // fresh untouched draft kept the "attorney work product" header that is
     // only meant to appear once counsel has edited it.
-    setApproval(null); setApproverDraft(''); setMemoEdited(false); setSampleMatter(null);
+    setApproval(null); setApproverDraft(''); setMemoEdited(false); setMemoGenerated(false); setSampleMatter(null);
     setAttorneyName(''); attorneyRef.current = '';
     if (memoSessionRef.current) { clearTimeout(memoSessionRef.current.timer); memoSessionRef.current = null; }
     setPreviewKey(null); setLedgerOpen(false); setTrustOpen(false);
@@ -1909,6 +1942,7 @@ export default function App() {
     setManifest(null); setTimeline([]); setAnalysisComplete(false); setAnalysisProgress(0);
     setTimelineKey(null); setDocAnalysis({}); setAnalysisPhase('Waiting to start...');
     setBatesNext(null); setRetiredBates([]); setFirmName(''); setToolFooter(false); setStoragePersisted(null);
+    setReviewRate(50); setHourlyRate(250);
     setSelectedDocSource(null); setSelectedFinding(0); setMemoText(DEFAULT_MEMO);
     setPendingSelection(null); setPendingTags([]); setTagDraft('');
     setIsFlaggedForReview(false); setCaseTitle('In Re Jones Litigation');
@@ -2387,7 +2421,7 @@ export default function App() {
               className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all flex items-center gap-2 active:scale-95 ${
                 isDarkMode ? 'bg-white/[0.02] border-white/[0.06] text-slate-300' : 'bg-white border-slate-200 text-slate-600 shadow-sm'
               }`}
-              title="Every action taken on this matter, in order"
+              title="Actions taken on this matter, in order"
             >
               <ScrollText size={13} />
               <span className="hidden sm:inline">Ledger</span>
@@ -2447,7 +2481,7 @@ export default function App() {
                 </h3>
                 <p className="text-sm text-slate-500 mt-4 leading-relaxed">
                   A document analysis workspace for small litigation teams: ingest a client's documents, designate them
-                  for production or privilege, verify their integrity, and draft a brief whose every citation traces
+                  for production or privilege, check they are readable and uniquely numbered, and draft a brief whose every citation traces
                   back to a specific passage in a specific document.
                 </p>
               </div>
@@ -2523,7 +2557,7 @@ export default function App() {
                       },
                       {
                         q: 'How is it deleted?',
-                        a: 'Stage\u00a009, \u201cClear Matter From This Browser\u201d, erases every document, note, tag and result. Clearing site data in your browser settings does the same.',
+                        a: 'Stage\u00a009, \u201cClear Matter From This Browser\u201d, erases every document, note, tag and result, and the audit log. Clearing site data in your browser settings does the same.',
                       },
                     ].map(item => (
                       <div key={item.q} className={`p-3.5 rounded-xl border ${
@@ -2571,8 +2605,8 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
                 {[
-                  { n: 'STAGE 01', t: 'Ingest', d: 'Upload PDF, Word, email or text files from your computer. Each is hashed, typed and indexed on arrival.' },
-                  { n: 'STAGE 02', t: 'Designate', d: 'Mark each document produce, redact or withhold. Withheld documents are excluded downstream and logged.' },
+                  { n: 'STAGE 01', t: 'Ingest', d: 'Upload PDF, Word (.docx), email (.eml), CSV, JSON, plain text (.txt), log (.log) or Markdown (.md) files from your computer. Each is hashed, typed and indexed on arrival.' },
+                  { n: 'STAGE 02', t: 'Designate', d: 'Mark each document produce, redact or withhold, or not responsive with a reason. Withheld documents are excluded downstream; withheld and redacted documents are entered on the privilege log.' },
                   { n: 'STAGE 05', t: 'Cite', d: 'Every finding highlights the exact passage it came from. Bates numbers appear once the readiness check runs. PDF citations give a page reference.' },
                 ].map(card => (
                   <div key={card.n} className={`p-5 rounded-2xl border transition-all hover:-translate-y-1 ${panelClass}`}>
@@ -2604,7 +2638,7 @@ export default function App() {
               }`}>
                 <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={18} />
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-amber-500 font-mono">Ingested &mdash; not yet indexed</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-amber-500 font-mono">Ingested and indexed. Bates numbers are assigned in Stage&nbsp;03.</h4>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     Documents loaded here are hashed and searchable. Bates numbers are assigned per document, not
                     per page, when the readiness check runs in Stage&nbsp;03, including to documents it holds back.
@@ -3004,7 +3038,8 @@ export default function App() {
                     Every ingested document needs one designation. Select the documents in scope and mark each
                     Produce, Redact or Withhold; mark the rest <strong>Not Responsive</strong> with a reason, which is
                     recorded in the audit log. Anything marked <strong>Withhold</strong> is excluded from analysis, the
-                    citation matrix and the brief, and appears instead on the privilege log required by FRCP&nbsp;26(b)(5).
+                    citation matrix and the brief. Each document withheld or redacted appears on the privilege log required
+                    by FRCP&nbsp;26(b)(5) and needs a basis and description.
                   </p>
                 </div>
               </div>
@@ -3380,7 +3415,7 @@ export default function App() {
                       {isRunningIntegrityCheck ? (
                         <div className="flex flex-col items-center gap-2.5 py-3">
                           <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                          <span className="text-[11px] font-mono text-indigo-400">Hashing documents and validating the manifest...</span>
+                          <span className="text-[11px] font-mono text-indigo-400">Computing the manifest…</span>
                         </div>
                       ) : integrityReport ? (
                         <div className="space-y-5 py-2 animate-fadeIn">
@@ -3856,7 +3891,9 @@ export default function App() {
                         <ShieldCheck size={22} className="mb-2 opacity-30" />
                         <p className="text-[10px] font-mono font-bold">NO CITATIONS EXTRACTED</p>
                         <p className="text-[9px] font-mono mt-1 opacity-60 px-3">
-                          No passage in this document carried a date, amount, party or operative term
+                          No passage in this document carried a date, amount, listed party (or proper name when no
+                          parties are listed), key term or operative term. Headers, signature blocks, disclaimers,
+                          quoted replies, export metadata and passages of 40 characters or fewer are not cited.
                         </p>
                       </div>
                     ) : (
@@ -4299,12 +4336,14 @@ export default function App() {
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6 pb-4 border-b border-white/[0.04]">
                   <div>
                     <h3 className={`text-xs font-bold uppercase tracking-widest font-mono ${memoEdited ? 'text-indigo-500' : 'text-amber-500'}`}>
-                      {memoEdited ? 'Privileged & Confidential' : 'Draft scaffold — not yet reviewed'}
+                      {memoEdited ? 'Privileged & Confidential' : memoGenerated ? 'Draft scaffold — not yet reviewed' : 'Draft not started'}
                     </h3>
                     <p className={`text-[10px] font-mono mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       {memoEdited
                         ? `Attorney work product — ${caseTitle}`
-                        : `Machine-assembled from findings — ${caseTitle}`}
+                        : memoGenerated
+                          ? `Machine-assembled from findings — ${caseTitle}`
+                          : `Nothing written or generated yet — ${caseTitle}`}
                     </p>
                   </div>
                   <button
@@ -4454,7 +4493,7 @@ export default function App() {
                       <span>
                         Approved by <strong>{approval.by}</strong> on {new Date(approval.at).toLocaleString()},
                         covering {approval.producing} document{approval.producing === 1 ? '' : 's'} designated
-                        for production. The approval is voided by selecting or deselecting a document, changing a designation or a privilege entry, confirming a held-back document or the collection, or changing the screening criteria.
+                        for production. The approval is voided by selecting or deselecting a document, changing a designation or a privilege entry, confirming a held-back document or the collection, changing the screening criteria, or re-running the readiness check.
                       </span>
                     </div>
                   ) : (
@@ -4560,7 +4599,7 @@ export default function App() {
                       <span>
                         The privilege log will export with {incompletePrivilege.length} incomplete
                         entr{incompletePrivilege.length === 1 ? 'y' : 'ies'} ({incompletePrivilege.join(', ')}).
-                        Add a basis and description in Stage&nbsp;02 before serving it.
+                        Each document withheld or redacted needs a basis and description; add them in Stage&nbsp;02 before serving it.
                       </span>
                     </div>
                   )}
@@ -4632,8 +4671,31 @@ export default function App() {
                   }`}>
                     <h4 className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest font-mono">Review Effort Estimate</h4>
                     <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
-                      Calculated at 50 pages per hour, a planning assumption. Adjust it to your own review rate.
+                      Calculated at {reviewRate} pages per hour and ${hourlyRate.toLocaleString()} per hour, planning
+                      assumptions. Set them to your own rates below; they are saved with the matter.
                     </p>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      {[
+                        ['reviewRate', 'Pages per hour', reviewRate, setReviewRate, 'review rate'],
+                        ['hourlyRate', 'Hourly rate ($)', hourlyRate, setHourlyRate, 'hourly rate'],
+                      ].map(([key, label, value, setValue, noun]) => (
+                        <label key={key} className="block">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-slate-500 font-bold block mb-1">{label}</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={value}
+                            aria-label={label}
+                            onChange={(e) => setValue(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                            {...editProps(key, value, (before, after) =>
+                              appendAudit(`Changed estimate ${noun}`, `${before} → ${after}`))}
+                            className={`w-full border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                              isDarkMode ? 'bg-[#16171F] border-white/[0.06] text-white' : 'bg-white border-slate-200 text-slate-900'
+                            }`}
+                          />
+                        </label>
+                      ))}
+                    </div>
                     <div className="space-y-1.5 mt-4">
                       <div className="flex justify-between items-center text-[10px] font-mono">
                         <span className="flex items-center gap-1.5 text-slate-400"><Layers size={11} /> PAGES IN SCOPE</span>
@@ -4643,12 +4705,12 @@ export default function App() {
                       </div>
                       <div className="flex justify-between items-center text-[10px] font-mono">
                         <span className="flex items-center gap-1.5 text-slate-400"><Clock size={11} /> LINEAR REVIEW TIME</span>
-                        <span className="text-emerald-500 font-bold">~{(totalPages / 50).toFixed(1)} hrs</span>
+                        <span className="text-emerald-500 font-bold">~{(totalPages / reviewRate).toFixed(1)} hrs</span>
                       </div>
                       <div className="flex justify-between items-center text-[10px] font-mono">
-                        <span className="flex items-center gap-1.5 text-slate-400"><DollarSign size={11} /> AT $250/HR</span>
+                        <span className="flex items-center gap-1.5 text-slate-400"><DollarSign size={11} /> AT ${hourlyRate.toLocaleString()}/HR</span>
                         <span className="text-emerald-500 font-bold">
-                          ${((totalPages / 50) * 250).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          ${((totalPages / reviewRate) * hourlyRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </span>
                       </div>
                     </div>
