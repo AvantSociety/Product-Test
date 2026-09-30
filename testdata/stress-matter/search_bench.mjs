@@ -130,8 +130,9 @@ export async function fullRanks(page, queries, panelTop) {
       distinctRank,
       distinctTop,
       targetPassage: at === -1 ? null : scored[at].p.text.replace(/\s+/g, ' ').trim(),
-      // The panel shows the first five in bench output; they should match.
-      panelAgrees: panel.length ? panel.every((t, k) => t.includes(top10[k].slice(0, 60))) : null,
+      // The bench keeps 160 characters of each of the panel's first five, and a
+      // long file name leaves little of the passage, so compare 30 characters.
+      panelAgrees: panel.length ? panel.every((t, k) => t.includes(top10[k].slice(0, 30))) : null,
     });
   }
   await extractor.dispose();
