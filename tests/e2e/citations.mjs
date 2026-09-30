@@ -65,14 +65,14 @@ const ROUTING = /^\s*(from|to|cc|sent|subject|date|re)\s*:/im;
   await tagInput.press('Enter');
   await p.waitForTimeout(300);
   await go(p, 'Interactive Review');
-  const header = () => p.locator('h3').filter({ hasText: /Privileged & Confidential|Draft scaffold/i }).first().innerText();
+  const header = () => p.locator('h3').filter({ hasText: /Privileged & Confidential|Draft scaffold|Draft not started/i }).first().innerText();
   const before = await header();
   await p.locator('button', { hasText: 'delay' }).first().click();
   await p.waitForTimeout(400);
   const memo = await p.locator('textarea').last().inputValue();
   check(/DELAY/.test(memo), 'Harlow: tag section inserted into the draft');
-  check(/Draft scaffold/i.test(before) && /Draft scaffold/i.test(await header()),
-    'Harlow: inserting a tag section alone does not change the header');
+  check(!/Privileged & Confidential/i.test(before) && /Draft scaffold/i.test(await header()),
+    'Harlow: inserting a tag section alone does not change the header to work product');
   await go(p, 'Completion Check');
   check(!(await p.locator('button').filter({ hasText: 'Stage 06 ·' }).first().locator('svg.text-emerald-500').count()),
     'Harlow: Stage 09 "Brief reviewed and edited" stays open after a tag insertion');

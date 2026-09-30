@@ -61,12 +61,12 @@ const DEFECTS = {
     cure: 'Re-export this document — the text came through damaged.',
   },
   privilege_incomplete: {
-    label: 'Withheld without a complete log entry',
-    cure: 'Add a privilege basis and description in Stage 02. FRCP 26(b)(5) requires both.',
+    label: 'Withheld or redacted without a complete log entry',
+    cure: 'Add a privilege basis and description in Stage 02. FRCP 26(b)(5) requires both for each document withheld or redacted.',
   },
   bates_collision: {
     label: 'Bates number assigned to more than one document',
-    cure: 'Clear the matter in Stage 09 and re-stamp so every document has a unique number.',
+    cure: 'Clear the matter in Stage 09 and reassign numbers so every document has a unique number.',
   },
   unrelated: {
     label: 'Does not appear to belong to this matter',

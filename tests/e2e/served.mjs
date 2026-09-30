@@ -199,8 +199,72 @@ const SERVED = ['Citation Digest', 'Privilege Log', 'Production Index'];
   check(fresh === highest + 1 && new Set(all).size === all.length && !all.includes(retired),
     `a new document gets ${m.batesAssignments[NEW]}, above every number issued; ${retired} is not reused`);
   const idx = await preview(p, 'Production Index');
-  check(new RegExp(`${retired},${removed},"?Withdrawn: number retired, not reused`).test(idx), 'the index shows the retired number as withdrawn');
+  check(new RegExp(`${retired},,"?Withdrawn: number retired, not reused`).test(idx) && !idx.includes(`${retired},${removed}`),
+    'the index shows the retired number as withdrawn, without the removed document\'s name');
   check(p.errs.length === 0, 'bates: no console errors ' + p.errs.join(' | '));
+}
+
+// ---------- Every assigned Bates number is accounted for on the index ----------
+{
+  const p = await freshPage(b);
+  await loadSample(p, 0);
+  await runCheck(p);                       // PNC-000001 … PNC-000006
+  let m = await stored(p);
+  const numbers = m.batesAssignments;
+  // Deselect a numbered document and mark it Not Responsive.
+  await go(p, 'Review & Designate');
+  const NR = '03_Invoice_HIS-20417.txt';
+  await row(p, NR).locator('button').first().click();
+  await row(p, NR).getByRole('button', { name: 'Not Responsive…' }).click();
+  await row(p, NR).getByPlaceholder(/Reason it is not responsive/).fill('Duplicate of the invoice in the thread');
+  await row(p, NR).getByRole('button', { name: 'Mark Not Responsive' }).click();
+  await runCheck(p);
+  const idx = await preview(p, 'Production Index');
+  const lines = idx.split('\n').map(l => l.trim()).filter(l => /^PNC-\d{6},/.test(l));
+  const listed = lines.map(l => l.slice(0, 10));
+  check(JSON.stringify(listed) === JSON.stringify(['PNC-000001', 'PNC-000002', 'PNC-000003', 'PNC-000004', 'PNC-000005', 'PNC-000006']),
+    `every assigned number appears once, in order, with no gaps (${listed.join(' ')})`);
+  check(lines.some(l => l === `${numbers[NR]},,Not produced: Not Responsive,,,,`), `the deselected document's ${numbers[NR]} shows "Not produced: Not Responsive"`);
+  check(lines.some(l => l.startsWith(`${numbers['05_Email_to_Counsel_PRIVILEGED.txt']},,Not produced: Withheld`)), 'the withheld document\'s number shows as not produced, withheld');
+  check(lines.some(l => l === `${numbers['06_Lease_Renewal_Letter.txt']},,Not produced: Held back by the readiness check,,,,`), 'the held-back document\'s number shows as not produced, held back');
+  check(!idx.includes('06_Lease_Renewal_Letter') && !idx.includes(NR), 'not-produced rows do not name the document');
+  check(p.errs.length === 0, 'not produced: no console errors ' + p.errs.join(' | '));
+}
+
+// ---------- Annotation, draft label and estimate rates ----------
+{
+  const p = await freshPage(b);
+  await loadSample(p, 0);
+  await go(p, 'Interactive Review');
+  check(/Draft not started/i.test(await body(p)) && !/Machine-assembled from findings/.test(await body(p)),
+    'the untouched placeholder is not labelled machine-assembled');
+  await p.getByRole('button', { name: /Draft from findings/ }).click();
+  await p.waitForTimeout(200);
+  check(/Machine-assembled from findings/.test(await body(p)), 'a generated draft is labelled machine-assembled');
+
+  // A note on the withheld email does not satisfy the annotation item.
+  await tamper(p, "const c = m.citations['05_Email_to_Counsel_PRIVILEGED.txt'][0]; m.notes['05_Email_to_Counsel_PRIVILEGED.txt::' + c.id] = 'Note on a withheld document';");
+  await p.reload(); await p.waitForTimeout(1500);
+  await go(p, 'Completion Check');
+  const item5 = p.locator('button').filter({ hasText: 'Stage 05 ·' }).first();
+  check(/At least one producing finding annotated/.test(await item5.innerText()) && (await item5.locator('svg.text-emerald-500').count()) === 0,
+    'a note on a withheld document does not satisfy "At least one producing finding annotated"');
+
+  await runCheck(p);
+  await go(p, 'Package Ready');
+  await p.getByLabel('Pages per hour').fill('25');
+  await p.getByLabel('Hourly rate ($)').fill('400');
+  await p.locator('h4:text-is("Review Effort Estimate")').click();
+  await p.waitForTimeout(600);
+  const est = await body(p);
+  check(/Calculated at 25 pages per hour and \$400 per hour/.test(est) && /AT \$400\/HR/.test(est), 'estimate uses the rates entered');
+  await p.reload(); await p.waitForTimeout(1500);
+  await go(p, 'Package Ready');
+  check(await p.getByLabel('Pages per hour').inputValue() === '25' && await p.getByLabel('Hourly rate ($)').inputValue() === '400',
+    'estimate rates are saved with the matter');
+  const m = await stored(p);
+  check(m.auditLog.some(e => e.action === 'Changed estimate review rate' && e.target === '50 → 25'), 'rate changes are logged');
+  check(p.errs.length === 0, 'rows 10/16/25: no console errors ' + p.errs.join(' | '));
 }
 
 console.log(failures() ? `\n${failures()} FAILED` : '\nall passed');

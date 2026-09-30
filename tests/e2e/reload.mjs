@@ -56,7 +56,11 @@ const LEASE = '06_Lease_Renewal_Letter.txt';
   await p.getByPlaceholder(/Approving attorney/).fill('Dana Ruiz');
   await p.getByRole('button', { name: 'Approve and Package' }).click();
   await p.waitForTimeout(400);
-  // Stage 08: one export
+  // Stage 08: estimate rates, then one export
+  await go(p, 'Package Ready');
+  await p.getByLabel('Pages per hour').fill('40');
+  await p.getByLabel('Hourly rate ($)').fill('325');
+  await p.locator('h4:text-is("Review Effort Estimate")').click();
   await download(p, 'Production Index');
   await p.waitForTimeout(800);
 
@@ -91,7 +95,7 @@ const LEASE = '06_Lease_Renewal_Letter.txt';
   for (const t of TITLES) check(before.exports[t] === after.exports[t], `${t} export is identical after the reload`);
 
   const keys = ['integrityReport', 'exceptionsAck', 'manifest', 'timeline', 'timelineKey', 'approval', 'batesAssignments',
-    'batesNext', 'firmName', 'auditLog', 'memoText', 'memoEdited', 'notes', 'citations', 'privilege', 'selectedForReview'];
+    'batesNext', 'firmName', 'reviewRate', 'hourlyRate', 'memoGenerated', 'auditLog', 'memoText', 'memoEdited', 'notes', 'citations', 'privilege', 'selectedForReview'];
   for (const k of keys) {
     check(JSON.stringify(before.stored[k]) === JSON.stringify(after.stored[k]), `stored ${k} unchanged by the reload`);
   }
