@@ -79,8 +79,11 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
  * panel shows. Reads the passage vectors the page stored in IndexedDB, so the
  * passages and their vectors are exactly the browser's; only the query is
  * embedded here, by the same model file under Node. Passages are counted once
- * per document hash, so an exact duplicate does not push a target down. The
- * Node top ten is compared with the panel's as a check that the two agree.
+ * per document hash, so an exact duplicate does not push a target down.
+ * distinctRank counts identical passage text once, wherever it appears: what
+ * the rank would be if the panel collapsed repeated boilerplate into one
+ * result. The Node top ten is compared with the panel's as a check that the
+ * two agree.
  */
 export async function fullRanks(page, queries, panelTop) {
   const stored = await page.evaluate(async () => {
@@ -109,11 +112,23 @@ export async function fullRanks(page, queries, panelTop) {
     const { data: q } = await extractor([query], { pooling: 'mean', normalize: true });
     const scored = passages.map(p => { let s = 0; for (let j = 0; j < dim; j++) s += p.vector[j] * q[j]; return { p, s }; }).sort((a, b) => b.s - a.s);
     const at = scored.findIndex(x => x.p.text.includes(target));
+    const norm = (t) => t.replace(/\s+/g, ' ').trim();
+    const seen = new Set();
+    let distinctRank = null;
+    for (const x of scored) {
+      const t = norm(x.p.text);
+      if (seen.has(t)) continue;
+      seen.add(t);
+      if (t.includes(target)) { distinctRank = seen.size; break; }
+    }
+    const distinctTop = [...new Set(scored.slice(0, 500).map(x => norm(x.p.text)))].slice(0, 10);
     const top10 = scored.slice(0, 10).map(x => x.p.text.replace(/\s+/g, ' ').trim());
     const panel = (panelTop?.[i] || []).map(t => t.replace(/\s+/g, ' '));
     out.push({
       query, target, of: passages.length,
       rank: at === -1 ? null : at + 1,
+      distinctRank,
+      distinctTop,
       targetPassage: at === -1 ? null : scored[at].p.text.replace(/\s+/g, ' ').trim(),
       // The panel shows the first five in bench output; they should match.
       panelAgrees: panel.length ? panel.every((t, k) => t.includes(top10[k].slice(0, 60))) : null,
@@ -183,7 +198,7 @@ export async function measureSearch(page, { queries, downloads, log = console.lo
   await sampler;
   out.memoryMB.afterSearch = rendererRssMB();
   out.fullRanks = await fullRanks(page, queries, out.queries.map(q => q.top));
-  out.fullRanks.forEach(r => log(`"${r.query}": target at rank ${r.rank ?? 'none (not indexed)'} of ${r.of}${r.panelAgrees === false ? ' (Node and panel disagree)' : ''}`));
+  out.fullRanks.forEach(r => log(`"${r.query}": target at rank ${r.rank ?? 'none (not indexed)'} of ${r.of}, ${r.distinctRank ?? '-'} counting repeated text once${r.panelAgrees === false ? ' (Node and panel disagree)' : ''}`));
   return out;
 }
 

@@ -21,13 +21,16 @@ const ORIGIN = new URL(URL_).origin;
 const b = await launch();
 const { check, failures } = checker();
 
-async function searchPage({ fake = true } = {}) {
+async function searchPage({ fake = true, noModel = false } = {}) {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
   const requests = [];
   ctx.on('request', r => requests.push(r.url()));
   if (fake) {
     await ctx.route(u => u.pathname.includes('@huggingface') && u.pathname.includes('transformers'),
       route => route.fulfill({ status: 200, contentType: 'text/javascript', body: FAKE }));
+  }
+  if (noModel) {
+    await ctx.route(u => u.pathname.includes('/models/Xenova/'), route => route.fulfill({ status: 404, body: 'not found' }));
   }
   const p = await ctx.newPage();
   p.errs = [];
@@ -206,25 +209,28 @@ for (const lib of ['relevance.js', 'integrity.js', 'cohesion.js', 'exports.js', 
   check(p.errs.length === 0, 'search: no console errors ' + p.errs.join(' | '));
 }
 
-// ---------- Without the model files, search says so and contacts no one ----------
+// ---------- The real library and model, served from this site ----------
 {
   const p = await searchPage({ fake: false });
   await loadSample(p, 0);
   await runCheck(p);
   await go(p, 'Citation Matrix');
-  const hasModel = await p.evaluate(async (base) => {
-    const res = await fetch(`${base}models/Xenova/all-MiniLM-L6-v2/config.json`);
-    return res.ok && (res.headers.get('content-type') || '').includes('json');
-  }, new URL(URL_).pathname);
   await panel(p).getByRole('button', { name: 'Build search index' }).click();
-  if (hasModel) {
-    await p.getByTestId('search-index-status').waitFor({ timeout: 120000 });
-    check(true, 'the real model loads from this site');
-  } else {
-    await p.getByTestId('search-error').waitFor({ timeout: 60000 });
-    check(/Search is unavailable/.test(await p.getByTestId('search-error').innerText()), 'with no model files, search reports it is unavailable');
-  }
-  check(offSite(p).length === 0, `real library: no request leaves ${ORIGIN} ${offSite(p).slice(0, 3).join(' ')}`);
+  await p.getByTestId('search-index-status').waitFor({ timeout: 120000 });
+  check(true, 'the real model loads from this site');
+  check(offSite(p).length === 0, `real model: no request leaves ${ORIGIN} ${offSite(p).slice(0, 3).join(' ')}`);
+}
+
+// ---------- Without the model files, search says so and contacts no one ----------
+{
+  const p = await searchPage({ fake: false, noModel: true });
+  await loadSample(p, 0);
+  await runCheck(p);
+  await go(p, 'Citation Matrix');
+  await panel(p).getByRole('button', { name: 'Build search index' }).click();
+  await p.getByTestId('search-error').waitFor({ timeout: 60000 });
+  check(/Search is unavailable/.test(await p.getByTestId('search-error').innerText()), 'with no model files, search reports it is unavailable');
+  check(offSite(p).length === 0, `no model files: no request leaves ${ORIGIN} ${offSite(p).slice(0, 3).join(' ')}`);
 }
 
 console.log(failures() ? `\n${failures()} FAILED` : '\nall passed');
