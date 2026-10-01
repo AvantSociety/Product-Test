@@ -78,11 +78,24 @@ async function extractPdf(file) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    pages.push(content.items.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim());
+    pages.push(pageText(content.items));
   }
-  // Pages are separated by a form feed so citations can be located by page.
-  // The newline before it keeps a sentence from running across a page break.
-  return { text: pages.join(`\n${PAGE_BREAK}`), pageCount: pdf.numPages, pageCountExact: true };
+  return { text: joinPdfPages(pages), pageCount: pdf.numPages, pageCountExact: true };
+}
+
+/** One PDF page's text items as a single line of text. */
+export function pageText(items) {
+  return items.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Pages are separated by a form feed so citations can be located by page.
+ * The newline before it keeps a sentence from running across a page break.
+ * A one-page PDF gets a trailing break too, so it is still cited by page
+ * ("Page 1") rather than by a line number its extracted text does not have.
+ */
+export function joinPdfPages(pages) {
+  return pages.join(`\n${PAGE_BREAK}`) + (pages.length === 1 ? `\n${PAGE_BREAK}` : '');
 }
 
 async function extractDocx(file) {
@@ -93,7 +106,7 @@ async function extractDocx(file) {
 }
 
 /** Pulls the readable body out of an .eml, keeping the headers that matter for discovery. */
-function parseEml(raw) {
+export function parseEml(raw) {
   const split = raw.search(/\r?\n\r?\n/);
   if (split === -1) return raw;
   const headerBlock = raw.slice(0, split);

@@ -199,6 +199,7 @@ export const SIGNAL_LABELS = {
   party: 'named party',
   proper_name: 'proper name',
   term: 'key term',
+  correspondence: 'between listed parties',
   operative: 'operative term',
 };
 
@@ -246,6 +247,14 @@ function partiesNamed(text, prepared) {
   const named = new Set(prepared.parties.filter(p => p.re.test(text)).map(p => p.name));
   prepared.aliases.forEach(a => { if (a.re.test(text)) named.add(a.party); });
   return named;
+}
+
+/**
+ * One slot per three candidate passages, capped at 25. A short contract can
+ * hold a dozen operative clauses; a budget by length alone gave it three.
+ */
+function densityBudget(candidateCount) {
+  return Math.min(25, Math.ceil(candidateCount / 3));
 }
 
 /** One citation per ~40 pages of text, floored at 3 and capped at 25. */
@@ -419,6 +428,9 @@ export function excludedLines(text) {
   return out;
 }
 
+/** Passages this short are joined to a neighbour, or dropped if alone on a line. */
+const MIN_PASSAGE_CHARS = 40;
+
 // A chat export line naming only the sender: "2/18/25 3:12 PM  Luis: ..." or
 // "[2/18/25, 3:12 PM] Luis: ...". Kept whole as one passage.
 const CHAT_LINE_SIMPLE = /^\s*\[?\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AaPp]\.?[Mm]\.?)?\]?\s*(?:[—–-]\s*)?[A-Z][\w .'-]{0,40}:/;
@@ -438,7 +450,7 @@ function passagesWithOffsets(text, excluded) {
     const raw = text.slice(start, end);
     const leading = raw.length - raw.trimStart().length;
     const trimmed = raw.trim();
-    if (trimmed.length > 40) out.push({ text: trimmed, offset: start + leading });
+    if (trimmed.length > MIN_PASSAGE_CHARS) out.push({ text: trimmed, offset: start + leading });
   };
 
   let lineStart = 0;
@@ -472,14 +484,26 @@ function passagesWithOffsets(text, excluded) {
     if (CHAT_LINE_SIMPLE.test(line)) { add(start, end); return; }
 
     let cursor = start;
+    const spans = [];
     for (let i = start; i < end; i++) {
       const ch = text[i];
       if (ch === '!' || ch === '?' || (ch === '.' && endsSentence(text, i))) {
-        add(cursor, i + 1);
+        spans.push([cursor, i + 1]);
         cursor = i + 1;
       }
     }
-    add(cursor, end);
+    spans.push([cursor, end]);
+    // A short sentence joins its neighbour on the same line rather than being
+    // dropped: "REJECTED." and "Don't hold up the ceiling grid on 3." are
+    // often the most decisive words in a document.
+    const merged = [];
+    const lengthOf = ([a, b]) => text.slice(a, b).trim().length;
+    spans.filter(span => lengthOf(span) > 0).forEach(span => {
+      const prev = merged[merged.length - 1];
+      if (prev && (lengthOf(prev) <= MIN_PASSAGE_CHARS || lengthOf(span) <= MIN_PASSAGE_CHARS)) prev[1] = span[1];
+      else merged.push([...span]);
+    });
+    merged.forEach(([a, b]) => add(a, b));
   });
   return out;
 }
@@ -505,6 +529,8 @@ export function detectSignals(text, criteria = {}, content = text, offset = null
 // Counsel's key terms rank below the parties: one listed party plus a key
 // term (2 + 0.75) stays below a passage naming two listed parties (3).
 const KEY_TERM_WEIGHT = 0.75;
+// Below a named party (2), so a sentence naming a party still ranks first.
+const CORRESPONDENCE_WEIGHT = 1.5;
 
 function scorePassage(text, prepared, hasInferredDate = false) {
   const signals = [];
@@ -555,16 +581,26 @@ export function extractCitations(content, fileName, criteria = {}) {
   const prepared = prepareCriteria(criteria, content);
   const excluded = excludedLines(content);
   const inferredAt = extractDates(content).filter(d => d.inferred).map(d => d.offset);
+  // An email between two listed parties is itself evidence of what passed
+  // between them, so every sentence of its body is a candidate even when it
+  // names no one: "We ran 22 gauge on the Level 3 supply trunks today."
+  const header = content.slice(0, headerBlockLength(content));
+  const betweenParties = prepared.parties.length > 0 && partiesNamed(header, prepared).size >= 2;
   const scored = passagesWithOffsets(content, excluded).map((s, i) => {
     const hasInferred = inferredAt.some(o => o >= s.offset && o < s.offset + s.text.length);
-    return { ...s, index: i, ...scorePassage(s.text, prepared, hasInferred) };
+    const result = scorePassage(s.text, prepared, hasInferred);
+    if (betweenParties && s.offset >= header.length && !result.signals.includes('party')) {
+      result.signals.push('correspondence');
+      result.score += CORRESPONDENCE_WEIGHT;
+    }
+    return { ...s, index: i, ...result };
   });
 
   // Only passages that carry at least one real signal are worth citing.
   const candidates = scored.filter(s => s.signals.length > 0);
   const top = candidates
     .sort((a, b) => b.score - a.score)
-    .slice(0, Math.max(citationBudget(content), messageBudget(content, excluded)))
+    .slice(0, Math.max(citationBudget(content), messageBudget(content, excluded), densityBudget(candidates.length)))
     .sort((a, b) => a.index - b.index);
 
   // Ordinal within the line (or, for a paginated document, within the page),
