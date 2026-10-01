@@ -44,6 +44,9 @@ import {
 
 import { readDocument, manifestHash, ACCEPTED_EXTENSIONS } from './lib/documents.js';
 import {
+  activeTime, quoteReview, buildTimeReport, formatDuration, STAGE_NAMES, IDLE_LIMIT_MINUTES,
+} from './lib/timeReport.js';
+import {
   extractCitations,
   formatCitation,
   formatLocator,
@@ -790,7 +793,11 @@ export default function App() {
   const activeCitation = activeCitations.find(c => c.id === selectedFinding) || null;
   const noteKey = selectedDocSource ? `${selectedDocSource}::${selectedFinding}` : null;
 
-  const allProducibleCitations = producibleDocs.flatMap(d => citations[d.name] || []);
+  // A quote counsel dismissed stays visible in Stage 05 but is no longer on
+  // the record: not in the digest, the tag sections or the counts.
+  const allProducibleCitations = producibleDocs
+    .flatMap(d => citations[d.name] || [])
+    .filter(c => c.review !== 'dismissed');
 
   // Everything a readiness check result depends on. A result is current only
   // while this matches the fingerprint stored with it, so a result restored
@@ -804,6 +811,7 @@ export default function App() {
     criteria: relevanceCriteria,
   }), [documents, selectedForReview, privilege, confirmedRelated, confirmedCollections, relevanceCriteria]);
   const checkCurrent = Boolean(integrityReport && integrityReport.inputsKey === checkInputsKey);
+  const quoteStats = useMemo(() => quoteReview(citations, producibleNames, notes), [citations, producibleNames, notes]);
 
   // The served deliverables rest on a current check. Without one they would
   // list documents the check never cleared, so they are blocked, with the
@@ -1515,6 +1523,22 @@ export default function App() {
     }));
   };
 
+  // Counsel's verdict on a quote the tool extracted. Recorded so the tool's
+  // accuracy in real use can be measured: kept and dismissed quotes, and
+  // quotes counsel had to add by hand.
+  const setCitationReview = (source, citationId, review) => {
+    const target = (citations[source] || []).find(c => c.id === citationId);
+    if (!target || target.origin === 'user') return;
+    setCitations(prev => ({
+      ...prev,
+      [source]: (prev[source] || []).map(c => (c.id === citationId ? { ...c, review } : c)),
+    }));
+    appendAudit(
+      review === 'kept' ? 'Kept extracted quote' : review === 'dismissed' ? 'Dismissed extracted quote' : 'Restored dismissed quote',
+      `${source}, ${formatLocator(target)}`
+    );
+  };
+
   const removeUserCitation = (citationId) => {
     const target = activeCitations.find(c => c.id === citationId);
     setCitations(prev => ({
@@ -1670,6 +1694,20 @@ export default function App() {
     setMessages(prev => [...prev, { sender: 'assistant', text: reply }]);
   };
 
+  // What the matter took and what the tool produced, from the audit log and
+  // counsel's verdicts on quotes. Time spent, not time saved.
+  const timeOutputs = () => [
+    ['Documents ingested, fingerprinted and typed', documents.length],
+    ['Bates numbers assigned', Object.keys(batesAssignments).length + retiredBates.length],
+    ['Privilege log entries generated', selectedDocs.filter(d => ['withhold', 'redact'].includes(dispositionOf(d.name))).length],
+    ['Dated events placed on the chronology', timeline.length],
+    ['Quotes extracted with their locators', (quoteStats.extracted)],
+    ['Documents held back by the readiness check', integrityReport?.exceptions.length ?? 0],
+  ];
+  const buildTimeReportFile = () => buildTimeReport({
+    caseTitle, auditLog, review: quoteStats, outputs: timeOutputs(), firm: firmName,
+  });
+
   // What every deliverable prints about the matter: the serving firm, the
   // flag, the audit log's chain head at generation, and the production
   // manifest while the check behind it is current.
@@ -1750,6 +1788,15 @@ export default function App() {
         blocked: null,
         build: () => buildAuditLog({ caseTitle, auditLog, chain: verifyChain(auditLog), meta }),
       },
+      {
+        key: 'time',
+        icon: Clock,
+        tone: 'slate',
+        title: 'Time Report',
+        blurb: 'Internal. Counsel\'s active time per stage from the audit log, what the tool produced, and how its quotes fared. Time spent, not time saved.',
+        blocked: null,
+        build: buildTimeReportFile,
+      },
     ];
   };
 
@@ -1772,7 +1819,7 @@ export default function App() {
                           if (match && match.id !== c.id) {
                             noteRemap[`${d.name}::${match.id}`] = `${d.name}::${c.id}`;
                           }
-                          return { ...c, tags: match?.tags || [] };
+                          return { ...c, tags: match?.tags || [], ...(match?.review ? { review: match.review } : {}) };
                         });
                         const userCitations = prior.filter(c => c.origin === 'user');
                         rebuilt[d.name] = [...fresh, ...userCitations].sort((a, b) => a.offset - b.offset);
@@ -3901,7 +3948,8 @@ export default function App() {
                         <div
                           key={item.id}
                           onClick={() => setSelectedFinding(item.id)}
-                          className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-300 ${
+                          data-review={item.review || 'unreviewed'}
+                          className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-300 ${item.review === 'dismissed' ? 'opacity-50' : ''} ${
                             selectedFinding === item.id
                               ? isDarkMode ? 'bg-[#181924] border-indigo-500/50 shadow-lg ring-1 ring-indigo-500/30' : 'bg-indigo-50/50 border-indigo-300 shadow-md'
                               : isDarkMode ? 'bg-[#111218] border-white/[0.04] hover:bg-[#13141e]' : 'bg-white border-slate-200 hover:bg-slate-50'
@@ -3918,6 +3966,16 @@ export default function App() {
                                   className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-sky-500/10 border-sky-500/30 text-sky-400 inline-flex items-center gap-1"
                                 >
                                   <StickyNote size={9} /> NOTE
+                                </span>
+                              )}
+                              {item.review === 'kept' && (
+                                <span title="You kept this quote" className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
+                                  KEPT
+                                </span>
+                              )}
+                              {item.review === 'dismissed' && (
+                                <span title="You dismissed this quote; it is not in the digest" className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border bg-slate-500/10 border-slate-500/30 text-slate-500">
+                                  DISMISSED
                                 </span>
                               )}
                               {item.origin === 'user' && (
@@ -3956,6 +4014,38 @@ export default function App() {
                               </span>
                             ))}
                           </div>
+                          {item.origin !== 'user' && (
+                            <div className="flex gap-1.5 mt-2.5" onClick={(e) => e.stopPropagation()}>
+                              {item.review === 'dismissed' ? (
+                                <button
+                                  onClick={() => setCitationReview(item.source, item.id, undefined)}
+                                  className="px-2 py-1 text-[9px] font-mono font-bold rounded border border-slate-400/40 text-slate-500 hover:bg-slate-500/10"
+                                >
+                                  Restore
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    aria-pressed={item.review === 'kept'}
+                                    onClick={() => setCitationReview(item.source, item.id, item.review === 'kept' ? undefined : 'kept')}
+                                    className={`px-2 py-1 text-[9px] font-mono font-bold rounded border transition-colors ${
+                                      item.review === 'kept'
+                                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600'
+                                        : 'border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10'
+                                    }`}
+                                  >
+                                    {item.review === 'kept' ? 'Kept' : 'Keep'}
+                                  </button>
+                                  <button
+                                    onClick={() => setCitationReview(item.source, item.id, 'dismissed')}
+                                    className="px-2 py-1 text-[9px] font-mono font-bold rounded border border-slate-400/40 text-slate-500 hover:bg-slate-500/10"
+                                  >
+                                    Dismiss
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))
                     )}
@@ -4647,7 +4737,7 @@ export default function App() {
                                 onClick={() => handleDownload(item)}
                                 className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1.5 shrink-0"
                               >
-                                <Download size={12} /> {item.key === 'brief' ? 'Text' : 'CSV'}
+                                <Download size={12} /> {item.key === 'brief' || item.key === 'time' ? 'Text' : 'CSV'}
                               </button>
                               {(item.key === 'brief' || item.key === 'privilege') && (
                                 <button
@@ -4670,6 +4760,10 @@ export default function App() {
                     isDarkMode ? 'bg-indigo-500/[0.02] border-indigo-500/15' : 'bg-indigo-50 border-indigo-100'
                   }`}>
                     <h4 className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest font-mono">Review Effort Estimate</h4>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                      A planning estimate of reading time, not time saved. The time actually spent on this matter is in
+                      the Time Report in Stage&nbsp;09.
+                    </p>
                     <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
                       Calculated at {reviewRate} pages per hour and ${hourlyRate.toLocaleString()} per hour, planning
                       assumptions. Set them to your own rates below; they are saved with the matter.
@@ -4774,6 +4868,65 @@ export default function App() {
                   );
                 })}
               </div>
+
+              {/* Time spent and quote accuracy, measured from the audit log and
+                  counsel's own verdicts. The evidence behind "hours saved". */}
+              {(() => {
+                const t = activeTime(auditLog);
+                const pct = (r) => (r === null ? '—' : `${Math.round(r * 100)}%`);
+                return (
+                  <div data-testid="time-report" className={`border rounded-2xl p-5 text-left shadow-2xl ${
+                    isDarkMode ? 'bg-[#111218] border-white/[0.04]' : 'bg-white border-slate-200'
+                  }`}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-[9px] uppercase tracking-widest font-mono text-slate-500 font-bold">Time and accuracy</span>
+                      <button
+                        onClick={() => {
+                          const file = buildTimeReportFile();
+                          triggerDownload(file.filename, file.content, file.mime);
+                          appendAudit('Exported time report', file.filename);
+                        }}
+                        className="text-[10px] font-bold text-indigo-500 hover:text-indigo-400 inline-flex items-center gap-1"
+                      >
+                        <Download size={11} /> Export Time Report
+                      </button>
+                    </div>
+                    <p className={`text-lg font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`} data-testid="active-time">
+                      {formatDuration(t.total)} of counsel time
+                    </p>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      Measured from the audit log: the time before each of your logged actions, with gaps over
+                      {' '}{IDLE_LIMIT_MINUTES} minutes left out as breaks. Time spent, not time saved; compare it with
+                      how long the same work took without the tool.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mt-3 text-[10px] font-mono">
+                      {Object.entries(STAGE_NAMES).filter(([k]) => t.byStage[k] > 0).map(([k, name]) => (
+                        <div key={k} className="flex justify-between gap-2">
+                          <span className="text-slate-500">{name}</span>
+                          <span className={isDarkMode ? 'text-slate-200' : 'text-slate-800'}>{formatDuration(t.byStage[k])}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4" data-testid="quote-accuracy">
+                      {[
+                        ['Quotes kept', quoteStats.kept],
+                        ['Dismissed', quoteStats.dismissed],
+                        ['Added by hand', quoteStats.added],
+                        ['Not yet reviewed', quoteStats.unreviewed],
+                      ].map(([label, value]) => (
+                        <div key={label} className={`p-2.5 rounded-lg border ${isDarkMode ? 'border-white/[0.04]' : 'border-slate-200'}`}>
+                          <span className="text-[8px] uppercase tracking-widest font-mono text-slate-500 font-bold block">{label}</span>
+                          <span className={`text-sm font-bold font-mono ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-2 font-mono">
+                      Of the quotes you judged, kept: {pct(quoteStats.keptRate)} ({quoteStats.kept} of {quoteStats.kept + quoteStats.dismissed})
+                      {' · '}Of the quotes you wanted, found by the tool: {pct(quoteStats.foundRate)} ({quoteStats.kept} of {quoteStats.kept + quoteStats.added})
+                    </p>
+                  </div>
+                );
+              })()}
 
               <div className={`border rounded-2xl p-5 grid grid-cols-2 gap-4 text-left shadow-2xl ${
                 isDarkMode ? 'bg-[#111218] border-white/[0.04]' : 'bg-white border-slate-200'

@@ -8,8 +8,9 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:unit": "node tests/unit/citations.mjs",
-    "test:e2e": "node tests/e2e/unaccounted.mjs && node tests/e2e/audit.mjs && node tests/e2e/citations.mjs && node tests/e2e/dates.mjs && node tests/e2e/served.mjs && node tests/e2e/reload.mjs"
+    "test:unit": "node tests/unit/citations.mjs && node tests/unit/timeReport.mjs",
+    "test:e2e": "node tests/e2e/unaccounted.mjs && node tests/e2e/audit.mjs && node tests/e2e/citations.mjs && node tests/e2e/dates.mjs && node tests/e2e/served.mjs && node tests/e2e/reload.mjs && node tests/e2e/measure.mjs",
+    "test:benchmark": "node tests/benchmark/citations.mjs"
   },
   "dependencies": {
     "jspdf": "^4.2.1",
